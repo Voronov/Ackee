@@ -16,6 +16,9 @@ jobs:
     timeout-minutes: 10
 
     strategy:
+      # Without this a failure on one platform cancels the others, and the run reports the
+      # first thing that broke rather than everything that is broken.
+      fail-fast: false
       matrix:
         node-version: [24.x, 26.x]
         os: [ubuntu-latest, windows-latest, macOS-latest]

@@ -22,9 +22,9 @@
   "main": "src/index.js",
   "scripts": {
     "build": "node --env-file-if-exists=.env build.js",
-    "build:pre": "BUILD_ENV=pre npm run build",
+    "build:pre": "cross-env BUILD_ENV=pre npm run build",
     "clickhouse:backfill": "node --env-file-if-exists=.env src/clickhouse/backfill.js",
-    "dev": "NODE_ENV=development nodemon",
+    "dev": "cross-env NODE_ENV=development nodemon",
     "eslint": "eslint \"**/*.js\"",
     "format": "npm run eslint -- --fix && npm run prettier -- --write",
     "healthcheck": "node --env-file-if-exists=.env src/healthcheck.js",
@@ -34,13 +34,13 @@
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
     "rollup:backfill": "node --env-file-if-exists=.env src/rollups/backfill.js",
     "server": "node --env-file-if-exists=.env src/index.js",
-    "server:api": "ACKEE_ROLE=API npm run server",
-    "server:ingest": "ACKEE_ROLE=INGEST npm run server",
-    "server:worker": "ACKEE_ROLE=WORKER npm run server",
+    "server:api": "cross-env ACKEE_ROLE=API npm run server",
+    "server:ingest": "cross-env ACKEE_ROLE=INGEST npm run server",
+    "server:worker": "cross-env ACKEE_ROLE=WORKER npm run server",
     "start": "npm run build && npm run server",
     "test": "npm run lint && ava",
     "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json-summary ava",
-    "test:roles": "ACKEE_ROLE=INGEST ava test/roleIngest.js"
+    "test:roles": "cross-env ACKEE_ROLE=INGEST ava test/roleIngest.js"
   },
   "nodemonConfig": {
     "exec": "npm run build:pre && npm run server",
@@ -92,6 +92,7 @@
     "ava": "^6.4.1",
     "c8": "^10.1.3",
     "classnames": "^2.5.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
     "formbase": "^12.0.3",
     "globals": "^17.12.0",
