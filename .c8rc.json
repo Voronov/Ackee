@@ -1,0 +1,18 @@
+{
+  "all": true,
+  "include": ["src/**/*.js"],
+  "exclude": [
+    "src/ui/**",
+    "src/serverless.js",
+    "src/healthcheck.js",
+    "src/rollups/backfill.js",
+    "src/clickhouse/backfill.js",
+    "src/import/cli.js"
+  ],
+  "reports-dir": "coverage",
+  "lines": 95,
+  "functions": 95,
+  "branches": 87,
+  "statements": 95,
+  "check-coverage": true
+}
