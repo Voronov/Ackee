@@ -1,8 +1,6 @@
 {
   "all": true,
-  "include": [
-    "src/**/*.js"
-  ],
+  "include": ["src/**/*.js"],
   "exclude": [
     "src/ui/**",
     "src/serverless.js",
