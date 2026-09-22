@@ -9,6 +9,7 @@ import whenBelow from '../utils/whenBelow.js'
 import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
 import Modals from './modals/Modals.js'
 import Tabs from './Tabs.js'
+import UserMenu from './UserMenu.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
 import RouteDevices from './routes/RouteDevices.js'
@@ -88,11 +89,12 @@ const Dashboard = (props) => {
     createDropdownButton('Countries', '/insights/countries', props.route, props.setRoute, 'c'),
   ]
 
+  // Settings is not here any more: it belongs to the person, so it lives in the menu
+  // under their avatar on the right. The `s` shortcut still goes there.
   const items = [
     createButton('Overview', '/', props.route, props.setRoute),
     hasDomains === true ? createDropdown(domainsLabel, domainsItems) : undefined,
     createDropdown(insightsLabel, insightsItems),
-    createButton('Settings', '/settings', props.route, props.setRoute),
   ].filter(Boolean)
 
   // The same sections as the Insights menu, in the open. The menu stays for its keyboard
@@ -119,10 +121,18 @@ const Dashboard = (props) => {
       modals: props.modals,
       removeModal: props.removeModal,
     }),
-    h(Header, {
-      loading: props.loading,
-      items,
-    }),
+    h(
+      Header,
+      {
+        loading: props.loading,
+        items,
+      },
+      h(UserMenu, {
+        token: props.token,
+        reset: props.reset,
+        setRoute: props.setRoute,
+      }),
+    ),
     // Hidden on the settings page and on a single domain, where the sections do not apply.
     props.route.startsWith('/settings') === false &&
       props.route.startsWith('/domains/') === false &&
