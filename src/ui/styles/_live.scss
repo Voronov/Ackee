@@ -1,0 +1,56 @@
+.live {
+
+	&__dot {
+		$size: 8px;
+
+		flex-shrink: 0;
+		width: $size;
+		height: $size;
+		border-radius: 100px;
+		background: $light;
+		opacity: .4;
+
+		&--on {
+			background: $secondary;
+			opacity: 1;
+			animation: live__pulse 2s ease-in-out infinite;
+		}
+	}
+
+	&__row {
+		gap: math.div($gutter, 2);
+	}
+
+	&__flag {
+		flex-shrink: 0;
+		width: 1.6em;
+	}
+
+	&__path {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	&__meta {
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 30%;
+		opacity: .6;
+		text-align: right;
+
+		// Two columns of detail is one too many on a phone.
+		&--device {
+			@media (max-width: 800px) {
+				display: none;
+			}
+		}
+	}
+
+}
+
+@keyframes live__pulse {
+
+	0%, 100% { opacity: 1; }
+	50% { opacity: .3; }
+
+}
