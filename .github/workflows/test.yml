@@ -31,6 +31,10 @@ jobs:
 
       - run: npm ci
 
+      # The server reads dist/index.html at run time, and only the favicon of that folder
+      # is committed. Without this the tests that ask for a page fail on a missing file.
+      - run: npm run build:pre
+
       - run: npm test
 
       # The role tests need the role set from outside: the server reads it when the module
@@ -41,7 +45,20 @@ jobs:
   coverage:
     name: 'Coverage'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
+    # ClickHouse runs here as well as in the parity job. Without it a third of the storage
+    # code cannot be reached, and the coverage number would be a statement about the
+    # environment rather than about the tests.
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:25.3
+        ports:
+          - 8123:8123
+        env:
+          CLICKHOUSE_DB: ackee
+          CLICKHOUSE_USER: ackee
+          CLICKHOUSE_PASSWORD: ackee
 
     steps:
       - uses: actions/checkout@v5
@@ -53,9 +70,23 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run build:pre
+
+      - name: Wait for ClickHouse
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8123/ping >/dev/null && exit 0
+            sleep 2
+          done
+          echo "ClickHouse did not start"; exit 1
+
       # The thresholds live in .c8rc.json and sit a little below the measured value, so a
       # failure means a real regression rather than noise.
       - run: npm run test:coverage
+        env:
+          ACKEE_CLICKHOUSE: http://127.0.0.1:8123
+          ACKEE_CLICKHOUSE_USER: ackee
+          ACKEE_CLICKHOUSE_PASSWORD: ackee
 
       - uses: actions/upload-artifact@v4
         if: always()
