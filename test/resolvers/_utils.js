@@ -7,6 +7,10 @@ import Event from '../../src/models/Event.js'
 import PermanentToken from '../../src/models/PermanentToken.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
+import User from '../../src/models/User.js'
+import Workspace from '../../src/models/Workspace.js'
+import Membership from '../../src/models/Membership.js'
+import * as users from '../../src/database/users.js'
 import connect from '../../src/utils/connect.js'
 import createArray from '../../src/utils/createArray.js'
 import { job as saltJob } from '../../src/utils/salt.js'
@@ -14,17 +18,35 @@ import { day, minute } from '../../src/utils/times.js'
 
 const mongoDb = MongoMemoryServer.create()
 
+// The fixture password is fixed so that sign-in tests can use it.
+export const FIXTURE_PASSWORD = 'example-password'
+
 export const connectToDatabase = async () => {
   const dbUrl = (await mongoDb).getUri()
   return connect(dbUrl)
 }
 
 export const fillDatabase = async (t) => {
+  // Tokens belong to a user and domains to a workspace, so the fixture builds the whole
+  // chain: user, workspace, membership, domain.
+  const email = `user-${Math.random().toString(36).slice(2)}@example.com`
+
+  const { user, workspace } = await users.add({
+    email,
+    password: FIXTURE_PASSWORD,
+    verified: true,
+    workspaceTitle: 'Example workspace',
+  })
+
   // Saves to context so tests can access ids
-  t.context.token = await Token.create({})
-  t.context.permanentToken = await PermanentToken.create({ title: 'Example' })
-  t.context.domain = await Domain.create({ title: 'Example' })
-  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART' })
+  t.context.email = email
+  t.context.password = FIXTURE_PASSWORD
+  t.context.user = user
+  t.context.workspace = workspace
+  t.context.token = await Token.create({ userId: user.id })
+  t.context.permanentToken = await PermanentToken.create({ title: 'Example', userId: user.id })
+  t.context.domain = await Domain.create({ title: 'Example', workspaceId: workspace.id })
+  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART', workspaceId: workspace.id })
 
   const now = Date.now()
 
@@ -34,6 +56,9 @@ export const fillDatabase = async (t) => {
     siteLocation: 'https://example.com/',
     siteReferrer: 'https://google.com/',
     siteLanguage: 'en',
+    // The country is normally resolved from the IP. Here it is set directly, because
+    // these tests do not go through that step.
+    country: index > 9 ? 'DE' : 'UA',
     source: index > 4 ? 'Newsletter' : undefined,
     screenWidth: index === 1 ? 0 : 414,
     screenHeight: index === 1 ? 0 : 896,
@@ -70,6 +95,11 @@ export const cleanupDatabase = async (t) => {
   await Domain.findOneAndDelete({
     id: t.context.domain.id,
   })
+  // The user and workspace go too, or the next run would hit the unique index on the
+  // email address.
+  await Membership.deleteMany({ userId: t.context.user.id })
+  await Workspace.findOneAndDelete({ id: t.context.workspace.id })
+  await User.findOneAndDelete({ id: t.context.user.id })
 }
 
 export const cleanup = (server) => async () => {

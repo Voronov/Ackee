@@ -15,11 +15,13 @@ export default {
     }),
   },
   Mutation: {
-    createPermanentToken: pipe(requireAuth, blockDemoMode, async (parent, { input }) => {
+    createPermanentToken: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {
       let entry
 
       try {
-        entry = await permanentTokens.add(input)
+        // The owner comes from the viewer, not from the input, or a token could be
+        // created in someone else's name.
+        entry = await permanentTokens.add({ ...input, userId: viewer.userId })
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))

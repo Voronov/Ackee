@@ -1,6 +1,10 @@
 import mongoose from 'mongoose'
 import { randomUUID as uuid } from 'node:crypto'
 
+// The unit of data isolation. Domains belong to a workspace rather than to a user,
+// because roles only mean something when there is shared ground to describe (ADR-002).
+//
+// Registering creates a personal workspace, so a single user never has to think about it.
 const schema = new mongoose.Schema({
   id: {
     type: String,
@@ -8,11 +12,10 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
-  // A session token belongs to the user who signed in. Without this field the request
-  // only knows that it is authenticated, not who by, which is how version 1.0 worked.
-  userId: {
+  title: {
     type: String,
     required: true,
+    maxlength: 500,
   },
   created: {
     type: Date,
@@ -26,4 +29,4 @@ const schema = new mongoose.Schema({
   },
 })
 
-export default mongoose.model('Token', schema)
+export default mongoose.model('Workspace', schema)

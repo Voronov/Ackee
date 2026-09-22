@@ -13,6 +13,12 @@ const schema = new mongoose.Schema({
     required: true,
     maxlength: 500,
   },
+  // An API token belongs to whoever created it and carries their access. Without this
+  // field a token has no identity, which is how version 1.0 worked.
+  userId: {
+    type: String,
+    required: true,
+  },
   created: {
     type: Date,
     required: true,

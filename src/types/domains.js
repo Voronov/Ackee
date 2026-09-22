@@ -14,6 +14,16 @@ export default gql`
     """
     title: String!
     """
+    Key the tracker sends alongside the domain id. Visible to anyone who opens the tracked
+    page, so it is a hurdle rather than a secret. Rotate it if it is being misused.
+    """
+    ingestKey: String
+    """
+    While this is off, events are accepted with or without a key, so an existing snippet
+    keeps working. Turn it on once the snippet on your site carries the key.
+    """
+    strictIngest: Boolean
+    """
     Facts about a domain. Usually simple data that can be represented in one value.
     """
     facts: Facts!
@@ -49,11 +59,22 @@ export default gql`
     payload: Domain
   }
 
+  extend type Mutation {
+    """
+    Issues a new ingest key and invalidates the old one.
+    """
+    rotateIngestKey(id: ID!): UpdateDomainPayload!
+  }
+
   input UpdateDomainInput {
     """
     Title of the domain.
     """
     title: String!
+    """
+    Turn on once the snippet on your site carries the ingest key.
+    """
+    strictIngest: Boolean
   }
 
   type UpdateDomainPayload {
