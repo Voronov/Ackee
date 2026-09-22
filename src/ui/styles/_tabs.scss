@@ -1,0 +1,49 @@
+.tabs {
+
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: $black;
+	border-bottom: 1px solid rgba($white, .08);
+
+	&__inner {
+		display: flex;
+		gap: math.div($gutter, 4);
+		max-width: $maxWidth;
+		margin: 0 auto;
+		padding: 0 $gutter;
+		// Twelve sections do not fit on a phone, so the row scrolls sideways rather than
+		// wrapping into a block that pushes the content down.
+		overflow-x: auto;
+		scrollbar-width: none;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
+
+	&__tab {
+		flex: 0 0 auto;
+		appearance: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: math.div($gutter, 2) math.div($gutter, 2);
+		color: rgba($white, .55);
+		font-size: 15px;
+		white-space: nowrap;
+		// The underline is always there, just transparent, so nothing shifts when a tab
+		// becomes the active one.
+		border-bottom: 2px solid transparent;
+		transition: color .15s ease, border-color .15s ease;
+
+		&:hover {
+			color: rgba($white, .85);
+		}
+
+		&--active {
+			color: $white;
+			border-bottom-color: $primary;
+		}
+	}
+}
