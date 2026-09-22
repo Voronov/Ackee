@@ -8,10 +8,16 @@ import path from 'node:path'
 
 import config from './utils/config.js'
 import createApolloServer from './utils/createApolloServer.js'
+import ingestResolvers from './resolvers/ingest.js'
+import ingestTypeDefs from './types/ingest.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
+import exports_ from './export.js'
+import live from './live.js'
+import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
+import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
 
 const __dirname = import.meta.dirname
@@ -69,12 +75,24 @@ app.use(
   }),
 )
 
+// Response timing has to cover every route, so it goes before them.
+app.use(metrics.httpMiddleware)
+
 // Create HTTP server before Apollo Server (needed for drain plugin)
 const server = http.createServer(app)
 
+// Roles decide what this process is. INGEST accepts anonymous traffic and nothing else,
+// API serves the interface and every authenticated operation, ALL is the single-process
+// setup that version 1.0 had and stays the default.
+const isIngest = config.role === 'INGEST'
+const isApi = config.role === 'API' || config.role === 'ALL'
+
 const apolloServer = createApolloServer({
   formatError: handleGraphError,
-  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server })], // eslint-disable-line new-cap
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin], // eslint-disable-line new-cap
+  // The ingest service gets a schema with only the tracking mutations in it, so the
+  // reports and the account operations are not merely forbidden there — they are absent.
+  ...(isIngest === true ? { typeDefs: ingestTypeDefs, resolvers: ingestResolvers } : {}),
 })
 
 // Apply CORS middleware
@@ -85,31 +103,48 @@ app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
 
-// Serve static files
-app.get('/', async (request, response) => {
-  response.setHeader('Content-Type', 'text/html; charset=utf-8')
-  response.end(await index)
-})
+// Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set. Both roles expose it: the
+// write profile is exactly what the ingest service is there to make visible.
+app.get('/metrics', metrics.handler)
 
-app.get('/index.html', async (request, response) => {
-  response.setHeader('Content-Type', 'text/html; charset=utf-8')
-  response.end(await index)
-})
+if (isApi === true) {
+  // Downloading a report as a file.
+  app.use(exports_)
 
-app.get('/favicon.ico', async (request, response) => {
-  response.setHeader('Content-Type', 'image/vnd.microsoft.icon')
-  response.end(await favicon)
-})
+  // The live feed of visits.
+  app.use(live)
 
-app.get('/index.css', async (request, response) => {
-  response.setHeader('Content-Type', 'text/css; charset=utf-8')
-  response.end(await styles)
-})
+  // Pages that links in emails point at: confirming an address and resetting a password.
+  app.use(pages)
+}
 
-app.get('/index.js', async (request, response) => {
-  response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
-  response.end(await scripts)
-})
+if (isApi === true) {
+  // Serve static files
+  app.get('/', async (request, response) => {
+    response.setHeader('Content-Type', 'text/html; charset=utf-8')
+    response.end(await index)
+  })
+
+  app.get('/index.html', async (request, response) => {
+    response.setHeader('Content-Type', 'text/html; charset=utf-8')
+    response.end(await index)
+  })
+
+  app.get('/favicon.ico', async (request, response) => {
+    response.setHeader('Content-Type', 'image/vnd.microsoft.icon')
+    response.end(await favicon)
+  })
+
+  app.get('/index.css', async (request, response) => {
+    response.setHeader('Content-Type', 'text/css; charset=utf-8')
+    response.end(await styles)
+  })
+
+  app.get('/index.js', async (request, response) => {
+    response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
+    response.end(await scripts)
+  })
+}
 
 app.get('/tracker.js', async (request, response) => {
   response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
