@@ -11,7 +11,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 
-// eslint-disable-next-line import-x/no-extraneous-dependencies -- installed on demand, see above
 import { feature } from 'topojson-client'
 
 const require = createRequire(import.meta.url)
