@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-09-22
+
+A major version, because several changes break an existing installation: the single account
+configured through the environment is gone, domains now belong to a workspace, and events to
+a user. This release is **install-from-scratch only** — upgrading a 3.x installation is not
+supported, because the versioned migration mechanism is deliberately out of scope.
+
+### Added
+
+- Importing a CSV exported from Google Analytics 4, so a site that moves over keeps its history. GA4 gives aggregates rather than events, so each row is expanded into the views it counts and spread across its day; imported records carry no visitor hash, which the guide says plainly because unique views over an imported period read low as a result
+- A guide for installing through Google Tag Manager, and the same snippet offered in the domain dialog. Nothing about the tracker changes: Tag Manager just owns the markup instead of you
+- An ingest key per domain, carried by the embed code after the domain id. Checking is off per domain until the owner turns it on, and with it on an event also has to come from the site the domain is named after. The key is visible on the page, so it raises the bar rather than closing the door, and it can be rotated
+- Accounts, workspaces and roles. Anyone can register and gets a personal workspace to put their own domains in; nobody administers anyone else. `ACKEE_ALLOW_SIGNUP=false` closes registration on instances that exist to measure their owner's own sites
+
+- Compound index `{ domainId, created }` on records. Every report matches on both fields, so the previous single-field indexes made the planner read the whole domain history or the whole collection
+- Hourly rollups for all top reports and for total views, behind `ACKEE_ROLLUPS`. Whole hours are read from pre-computed buckets, the two partial edges of the window from raw records, so results stay exact rather than approximate
+- `npm run rollup:backfill` to build rollups for existing history. Reports fall back to raw records automatically while a time window is not yet covered
+- ClickHouse as a columnar event store, behind `ACKEE_CLICKHOUSE`. Events are dual-written to both stores and reports are answered by the fastest one that covers the requested window — ClickHouse, then hourly rollups, then raw records. `npm run clickhouse:backfill` copies existing history. Unique views stay on MongoDB, and the visitor hash is never copied to the columnar store
+- Country of a visit, behind `ACKEE_GEO`, with a `countries` report. Resolved from the IP at ingest against a database shipped with the installation, so nothing is sent to a third party; the IP itself is still never stored. Off by default, and city-level resolution is deliberately not offered
+- Prometheus metrics at `/metrics`, behind `ACKEE_METRICS_TOKEN`: HTTP, GraphQL and MongoDB command durations, plus rollup build duration and worker lag
+- Test coverage thresholds, dependency audit, Docker image build and CodeQL scanning in CI
+- Downloading any report as a CSV or JSON file, with a button under every card that shows one domain and a `GET /export/:domainId/:report.:format` route for a script. The CSV starts with a byte order mark, without which Excel reads a non-Latin label as rubbish. Cards that add several domains together have no button, because a file of those numbers could not say which domain each row came from
+- A live feed of visits on every domain page, pushed over server-sent events as each visit is written. Version 3.x had one number, `activeVisitors`, polled every five minutes. The visits are found by polling `{ domainId, created }`, since ingest is a separate process and the alternatives need either a replica set or a queue; one poll serves every listener on a domain
+- An MCP server, so an assistant can answer questions about a site by reading its reports. Six tools over the existing API, started over stdio. It only reads, and it sees exactly what the token it was given sees
+
+### Changed
+
+- `ACKEE_USERNAME` and `ACKEE_PASSWORD` are gone. The single hard-coded account they described could not be extended into real users: the request context carried "is this authenticated" rather than "who is this", so no domain could have an owner. Passwords are now stored as scrypt hashes and tokens belong to a user
+
+- The single-field `domainId` index is gone. It is a prefix of the new compound index, so it served the same queries while costing writes and storage
+
+### Fixed
+
+- Top reports (`pages`, `referrers`, `systems`, `devices`, `browsers`, `sizes`, `languages`) returned a non-deterministic result: `$sort` ran on `count` alone with `$limit` after it, so both the order and — at the cut-off — the membership of the top-N varied between identical requests on unchanged data. Sorting now falls back to the dimension's own fields
+
 ## [3.6.1] - 2026-09-18
 
 ### Changed

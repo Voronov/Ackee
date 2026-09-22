@@ -49,6 +49,14 @@ And configure Ackee and your server correctly…
 - […with environment variables](docs/Options.md)
 - […with SSL and HTTPS enabled](docs/SSL%20and%20HTTPS.md)
 - […with CORS headers](docs/CORS%20headers.md)
+- […through Google Tag Manager](docs/Google%20Tag%20Manager.md)
+- […with your history from Google Analytics](docs/Importing%20from%20Google%20Analytics.md)
+
+And take the data back out again…
+
+- […as a CSV or JSON file](docs/Exporting%20reports.md)
+- […as a live stream of visits](docs/Live%20feed.md)
+- […through an assistant, over MCP](docs/MCP%20server.md)
 
 Take a look at the [FAQ](docs/FAQ.md) if you have any questions left.
 
@@ -63,6 +71,10 @@ Ackee features a [GraphQL API](docs/API.md) that allows you to build custom tool
 ### Options
 
 Ackee uses environment variables and supports `.env` files in the root of the project if you want to store all variables in one file. [Options &#187;](docs/Options.md)
+
+### MCP
+
+Ackee ships an [MCP server](docs/MCP%20server.md) so an assistant can read your reports and answer questions about your sites. It reads and cannot write.
 
 ## Miscellaneous
 
