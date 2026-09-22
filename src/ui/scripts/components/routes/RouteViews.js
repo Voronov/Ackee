@@ -47,6 +47,12 @@ const RouteViews = (props) => {
     domains.value.map((domain) => {
       return h(CardStatistics, {
         key: domain.id,
+        exportAs: {
+          domainId: domain.id,
+          // The two views charts read the same records in two ways, so the file has to
+          // say which of the two it holds.
+          report: props.filters.viewsType === VIEWS_TYPE_UNIQUE ? 'unique-views' : 'views',
+        },
         headline: domain.title,
         onMore: () => props.setRoute(`/domains/${domain.id}`),
         hook: useViews,

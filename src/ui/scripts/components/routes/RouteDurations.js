@@ -40,6 +40,10 @@ const RouteDurations = (props) => {
     domains.value.map((domain) => {
       return h(CardStatistics, {
         key: domain.id,
+        exportAs: {
+          domainId: domain.id,
+          report: 'durations',
+        },
         headline: domain.title,
         onMore: () => props.setRoute(`/domains/${domain.id}`),
         hook: useDurations,
