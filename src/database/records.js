@@ -1,3 +1,4 @@
+import { insert as insertIntoClickhouse, touch as touchInClickhouse } from '../clickhouse/records.js'
 import Record from '../models/Record.js'
 
 const response = (entry) => ({
@@ -26,27 +27,33 @@ export const add = async (data) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(
-    await Record.create({
-      clientId: data.clientId,
-      domainId: data.domainId,
-      siteLocation: data.siteLocation,
-      siteReferrer: data.siteReferrer,
-      siteLanguage: data.siteLanguage,
-      source: data.source,
-      screenWidth: data.screenWidth,
-      screenHeight: data.screenHeight,
-      screenColorDepth: data.screenColorDepth,
-      deviceName: data.deviceName,
-      deviceManufacturer: data.deviceManufacturer,
-      osName: data.osName,
-      osVersion: data.osVersion,
-      browserName: data.browserName,
-      browserVersion: data.browserVersion,
-      browserWidth: data.browserWidth,
-      browserHeight: data.browserHeight,
-    }),
-  )
+  const entry = await Record.create({
+    clientId: data.clientId,
+    domainId: data.domainId,
+    siteLocation: data.siteLocation,
+    siteReferrer: data.siteReferrer,
+    siteLanguage: data.siteLanguage,
+    // Resolved from the IP on the server; the tracker never sends it.
+    country: data.country,
+    source: data.source,
+    screenWidth: data.screenWidth,
+    screenHeight: data.screenHeight,
+    screenColorDepth: data.screenColorDepth,
+    deviceName: data.deviceName,
+    deviceManufacturer: data.deviceManufacturer,
+    osName: data.osName,
+    osVersion: data.osVersion,
+    browserName: data.browserName,
+    browserVersion: data.browserVersion,
+    browserWidth: data.browserWidth,
+    browserHeight: data.browserHeight,
+  })
+
+  // Dual-write: MongoDB stays the source of truth while ClickHouse fills up alongside.
+  // A columnar failure must not reject the event, so the insert never throws.
+  await insertIntoClickhouse(entry)
+
+  return enhance(entry)
 }
 
 export const update = async (id) => {
@@ -54,21 +61,25 @@ export const update = async (id) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(
-    await Record.findOneAndUpdate(
-      {
-        id,
+  const entry = await Record.findOneAndUpdate(
+    {
+      id,
+    },
+    {
+      $set: {
+        updated: Date.now(),
       },
-      {
-        $set: {
-          updated: Date.now(),
-        },
-      },
-      {
-        returnDocument: 'after',
-      },
-    ),
+    },
+    {
+      returnDocument: 'after',
+    },
   )
+
+  // Extending a visit in the columnar store means inserting the row again with a newer
+  // `updated`. ReplacingMergeTree keeps the last one on merge.
+  await touchInClickhouse(entry)
+
+  return enhance(entry)
 }
 
 export const anonymize = (clientId, ignoreId) => {
