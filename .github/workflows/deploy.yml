@@ -1,0 +1,79 @@
+name: Deploy
+
+# Deployment is a separate workflow and never automatic. A published image is a fact; a
+# deployed image is a decision, and somebody makes it by starting this.
+#
+# It needs three secrets under the `production` environment:
+#   DEPLOY_HOST  address of the server
+#   DEPLOY_USER  user to connect as
+#   DEPLOY_KEY   private half of a key that user accepts
+#
+# Until they exist the workflow cannot be started, which is the intended state for a fork
+# that nobody deploys.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy, for example 4.0.1'
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: 'Deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # The environment is where the approval and the secrets live. Adding a required
+    # reviewer to it is what turns this from "anyone with push" into "someone decided".
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL }}
+
+    steps:
+      - name: Refuse to start without the secrets
+        run: |
+          missing=''
+          [ -z "${{ secrets.DEPLOY_HOST }}" ] && missing="$missing DEPLOY_HOST"
+          [ -z "${{ secrets.DEPLOY_USER }}" ] && missing="$missing DEPLOY_USER"
+          [ -z "${{ secrets.DEPLOY_KEY }}" ] && missing="$missing DEPLOY_KEY"
+          if [ -n "$missing" ]; then
+            echo "Missing secrets:$missing"
+            echo "See the comment at the top of this workflow."
+            exit 1
+          fi
+
+      - name: Load the key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # The host key is recorded rather than accepted blindly, so a changed host
+          # stops the deploy instead of being trusted.
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      # The compose file lives on the server, not here: this repository is the product,
+      # and how one particular server runs it is that server's business.
+      - name: Pull the image and restart
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd /opt/ackee && ACKEE_TAG='${{ inputs.tag }}' docker compose pull && ACKEE_TAG='${{ inputs.tag }}' docker compose up -d"
+
+      - name: Check it answers
+        run: |
+          url='${{ vars.DEPLOY_URL }}'
+          [ -z "$url" ] && { echo "DEPLOY_URL is not set, skipping the check"; exit 0; }
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            [ "$code" = "200" ] && { echo "$url answers $code"; exit 0; }
+            sleep 5
+          done
+          echo "$url did not come back"; exit 1
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
