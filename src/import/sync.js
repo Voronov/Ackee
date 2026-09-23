@@ -2,8 +2,8 @@ import schedule from 'node-schedule'
 
 import * as connections from '../database/gaConnections.js'
 import * as domains from '../database/domains.js'
-import { insert as insertIntoClickhouse } from '../clickhouse/records.js'
 import Record from '../models/Record.js'
+import { getEventStore } from '../stores/index.js'
 import { day } from '../utils/times.js'
 import signale from '../utils/signale.js'
 import { fetchDay } from './ga4Api.js'
@@ -52,7 +52,7 @@ export const syncConnection = async (entry) => {
 
     if (batch.length > 0) {
       await Record.insertMany(batch, { ordered: false })
-      await insertIntoClickhouse(batch)
+      await getEventStore().mirrorRecords(batch)
     }
 
     // Marked after each day, so an interrupted run resumes instead of starting over or
