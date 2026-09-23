@@ -1,5 +1,5 @@
 import config from '../utils/config.js'
-import { getBootstrapClient, getClient } from './client.js'
+import { getClient } from './client.js'
 
 const createDatabase = `
   CREATE DATABASE IF NOT EXISTS {database:Identifier}
@@ -32,8 +32,8 @@ const createRecords = `
     browserVersion LowCardinality(Nullable(String)),
     browserWidth Nullable(UInt32),
     browserHeight Nullable(UInt32),
-    created DateTime64(3),
-    updated DateTime64(3),
+    created DateTime64(3, 'UTC'),
+    updated DateTime64(3, 'UTC'),
     version UInt64
   )
   ENGINE = ReplacingMergeTree(version)
@@ -48,8 +48,8 @@ const createActions = `
     key Nullable(String),
     value Nullable(Float64),
     details Nullable(String),
-    created DateTime64(3),
-    updated DateTime64(3),
+    created DateTime64(3, 'UTC'),
+    updated DateTime64(3, 'UTC'),
     version UInt64
   )
   ENGINE = ReplacingMergeTree(version)
@@ -59,18 +59,9 @@ const createActions = `
 
 export const ensureSchema = async (database = config.clickhouseDatabase) => {
   const parameters = { database }
-
-  // The regular client binds the database, which does not exist yet on a fresh server
-  const bootstrap = getBootstrapClient()
-
-  try {
-    await bootstrap.command({ query: createDatabase, query_params: parameters })
-  } finally {
-    await bootstrap.close()
-  }
-
   const client = getClient()
 
+  await client.command({ query: createDatabase, query_params: parameters })
   await client.command({ query: createRecords, query_params: parameters })
   await client.command({ query: createActions, query_params: parameters })
 }

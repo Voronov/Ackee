@@ -7,7 +7,13 @@ import { ensureSchema } from '../../src/clickhouse/schema.js'
 const database = `ackee_test_${uuid().replaceAll('-', '')}`
 
 const query = async (sql, parameters) => {
-  const result = await getClient().query({ query: sql, query_params: parameters, format: 'JSONEachRow' })
+  const result = await getClient().query({
+    query: sql,
+    query_params: parameters,
+    format: 'JSONEachRow',
+    // Same setting the reports read with: without it 64-bit integers arrive as strings
+    clickhouse_settings: { output_format_json_quote_64bit_integers: 0 },
+  })
   return result.json()
 }
 
@@ -108,8 +114,8 @@ test('creates the records table with all Record fields and a version', async (t)
     { name: 'browserVersion', type: 'LowCardinality(Nullable(String))' },
     { name: 'browserWidth', type: 'Nullable(UInt32)' },
     { name: 'browserHeight', type: 'Nullable(UInt32)' },
-    { name: 'created', type: 'DateTime64(3)' },
-    { name: 'updated', type: 'DateTime64(3)' },
+    { name: 'created', type: "DateTime64(3, 'UTC')" },
+    { name: 'updated', type: "DateTime64(3, 'UTC')" },
     { name: 'version', type: 'UInt64' },
   ])
 })
@@ -121,8 +127,8 @@ test('creates the actions table with all Action fields and a version', async (t)
     { name: 'key', type: 'Nullable(String)' },
     { name: 'value', type: 'Nullable(Float64)' },
     { name: 'details', type: 'Nullable(String)' },
-    { name: 'created', type: 'DateTime64(3)' },
-    { name: 'updated', type: 'DateTime64(3)' },
+    { name: 'created', type: "DateTime64(3, 'UTC')" },
+    { name: 'updated', type: "DateTime64(3, 'UTC')" },
     { name: 'version', type: 'UInt64' },
   ])
 })

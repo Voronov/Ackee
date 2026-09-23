@@ -274,6 +274,14 @@ const recordInput = (index) => ({
 // pending is a crashed consumer by definition
 const drain = () => run({ until: 'empty', minIdle: 0, block: 10 })
 
+const scrape = async () => {
+  const response = await fetch(new URL('/metrics', await base), {
+    headers: { authorization: `Bearer ${METRICS_TOKEN}` },
+  })
+
+  return response.ok === true ? response.text() : `status ${response.status}`
+}
+
 test.before(async () => {
   await connectToDatabase()
   await ensureSchema(database)
@@ -688,26 +696,25 @@ test.serial('trims acknowledged entries older than a day after a batch, never un
 test.serial('exposes the queue counters and the stream length on /metrics', async (t) => {
   const domainId = t.context.domain.id
 
+  // Earlier tests may leave messages behind, so the length is checked as a delta
+  const before = await scrape()
+
   await createRecords(t, domainId, 3)
 
-  const response = await fetch(new URL('/metrics', await base), {
-    headers: { authorization: `Bearer ${METRICS_TOKEN}` },
-  })
-  const output = await response.text()
+  const output = await scrape()
 
   // The registry carries default labels, so a series line is `name{app="ackee"} value`
-  const valueOf = (name) => {
-    const match = output.match(new RegExp(String.raw`^${name}(?:\{[^}]*\})? (\S+)$`, 'm'))
+  const valueOf = (text, name) => {
+    const match = text.match(new RegExp(String.raw`^${name}(?:\{[^}]*\})? (\S+)$`, 'm'))
 
     return match == null ? undefined : Number(match[1])
   }
 
-  t.is(response.status, 200)
   t.true(output.includes('# TYPE ackee_queue_length gauge\n'))
-  t.is(valueOf('ackee_queue_length'), 3)
-  t.is(valueOf('ackee_queue_processed_total'), stats.processed)
-  t.is(valueOf('ackee_queue_failed_total'), stats.failed)
-  t.is(valueOf('ackee_queue_dropped_total'), stats.dropped)
+  t.is(valueOf(output, 'ackee_queue_length') - valueOf(before, 'ackee_queue_length'), 3)
+  t.is(valueOf(output, 'ackee_queue_processed_total'), stats.processed)
+  t.is(valueOf(output, 'ackee_queue_failed_total'), stats.failed)
+  t.is(valueOf(output, 'ackee_queue_dropped_total'), stats.dropped)
 
   await drain()
 })

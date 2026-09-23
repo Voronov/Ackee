@@ -29,23 +29,19 @@ export const getClient = () => {
       url: config.clickhouseUrl,
       username: config.clickhouseUser,
       password: config.clickhousePassword,
-      database: config.clickhouseDatabase,
+      // No database is bound: every query and insert names it, and Ackee must be able to
+      // set up a server that does not have the database yet
       log: { LoggerClass: Logger, level: ClickHouseLogLevel.ERROR },
+      clickhouse_settings: {
+        // Rows carry ISO timestamps with a zone. `basic`, the default before 26.x, rejects
+        // them outright, so the format is pinned rather than inherited from the server.
+        date_time_input_format: 'best_effort',
+      },
     })
   }
 
   return client
 }
-
-// A client with no database bound, so an empty server can be set up by Ackee itself
-// rather than relying on the image having created the database on first start.
-export const getBootstrapClient = () =>
-  createClient({
-    url: config.clickhouseUrl,
-    username: config.clickhouseUser,
-    password: config.clickhousePassword,
-    log: { LoggerClass: Logger, level: ClickHouseLogLevel.ERROR },
-  })
 
 // The library's ping resolves with { success: false } instead of throwing,
 // but callers want a single failure path at startup
