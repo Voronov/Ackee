@@ -158,11 +158,9 @@ export const instrumentMongo = (client) => {
   client.on('commandFailed', (event) => finish(event, 'error'))
 }
 
-// The endpoint stays quiet when metrics are off: 404 rather than 401, so it never
-// confirms that it exists.
-// Helpers for the event store and the ingest worker. They keep the call sites free of
-// registry wiring, and they stay silent while metrics are off, like the rest of this
-// module.
+// Helpers for the event store and the ingest worker, so the call sites stay free of
+// registry wiring. Unlike the instrumentation above, these series are always registered;
+// nothing is exposed until the endpoint itself is unlocked.
 const defaultBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
 
 export const counter = (name, help) => new client.Counter({ name, help, registers: [registry] })
@@ -213,6 +211,8 @@ export const timeReport = (report, store, fn) =>
     }
   }
 
+// The endpoint stays quiet when metrics are off: 404 rather than 401, so it never
+// confirms that it exists.
 export const handler = async (request, response) => {
   if (isEnabled() === false) return response.status(404).send('Not found')
 

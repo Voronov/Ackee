@@ -43,7 +43,7 @@ const newest = (ids, properties, either, limit) =>
       WHERE domainId IN {ids:Array(String)}
         AND (${notNull(properties, either)})
       GROUP BY ${columns(properties)}
-      ORDER BY createdAt DESC
+      ORDER BY createdAt DESC, ${columns(properties)} ASC
       LIMIT {limit:UInt64}
     `,
     { ids, limit },

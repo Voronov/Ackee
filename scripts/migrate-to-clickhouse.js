@@ -223,7 +223,7 @@ const main = async () => {
   const options = parseOrExit(process.argv.slice(2))
 
   if (config.dbUrl == null) throw new Error('MongoDB connection URI missing in environment')
-  if (options.dryRun === false && config.clickhouseUrl == null) throw new Error('ACKEE_CLICKHOUSE_URL is required')
+  if (options.dryRun === false && config.clickhouseUrl == null) throw new Error('ACKEE_CLICKHOUSE is required')
 
   await connect(config.dbUrl)
 

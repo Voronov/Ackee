@@ -149,9 +149,32 @@ Adds a `countries` report to the API. Records written before the variable was en
 
 See [Anonymization](Anonymization.md#country) before turning this on: a country next to a browser version, an OS version and an exact screen size is close to a fingerprint. City-level resolution is deliberately not offered.
 
+## Event store
+
+Which store answers reports and takes writes.
+
+```
+ACKEE_EVENT_STORE=mongo
+```
+
+- `mongo` — the default. MongoDB alone, exactly as version 1.0 behaved.
+- `dual` — every event is written to both stores, reports are still answered by MongoDB. A
+  failed ClickHouse insert is logged and never rejects the event.
+- `clickhouse` — reports are answered by ClickHouse.
+
+`dual` is the step to sit on while the columnar store fills up. Moving back to `mongo` is an
+environment change, not a data migration.
+
+`clickhouse` requires the ClickHouse settings below and **does not fall back to MongoDB**:
+reports answer from the columnar store alone, so history that was never copied over simply
+reads as zero. Run the migration before switching.
+
+See [ADR-006](adr/ADR-006-event-store.md) for why the choice is made here rather than inside
+each report, and [ClickHouse](ClickHouse.md) for what the store guarantees.
+
 ## ClickHouse
 
-Store events in a columnar database alongside MongoDB and serve reports from it.
+Connection for the `dual` and `clickhouse` stores.
 
 ```
 ACKEE_CLICKHOUSE=http://clickhouse:8123
@@ -160,19 +183,10 @@ ACKEE_CLICKHOUSE_PASSWORD=<password>
 ACKEE_CLICKHOUSE_DATABASE=ackee
 ```
 
-Setting the URL turns on dual-write: every event is written to both stores, with MongoDB
-remaining the source of truth. A failed ClickHouse insert is logged and does not reject the
-event. Reads keep coming from MongoDB until you enable them separately:
+Ackee creates the database and the tables itself on the first start, so an empty server is
+enough.
 
-```
-ACKEE_EVENT_STORE=clickhouse
-```
-
-`ACKEE_EVENT_STORE` takes `mongo` (the default, version 1.0 behaviour), `dual` (both stores
-written, reports still answered by MongoDB) or `clickhouse` (reports answered by ClickHouse).
-
-Copy existing history over first, otherwise reports covering older data will keep falling back
-to MongoDB:
+Copy existing history over before serving reports from it:
 
 ```
 npm run clickhouse:migrate
@@ -182,16 +196,29 @@ The migration keeps a checkpoint, so an interrupted run resumes instead of start
 `--dry-run` reports what it would copy, `--from` limits it to a date, and `--reset` starts
 again from scratch.
 
-Reports are answered by the fastest store that holds the whole window: ClickHouse, then hourly
-rollups, then raw MongoDB records. A store that cannot cover the window steps aside silently,
-so turning either variable off is an immediate rollback with no data migration.
+Unlike the arrangement ADR-004 described, the columnar store holds the visitor hash, so
+unique views and active visitors are answered from it rather than handed back to MongoDB.
+Anonymization is mirrored as a new version of the row instead of rewriting history. See
+[Anonymization](Anonymization.md) for what that means for retention.
 
-Unique views are always answered by MongoDB. Their meaning depends on erasing the visitor hash
-from older records, which would mean rewriting millions of rows in a columnar store — so the
-visitor hash is never copied there at all.
+Rollups are unaffected: they run over MongoDB and keep serving the `mongo` and `dual` stores.
 
-See [ADR-004](adr/ADR-004-clickhouse.md) for why this exists next to rollups rather than
-instead of them.
+## Ingest queue
+
+Accept an event, put it on a queue and let a separate worker store it, so a slow store cannot
+slow the tracker down.
+
+```
+ACKEE_INGEST_QUEUE=redis
+ACKEE_REDIS_URL=redis://redis:6379
+ACKEE_REDIS_STREAM=ackee:events
+```
+
+Off by default (`none`). The record is validated while the tracker is still waiting, so a
+malformed event is still rejected with the same error as before; only the write moves.
+
+Delivery is at-least-once, which is why a touch never shortens a visit. Run the worker with
+`npm run worker:ingest`. See [Queue](Queue.md) for its limits.
 
 ## Rollups
 

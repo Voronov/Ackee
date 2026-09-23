@@ -40,8 +40,9 @@
     "server:worker": "cross-env ACKEE_ROLE=WORKER npm run server",
     "start": "npm run build && npm run server",
     "test": "npm run lint && ava",
+    "test:all": "ava && ava --config ava.clickhouse.config.js",
     "test:ch": "ava --config ava.clickhouse.config.js",
-    "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json-summary ava",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json-summary npm run test:all",
     "test:roles": "cross-env ACKEE_ROLE=INGEST ava test/roleIngest.js",
     "worker:ingest": "node --env-file-if-exists=.env src/worker.js"
   },

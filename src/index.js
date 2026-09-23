@@ -1,4 +1,5 @@
 import { once } from 'node:events'
+import { setTimeout } from 'node:timers/promises'
 
 import { start as startAnalyticsSync } from './import/sync.js'
 import { close as closeQueue, ping as pingQueue } from './queue/redis.js'
@@ -30,6 +31,9 @@ try {
 // handling. Waiting for the server to close makes sure in-flight requests have pushed
 // their rows before the last flush. Apollo re-sends the signal once it has drained, so
 // the handler stays registered and ignores that second delivery.
+// Longer than Apollo's own drain grace period, so the usual path still wins the race
+const shutdownGrace = 15_000
+
 const listenForShutdown = () => {
   let isShuttingDown = false
 
@@ -39,9 +43,13 @@ const listenForShutdown = () => {
 
     signale.await(`Received ${signal}, closing the server`)
 
-    const closed = once(server, 'close')
+    // Waiting on 'close' alone is not safe: the live feed holds SSE connections open, so
+    // the event only arrives once Apollo's drain plugin forces them shut. Flushing must
+    // not depend on that, and a server error during shutdown must not reject here.
+    const closed = once(server, 'close').catch(() => {})
+
     server.close()
-    await closed
+    await Promise.race([closed, setTimeout(shutdownGrace)])
     await closeEventStore()
     await closeQueue()
     process.exit(0)

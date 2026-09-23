@@ -60,7 +60,7 @@ const newest = (ids, limit) =>
       WHERE eventId IN {ids:Array(String)}
         AND key IS NOT NULL
       GROUP BY key
-      ORDER BY createdAt DESC
+      ORDER BY createdAt DESC, key ASC
       LIMIT {limit:UInt64}
     `,
     { ids, limit },

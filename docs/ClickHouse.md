@@ -41,7 +41,7 @@ Either way, follow "Switching on" again from step 2 and compare the counts befor
 
 ## Metrics
 
-With `ACKEE_METRICS_TOKEN=<token>` Ackee serves Prometheus metrics at `GET /metrics` (see [Options](Options.md#metrics)). The endpoint has no authentication, which is what Prometheus expects; keep it off the public internet. The counters live in memory and start at zero on every restart, which is how Prometheus counters are meant to work.
+With `ACKEE_METRICS_TOKEN=<token>` Ackee serves Prometheus metrics at `GET /metrics` (see [Options](Options.md#metrics)). The endpoint answers only to `Authorization: Bearer <token>` and returns 404 to anything else, so an installation without metrics never advertises that they exist. Give Prometheus the same token. The counters live in memory and start at zero on every restart, which is how Prometheus counters are meant to work.
 
 | Metric                                 | Type      | Meaning                                                                                                         |
 | -------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |

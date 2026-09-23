@@ -67,6 +67,11 @@ jobs:
           CLICKHOUSE_DB: ackee
           CLICKHOUSE_USER: ackee
           CLICKHOUSE_PASSWORD: ackee
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
 
     steps:
       - uses: actions/checkout@v5
@@ -95,6 +100,7 @@ jobs:
           ACKEE_CLICKHOUSE: http://127.0.0.1:8123
           ACKEE_CLICKHOUSE_USER: ackee
           ACKEE_CLICKHOUSE_PASSWORD: ackee
+          ACKEE_REDIS_URL: redis://127.0.0.1:6379
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -62,7 +62,7 @@ export const touchRecord = async (id, updated) => {
 }
 
 // The anonymized version only needs the fields that stay filled
-const anonymizedProjection = 'id domainId siteLocation siteReferrer source created updated'
+const anonymizedProjection = 'id domainId siteLocation siteReferrer source country created updated'
 
 // MongoDB nulls exactly the records that get a version in ClickHouse, not whatever
 // matches the clientId once the update runs: a record created in between keeps its

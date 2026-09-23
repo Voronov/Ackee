@@ -502,3 +502,28 @@ test.serial('mirrors created and updated actions and removes them with their eve
     [],
   )
 })
+
+// MongoDB's anonymize() leaves `country` filled, so ClickHouse must keep it too. It is
+// read through the store rather than the API because the country is resolved from the
+// visitor's IP, which the fixture cannot produce.
+test.serial('keeps the country of anonymized records, as MongoDB does', async (t) => {
+  const domainId = t.context.domain.id
+  const clientId = `client-${uuid()}`
+
+  const first = await dual.addRecord({ clientId, domainId, siteLocation: 'https://example.com/', country: 'UA' })
+  const second = await dual.addRecord({ clientId, domainId, siteLocation: 'https://example.com/second', country: 'UA' })
+
+  await dual.anonymize(clientId, second.id)
+  await flush()
+
+  const mongoFirst = await Record.findOne({ id: first.id }).lean()
+
+  t.is(mongoFirst.clientId, null)
+  t.is(mongoFirst.country, 'UA')
+
+  const [row] = await query('SELECT country FROM {database:Identifier}.records FINAL WHERE id = {id:String}', {
+    id: first.id,
+  })
+
+  t.is(row.country, 'UA')
+})

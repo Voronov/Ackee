@@ -11,7 +11,6 @@ const schema = new mongoose.Schema({
   eventId: {
     type: String,
     required: true,
-    index: true,
   },
   key: {
     type: String,
