@@ -169,10 +169,25 @@ export const counter = (name, help) => new client.Counter({ name, help, register
 
 // For a total the caller already keeps: prom-client reads it when the endpoint is scraped
 export const readCounter = (name, help, read) =>
-  new client.Counter({ name, help, registers: [registry], collect() { this.reset(); this.inc(read()) } })
+  new client.Counter({
+    name,
+    help,
+    registers: [registry],
+    collect() {
+      this.reset()
+      this.inc(read())
+    },
+  })
 
 export const gauge = (name, help, read) =>
-  new client.Gauge({ name, help, registers: [registry], collect() { this.set(read()) } })
+  new client.Gauge({
+    name,
+    help,
+    registers: [registry],
+    collect() {
+      this.set(read())
+    },
+  })
 
 export const histogram = (name, help, labelNames = [], buckets = defaultBuckets) =>
   new client.Histogram({ name, help, labelNames, buckets, registers: [registry] })

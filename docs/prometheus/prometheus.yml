@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: ackee
+    metrics_path: /metrics
+    static_configs:
+      # Ackee runs on the host, Prometheus in Docker; change the port here when ACKEE_PORT is not 3000
+      - targets: ['host.docker.internal:3000']

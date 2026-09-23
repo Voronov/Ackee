@@ -109,8 +109,9 @@ jobs:
     timeout-minutes: 15
 
     # The parity tests skip themselves when ClickHouse is not configured, so without this
-    # job they would quietly never run — and they are the ones that prove the three read
-    # paths return the same numbers.
+    # job they would quietly never run — and they are the ones that prove both read paths
+    # return the same numbers. Redis is here for the ingest queue suite, which the same
+    # command runs.
     services:
       clickhouse:
         image: clickhouse/clickhouse-server:25.3
@@ -120,6 +121,11 @@ jobs:
           CLICKHOUSE_DB: ackee
           CLICKHOUSE_USER: ackee
           CLICKHOUSE_PASSWORD: ackee
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
 
     steps:
       - uses: actions/checkout@v5
@@ -139,11 +145,12 @@ jobs:
           done
           echo "ClickHouse did not start"; exit 1
 
-      - run: npx ava test/clickhouse/
+      - run: npm run test:ch
         env:
           ACKEE_CLICKHOUSE: http://127.0.0.1:8123
           ACKEE_CLICKHOUSE_USER: ackee
           ACKEE_CLICKHOUSE_PASSWORD: ackee
+          ACKEE_REDIS_URL: redis://127.0.0.1:6379
 
   audit:
     name: 'Dependency audit'

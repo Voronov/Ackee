@@ -49,6 +49,10 @@ export const mirrorRecord = async (id) => {
   return record
 }
 
+export const mirrorRecords = async (records) => {
+  await mirror(() => clickhouse.mirrorRecords(records))
+}
+
 export const touchRecord = async (id, updated) => {
   const entry = await mongo.touchRecord(id, updated)
   if (entry == null) return entry

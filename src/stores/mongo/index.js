@@ -17,6 +17,7 @@ export { add as addAction, update as touchAction, del as deleteActions } from '.
 
 // There is no second store to bring up to date
 export const mirrorRecord = async () => {}
+export const mirrorRecords = async () => {}
 export const mirrorAction = async () => {}
 
 const timed = (report, fn) => timeReport(report, 'mongo', fn)

@@ -1,0 +1,88 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ackee-clickhouse
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    environment:
+      # Development only: without it the image denies network access to the
+      # passwordless 'default' user
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8123/ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7
+    container_name: ackee-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+  # Optional, `--profile worker`: the ingestion worker for ACKEE_INGEST_QUEUE=redis, built
+  # from this tree; Ackee itself and MongoDB run on the host, as in Development.md
+  worker:
+    build: .
+    container_name: ackee-worker
+    profiles: [worker]
+    command: ['npm', 'run', 'worker:ingest']
+    # The image's healthcheck probes the HTTP API, which the worker does not serve
+    healthcheck:
+      disable: true
+    environment:
+      - ACKEE_MONGODB=mongodb://host.docker.internal:27017/ackee
+      - ACKEE_EVENT_STORE=dual
+      - ACKEE_CLICKHOUSE=http://clickhouse:8123
+      - ACKEE_INGEST_QUEUE=redis
+      - ACKEE_REDIS_URL=redis://redis:6379
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Optional, `--profile metrics`: scrapes Ackee's /metrics (ACKEE_METRICS=true) on the host
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ackee-prometheus
+    profiles: [metrics]
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./docs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      # Linux has no host.docker.internal by default
+      - 'host.docker.internal:host-gateway'
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ackee-grafana
+    profiles: [metrics]
+    ports:
+      # 3000 belongs to Ackee
+      - '3001:3000'
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./docs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docs/grafana/ackee.json:/var/lib/grafana/dashboards/ackee.json:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  clickhouse-data:
+  redis-data:
+  prometheus-data:

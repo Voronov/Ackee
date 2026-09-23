@@ -23,7 +23,7 @@
   "scripts": {
     "build": "node --env-file-if-exists=.env build.js",
     "build:pre": "cross-env BUILD_ENV=pre npm run build",
-    "clickhouse:backfill": "node --env-file-if-exists=.env src/clickhouse/backfill.js",
+    "clickhouse:migrate": "node --env-file-if-exists=.env scripts/migrate-to-clickhouse.js",
     "dev": "cross-env NODE_ENV=development nodemon",
     "eslint": "eslint \"**/*.js\"",
     "format": "npm run eslint -- --fix && npm run prettier -- --write",
@@ -33,14 +33,17 @@
     "mcp": "node --env-file-if-exists=.env src/mcp/index.js",
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
     "rollup:backfill": "node --env-file-if-exists=.env src/rollups/backfill.js",
+    "seed": "node --env-file-if-exists=.env scripts/seed-records.js",
     "server": "node --env-file-if-exists=.env src/index.js",
     "server:api": "cross-env ACKEE_ROLE=API npm run server",
     "server:ingest": "cross-env ACKEE_ROLE=INGEST npm run server",
     "server:worker": "cross-env ACKEE_ROLE=WORKER npm run server",
     "start": "npm run build && npm run server",
     "test": "npm run lint && ava",
+    "test:ch": "ava --config ava.clickhouse.config.js",
     "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json-summary ava",
-    "test:roles": "cross-env ACKEE_ROLE=INGEST ava test/roleIngest.js"
+    "test:roles": "cross-env ACKEE_ROLE=INGEST ava test/roleIngest.js",
+    "worker:ingest": "node --env-file-if-exists=.env src/worker.js"
   },
   "nodemonConfig": {
     "exec": "npm run build:pre && npm run server",
@@ -53,6 +56,11 @@
     "environmentVariables": {
       "ACKEE_TRACKER": "custom name"
     },
+    "files": [
+      "test/**/*.js",
+      "!test/clickhouse/**",
+      "!test/queue/**"
+    ],
     "timeout": "20s",
     "verbose": true
   },
@@ -72,6 +80,7 @@
     "graphql-scalars": "^1.26.0",
     "graphql-tag": "^2.12.7",
     "helmet": "^8.3.0",
+    "ioredis": "^5.11.1",
     "is-url": "^1.2.4",
     "is-valid-domain": "^0.1.6",
     "mmdb-lib": "^3.0.3",
@@ -98,6 +107,7 @@
     "globals": "^17.12.0",
     "history": "^5.3.0",
     "human-number": "^2.0.12",
+    "js-yaml": "^5.4.2",
     "mocked-env": "^1.3.5",
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",

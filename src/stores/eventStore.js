@@ -6,6 +6,7 @@
  * @typedef {object} EventStore
  * @property {(data: object) => Promise<object>} addRecord Creates a record (`records.add`); `id`, `created` and `updated` in `data` are kept when present.
  * @property {(id: string, updated?: number) => Promise<object | null>} touchRecord Bumps `updated` of a record to `updated` or now, null when unknown (`records.update`).
+ * @property {(records: object[]) => Promise<unknown>} mirrorRecords Pushes records MongoDB already stored to the secondary store, no-op without one; used by bulk imports.
  * @property {(id: string) => Promise<unknown>} mirrorRecord Pushes the MongoDB state of a record to the secondary store as a new version, no-op without one; repairs a redelivered create whose first delivery reached MongoDB only.
  * @property {(clientId: string, ignoreId: string) => Promise<unknown>} anonymize Nulls the identifying fields of a visitor's earlier records (`records.anonymize`).
  * @property {(domainId: string) => Promise<unknown>} deleteRecords Deletes every record of a domain (`records.del`).
@@ -32,6 +33,7 @@ export const writeMethods = [
   'addRecord',
   'touchRecord',
   'mirrorRecord',
+  'mirrorRecords',
   'anonymize',
   'deleteRecords',
   'addAction',

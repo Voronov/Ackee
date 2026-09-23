@@ -1,4 +1,3 @@
-import { insert as insertIntoClickhouse, touch as touchInClickhouse } from '../clickhouse/records.js'
 import Record from '../models/Record.js'
 
 const response = (entry) => ({
@@ -22,41 +21,55 @@ const response = (entry) => ({
   updated: entry.updated,
 })
 
+// Id, created and updated are only set by the ingestion worker, which replays what the
+// API already answered to the tracker; undefined leaves the schema defaults in charge
+const fields = (data) => ({
+  id: data.id,
+  created: data.created,
+  updated: data.updated,
+  clientId: data.clientId,
+  domainId: data.domainId,
+  siteLocation: data.siteLocation,
+  siteReferrer: data.siteReferrer,
+  siteLanguage: data.siteLanguage,
+  // Resolved from the IP on the server; the tracker never sends it.
+  country: data.country,
+  source: data.source,
+  screenWidth: data.screenWidth,
+  screenHeight: data.screenHeight,
+  screenColorDepth: data.screenColorDepth,
+  deviceName: data.deviceName,
+  deviceManufacturer: data.deviceManufacturer,
+  osName: data.osName,
+  osVersion: data.osVersion,
+  browserName: data.browserName,
+  browserVersion: data.browserVersion,
+  browserWidth: data.browserWidth,
+  browserHeight: data.browserHeight,
+})
+
 export const add = async (data) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  const entry = await Record.create({
-    clientId: data.clientId,
-    domainId: data.domainId,
-    siteLocation: data.siteLocation,
-    siteReferrer: data.siteReferrer,
-    siteLanguage: data.siteLanguage,
-    // Resolved from the IP on the server; the tracker never sends it.
-    country: data.country,
-    source: data.source,
-    screenWidth: data.screenWidth,
-    screenHeight: data.screenHeight,
-    screenColorDepth: data.screenColorDepth,
-    deviceName: data.deviceName,
-    deviceManufacturer: data.deviceManufacturer,
-    osName: data.osName,
-    osVersion: data.osVersion,
-    browserName: data.browserName,
-    browserVersion: data.browserVersion,
-    browserWidth: data.browserWidth,
-    browserHeight: data.browserHeight,
-  })
-
-  // Dual-write: MongoDB stays the source of truth while ClickHouse fills up alongside.
-  // A columnar failure must not reject the event, so the insert never throws.
-  await insertIntoClickhouse(entry)
-
-  return enhance(entry)
+  return enhance(await Record.create(fields(data)))
 }
 
-export const update = async (id) => {
+// Runs the schema validation without saving, for callers that persist later. The ingest
+// queue needs it: an event is rejected while the tracker is still waiting, not inside a
+// worker that has nobody left to answer.
+export const validate = async (data) => {
+  const entry = new Record(fields(data))
+
+  await entry.validate()
+
+  return response(entry)
+}
+
+// $max instead of $set: the ingestion worker may replay an older touch after a newer
+// one, and a visit must not get shorter
+export const update = async (id, updated = Date.now()) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -66,18 +79,14 @@ export const update = async (id) => {
       id,
     },
     {
-      $set: {
-        updated: Date.now(),
+      $max: {
+        updated,
       },
     },
     {
       returnDocument: 'after',
     },
   )
-
-  // Extending a visit in the columnar store means inserting the row again with a newer
-  // `updated`. ReplacingMergeTree keeps the last one on merge.
-  await touchInClickhouse(entry)
 
   return enhance(entry)
 }

@@ -1,8 +1,11 @@
+import { once } from 'node:events'
+
 import { start as startAnalyticsSync } from './import/sync.js'
+import { close as closeQueue, ping as pingQueue } from './queue/redis.js'
 import { start as startRollupWorker } from './rollups/worker.js'
 import server from './server.js'
-import config from './utils/config.js'
-import { migrate as clickhouseMigrate } from './utils/clickhouse.js'
+import { closeEventStore, connectEventStore } from './stores/connect.js'
+import config, { usesQueue, validateEventStoreConfig, validateIngestQueueConfig } from './utils/config.js'
 import connect from './utils/connect.js'
 import { ready as geoReady } from './utils/geo.js'
 import { check as mailCheck } from './utils/mailer.js'
@@ -15,13 +18,57 @@ if (config.dbUrl == null) {
   process.exit(1)
 }
 
+try {
+  validateEventStoreConfig()
+  validateIngestQueueConfig()
+} catch (error) {
+  signale.fatal(error.message)
+  process.exit(1)
+}
+
+// Events still sitting in the write buffer would be lost with the default signal
+// handling. Waiting for the server to close makes sure in-flight requests have pushed
+// their rows before the last flush. Apollo re-sends the signal once it has drained, so
+// the handler stays registered and ignores that second delivery.
+const listenForShutdown = () => {
+  let isShuttingDown = false
+
+  const shutdown = async (signal) => {
+    if (isShuttingDown === true) return
+    isShuttingDown = true
+
+    signale.await(`Received ${signal}, closing the server`)
+
+    const closed = once(server, 'close')
+    server.close()
+    await closed
+    await closeEventStore()
+    await closeQueue()
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
+}
+
+const connectQueue = async () => {
+  if (usesQueue() === false) return
+
+  signale.await(`Connecting to Redis at ${stripUrlAuth(config.redisUrl)}`)
+  await pingQueue()
+  signale.success(`Redis is ready (ingest queue: ${config.ingestQueue}, stream: ${config.redisStream})`)
+}
+
 server.on('listening', () => signale.watch(`Listening on http://localhost:${config.port}`))
 server.on('error', (error) => signale.fatal(error))
 
 signale.await(`Connecting to ${stripUrlAuth(config.dbUrl)}`)
 
 connect(config.dbUrl)
+  .then(connectEventStore)
+  .then(connectQueue)
   .then(() => {
+    listenForShutdown()
     signale.success(`Connected to ${stripUrlAuth(config.dbUrl)}`)
     signale.start(`Starting ${config.role.toLowerCase()}`)
 
@@ -40,7 +87,6 @@ connect(config.dbUrl)
       if (secretsEnabled() === true) startAnalyticsSync()
     }
     geoReady()
-    clickhouseMigrate().catch(signale.fatal)
     mailCheck()
 
     if (config.isDevelopmentMode === true) {

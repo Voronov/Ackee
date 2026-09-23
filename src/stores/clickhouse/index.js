@@ -159,6 +159,12 @@ export const addRecord = (data) => {
   return recordResponse(record)
 }
 
+// Records MongoDB already holds, pushed as rows without going through addRecord: the
+// import writes whole days at once and must not re-derive ids or timestamps
+export const mirrorRecords = (records) => {
+  for (const record of records) push('records', recordRow(record))
+}
+
 export const touchRecord = (record) => {
   push('records', recordRow(record))
   return recordResponse(record)

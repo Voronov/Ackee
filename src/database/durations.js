@@ -1,7 +1,6 @@
 import { toZonedTime } from 'date-fns-tz'
 
 import aggregateDurations from '../aggregations/aggregateDurations.js'
-import { durations as fromClickhouse } from '../clickhouse/reports.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import Record from '../models/Record.js'
 import createArray from '../utils/createArray.js'
@@ -51,10 +50,8 @@ const get = async (ids, interval, limit, dateDetails) => {
   }
 
   // This report has no rollups: an average cannot be summed across buckets without a
-  // separate total. So there are two paths, the columnar store or raw records.
-  const columnar = await fromClickhouse(ids, interval, limit, dateDetails)
-
-  return enhance(columnar ?? (await Record.aggregate(aggregation)))
+  // separate total.
+  return enhance(await Record.aggregate(aggregation))
 }
 
 export default get
