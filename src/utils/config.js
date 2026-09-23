@@ -1,8 +1,11 @@
 import { day } from './times.js'
 
+export const eventStores = ['mongo', 'dual', 'clickhouse']
+export const ingestQueues = ['none', 'redis']
+
 // Must be a function or object that loads and returns the env variables at runtime.
 // Otherwise it wouldn't be possible to mock the env variables with mockedEnv.
-export default new Proxy(
+const config = new Proxy(
   {},
   {
     get(target, property) {
@@ -24,13 +27,18 @@ export default new Proxy(
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         rollups: process.env.ACKEE_ROLLUPS === 'true',
         geo: process.env.ACKEE_GEO === 'true',
+        // Which store answers reads and takes writes: mongo keeps v1.0 behaviour,
+        // dual writes to both while reports stay on Mongo, clickhouse moves reads over.
+        eventStore: process.env.ACKEE_EVENT_STORE || 'mongo',
         clickhouseUrl: process.env.ACKEE_CLICKHOUSE,
         clickhouseUser: process.env.ACKEE_CLICKHOUSE_USER || 'default',
         clickhousePassword: process.env.ACKEE_CLICKHOUSE_PASSWORD || '',
         clickhouseDatabase: process.env.ACKEE_CLICKHOUSE_DATABASE || 'ackee',
-        // Reads are switched on separately from writes: data first accumulates through
-        // dual-write, and only then do reports start using it.
-        clickhouseReads: process.env.ACKEE_CLICKHOUSE_READS === 'true',
+        // Ingestion either writes inside the request or hands the event to a queue
+        // that a separate worker drains.
+        ingestQueue: process.env.ACKEE_INGEST_QUEUE || 'none',
+        redisUrl: process.env.ACKEE_REDIS_URL,
+        redisStream: process.env.ACKEE_REDIS_STREAM || 'ackee:events',
         // Public address of this instance. Used to build the links inside emails, so a
         // wrong value produces links that go nowhere.
         publicUrl: process.env.ACKEE_URL,
@@ -48,3 +56,30 @@ export default new Proxy(
     },
   },
 )
+
+export const usesClickHouse = () => config.eventStore !== 'mongo'
+
+// A typo in the env must stop the process instead of silently running on Mongo
+export const validateEventStoreConfig = () => {
+  if (eventStores.includes(config.eventStore) === false) {
+    throw new Error(`Unknown ACKEE_EVENT_STORE '${config.eventStore}', expected one of: ${eventStores.join(', ')}`)
+  }
+
+  if (usesClickHouse() === true && config.clickhouseUrl == null) {
+    throw new Error(`ACKEE_CLICKHOUSE is required when ACKEE_EVENT_STORE is '${config.eventStore}'`)
+  }
+}
+
+export const usesQueue = () => config.ingestQueue === 'redis'
+
+export const validateIngestQueueConfig = () => {
+  if (ingestQueues.includes(config.ingestQueue) === false) {
+    throw new Error(`Unknown ACKEE_INGEST_QUEUE '${config.ingestQueue}', expected one of: ${ingestQueues.join(', ')}`)
+  }
+
+  if (usesQueue() === true && config.redisUrl == null) {
+    throw new Error(`ACKEE_REDIS_URL is required when ACKEE_INGEST_QUEUE is '${config.ingestQueue}'`)
+  }
+}
+
+export default config

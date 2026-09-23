@@ -160,6 +160,43 @@ export const instrumentMongo = (client) => {
 
 // The endpoint stays quiet when metrics are off: 404 rather than 401, so it never
 // confirms that it exists.
+// Helpers for the event store and the ingest worker. They keep the call sites free of
+// registry wiring, and they stay silent while metrics are off, like the rest of this
+// module.
+const defaultBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+
+export const counter = (name, help) => new client.Counter({ name, help, registers: [registry] })
+
+// For a total the caller already keeps: prom-client reads it when the endpoint is scraped
+export const readCounter = (name, help, read) =>
+  new client.Counter({ name, help, registers: [registry], collect() { this.reset(); this.inc(read()) } })
+
+export const gauge = (name, help, read) =>
+  new client.Gauge({ name, help, registers: [registry], collect() { this.set(read()) } })
+
+export const histogram = (name, help, labelNames = [], buckets = defaultBuckets) =>
+  new client.Histogram({ name, help, labelNames, buckets, registers: [registry] })
+
+const reportSeconds = histogram('ackee_report_seconds', 'Time spent answering a report, by report and store', [
+  'report',
+  'store',
+])
+
+export const recordsCreated = counter('ackee_records_created_total', 'Records created through the API')
+export const actionsCreated = counter('ackee_actions_created_total', 'Actions created through the API')
+
+// Wraps a report so every call is timed under its own name and store
+export const timeReport = (report, store, fn) =>
+  async function timedReport(...parameters) {
+    const end = reportSeconds.startTimer({ report, store })
+
+    try {
+      return await fn(...parameters)
+    } finally {
+      end()
+    }
+  }
+
 export const handler = async (request, response) => {
   if (isEnabled() === false) return response.status(404).send('Not found')
 
