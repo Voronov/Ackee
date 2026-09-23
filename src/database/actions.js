@@ -28,6 +28,16 @@ export const add = async (data) => {
   return enhance(await Action.create(data))
 }
 
+// Runs the schema validation without saving, for callers that persist later
+export const validate = async (data) => {
+  const entry = new Action(data)
+
+  await entry.validate()
+
+  return response(entry)
+}
+
+// Updated is only passed by the ingestion worker, which replays the time the API saw
 export const update = async (id, data) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
@@ -43,7 +53,7 @@ export const update = async (id, data) => {
           key: data.key,
           value: data.value,
           details: data.details,
-          updated: Date.now(),
+          updated: data.updated ?? Date.now(),
         },
       },
       {

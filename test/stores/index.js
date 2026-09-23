@@ -42,7 +42,7 @@ test.serial('returns the mongo store for mongo', (t) => {
 })
 
 test.serial('returns the dual store for dual, which reads from mongo', (t) => {
-  withEnv({ ACKEE_EVENT_STORE: 'dual', ACKEE_CLICKHOUSE_URL: 'http://localhost:8123' }, () => {
+  withEnv({ ACKEE_EVENT_STORE: 'dual', ACKEE_CLICKHOUSE: 'http://localhost:8123' }, () => {
     const store = getEventStore()
 
     t.is(store, dual)
@@ -55,7 +55,7 @@ test.serial('returns the dual store for dual, which reads from mongo', (t) => {
 })
 
 test.serial('returns a store for clickhouse that writes like dual and reads from clickhouse', (t) => {
-  withEnv({ ACKEE_EVENT_STORE: 'clickhouse', ACKEE_CLICKHOUSE_URL: 'http://localhost:8123' }, () => {
+  withEnv({ ACKEE_EVENT_STORE: 'clickhouse', ACKEE_CLICKHOUSE: 'http://localhost:8123' }, () => {
     const store = getEventStore()
 
     assertImplementsInterface(t, store)
@@ -73,7 +73,7 @@ test.serial('returns a store for clickhouse that writes like dual and reads from
 
 test.serial('reads the configured store on every call', (t) => {
   const first = withEnv({ ACKEE_EVENT_STORE: 'mongo' }, () => getEventStore())
-  const second = withEnv({ ACKEE_EVENT_STORE: 'clickhouse', ACKEE_CLICKHOUSE_URL: 'http://localhost:8123' }, () =>
+  const second = withEnv({ ACKEE_EVENT_STORE: 'clickhouse', ACKEE_CLICKHOUSE: 'http://localhost:8123' }, () =>
     getEventStore(),
   )
 

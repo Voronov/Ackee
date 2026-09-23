@@ -31,12 +31,6 @@ export const getClient = () => {
       password: config.clickhousePassword,
       database: config.clickhouseDatabase,
       log: { LoggerClass: Logger, level: ClickHouseLogLevel.ERROR },
-      clickhouse_settings: {
-        // Tracking inserts are small and frequent. Async inserts batch them on the server;
-        // otherwise every event would create its own table part.
-        async_insert: 1,
-        wait_for_async_insert: 0,
-      },
     })
   }
 

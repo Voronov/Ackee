@@ -1,4 +1,4 @@
-import * as actions from '../database/actions.js'
+import { getEventStore } from '../stores/index.js'
 import * as events from '../database/events.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
@@ -71,7 +71,7 @@ export default {
 
       if (entry == null) throw new KnownError('Unknown event')
 
-      await actions.del(id)
+      await getEventStore().deleteActions(id)
 
       return {
         success: true,

@@ -9,12 +9,12 @@ With `ACKEE_INGEST_QUEUE=redis` (see [Options](Options.md#ingest-queue)) the API
 
    ```
    ACKEE_INGEST_QUEUE=redis ACKEE_REDIS_URL=redis://localhost:6379 npm run server
-   ACKEE_INGEST_QUEUE=redis ACKEE_REDIS_URL=redis://localhost:6379 npm run worker
+   ACKEE_INGEST_QUEUE=redis ACKEE_REDIS_URL=redis://localhost:6379 npm run worker:ingest
    ```
 
    Both refuse to start when Redis is unreachable. The worker also refuses to start with `ACKEE_INGEST_QUEUE=none`, there would be nothing to read. `docker-compose.dev.yml` has the worker as a service behind the `worker` profile (`docker compose -f docker-compose.dev.yml --profile worker up -d worker`), built from the working tree and pointed at MongoDB on the host.
 
-3. Watch the backlog: `ackee_queue_length` on `/metrics` (with `ACKEE_METRICS=true`) is the number of messages the worker has not acknowledged yet, `0` when it has caught up. The worker logs its counters every 10 batches and once more on shutdown.
+3. Watch the backlog: `ackee_queue_length` on `/metrics` (with `ACKEE_METRICS_TOKEN=<token>`) is the number of messages the worker has not acknowledged yet, `0` when it has caught up. The worker logs its counters every 10 batches and once more on shutdown.
 
 Stopping the worker with `SIGTERM` or `SIGINT` finishes the current batch, acknowledges it, flushes the ClickHouse buffer and exits. Events that arrive meanwhile wait in Redis and are written when a worker is back.
 

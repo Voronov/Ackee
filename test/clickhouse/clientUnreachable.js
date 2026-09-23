@@ -4,7 +4,7 @@ import mockedEnv from 'mocked-env'
 import { close, ping } from '../../src/clickhouse/client.js'
 
 // Nothing listens on port 1, so the connection is refused immediately
-const restore = mockedEnv({ ACKEE_CLICKHOUSE_URL: 'http://localhost:1' })
+const restore = mockedEnv({ ACKEE_CLICKHOUSE: 'http://localhost:1' })
 
 test.after.always(async () => {
   await close()

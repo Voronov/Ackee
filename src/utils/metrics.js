@@ -179,13 +179,14 @@ export const readCounter = (name, help, read) =>
     },
   })
 
+// `read` may be async: the queue length lives in Redis and is fetched when scraped
 export const gauge = (name, help, read) =>
   new client.Gauge({
     name,
     help,
     registers: [registry],
-    collect() {
-      this.set(read())
+    async collect() {
+      this.set(await read())
     },
   })
 

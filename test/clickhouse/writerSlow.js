@@ -49,7 +49,7 @@ test.before(async () => {
   await once(fakeClickHouse, 'listening')
 
   const { port } = fakeClickHouse.address()
-  restore = mockedEnv({ ACKEE_CLICKHOUSE_URL: `http://127.0.0.1:${port}` })
+  restore = mockedEnv({ ACKEE_CLICKHOUSE: `http://127.0.0.1:${port}` })
 })
 
 test.after.always(async () => {

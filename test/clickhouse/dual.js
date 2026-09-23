@@ -7,6 +7,7 @@ import listen from 'test-listen'
 import { close, getClient } from '../../src/clickhouse/client.js'
 import { ensureSchema } from '../../src/clickhouse/schema.js'
 import Action from '../../src/models/Action.js'
+import * as users from '../../src/database/users.js'
 import Domain from '../../src/models/Domain.js'
 import Event from '../../src/models/Event.js'
 import Record from '../../src/models/Record.js'
@@ -259,10 +260,19 @@ test.after.always(async () => {
   restore()
 })
 
+// A token is resolved to a real viewer, so the fixture builds the whole chain rather
+// than inventing ids: user, personal workspace, then the domain and event inside it.
 test.beforeEach(async (t) => {
-  t.context.token = await Token.create({})
-  t.context.domain = await Domain.create({ title: 'Example' })
-  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART' })
+  const { user, workspace } = await users.add({
+    email: `user-${uuid()}@example.com`,
+    password: 'example-password',
+    verified: true,
+    workspaceTitle: 'Example workspace',
+  })
+
+  t.context.token = await Token.create({ userId: user.id })
+  t.context.domain = await Domain.create({ title: 'Example', workspaceId: workspace.id })
+  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART', workspaceId: workspace.id })
 })
 
 test.serial('mirrors every created record into ClickHouse with the same fields', async (t) => {

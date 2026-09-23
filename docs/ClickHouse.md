@@ -16,7 +16,7 @@ Ackee can keep visit records and event actions in ClickHouse and answer every re
 2. Run Ackee in `dual` mode so that new events reach both stores:
 
    ```
-   ACKEE_EVENT_STORE=dual ACKEE_CLICKHOUSE_URL=http://localhost:8123 npm run server
+   ACKEE_EVENT_STORE=dual ACKEE_CLICKHOUSE=http://localhost:8123 npm run server
    ```
 
 3. Copy the history with `scripts/migrate-to-clickhouse.js`, see the [Upgrade guide](Upgrade%20guide.md#migrating-events-to-clickhouse). It ends with the record and action counts of both stores; they must match.
@@ -41,7 +41,7 @@ Either way, follow "Switching on" again from step 2 and compare the counts befor
 
 ## Metrics
 
-With `ACKEE_METRICS=true` Ackee serves Prometheus metrics at `GET /metrics` (see [Options](Options.md#metrics)). The endpoint has no authentication, which is what Prometheus expects; keep it off the public internet. The counters live in memory and start at zero on every restart, which is how Prometheus counters are meant to work.
+With `ACKEE_METRICS_TOKEN=<token>` Ackee serves Prometheus metrics at `GET /metrics` (see [Options](Options.md#metrics)). The endpoint has no authentication, which is what Prometheus expects; keep it off the public internet. The counters live in memory and start at zero on every restart, which is how Prometheus counters are meant to work.
 
 | Metric                                 | Type      | Meaning                                                                                                         |
 | -------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------- |

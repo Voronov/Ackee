@@ -165,15 +165,22 @@ remaining the source of truth. A failed ClickHouse insert is logged and does not
 event. Reads keep coming from MongoDB until you enable them separately:
 
 ```
-ACKEE_CLICKHOUSE_READS=true
+ACKEE_EVENT_STORE=clickhouse
 ```
+
+`ACKEE_EVENT_STORE` takes `mongo` (the default, version 1.0 behaviour), `dual` (both stores
+written, reports still answered by MongoDB) or `clickhouse` (reports answered by ClickHouse).
 
 Copy existing history over first, otherwise reports covering older data will keep falling back
 to MongoDB:
 
 ```
-npm run clickhouse:backfill
+npm run clickhouse:migrate
 ```
+
+The migration keeps a checkpoint, so an interrupted run resumes instead of starting over.
+`--dry-run` reports what it would copy, `--from` limits it to a date, and `--reset` starts
+again from scratch.
 
 Reports are answered by the fastest store that holds the whole window: ClickHouse, then hourly
 rollups, then raw MongoDB records. A store that cannot cover the window steps aside silently,

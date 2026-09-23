@@ -1,4 +1,5 @@
 import test from 'ava'
+import { randomUUID as uuid } from 'node:crypto'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
@@ -14,7 +15,7 @@ import { cleanup, connectToDatabase, gql } from '../resolvers/_utils.js'
 // Nothing listens on port 1, so every insert is refused immediately. The env is not
 // restored: the rows kept for the next attempt retry on the timer after the test and
 // must not reach the real ClickHouse of the npm script
-mockedEnv({ ACKEE_EVENT_STORE: 'dual', ACKEE_CLICKHOUSE_URL: 'http://localhost:1' })
+mockedEnv({ ACKEE_EVENT_STORE: 'dual', ACKEE_CLICKHOUSE: 'http://localhost:1' })
 
 const base = listen(server)
 
@@ -31,7 +32,7 @@ test.after.always(async () => {
 })
 
 test('stores the record in MongoDB and answers the tracker when ClickHouse is unreachable', async (t) => {
-  const domain = await Domain.create({ title: 'Example' })
+  const domain = await Domain.create({ title: 'Example', workspaceId: uuid() })
 
   const body = {
     query: gql`

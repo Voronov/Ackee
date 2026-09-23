@@ -1,7 +1,7 @@
 import Redis from 'ioredis'
 
 import { gauge, readCounter } from '../utils/metrics.js'
-import config from '../utils/config.js'
+import config, { usesQueue } from '../utils/config.js'
 import signale from '../utils/signale.js'
 import stripUrlAuth from '../utils/stripUrlAuth.js'
 
@@ -10,7 +10,12 @@ const maxLength = 1_000_000
 
 export const stats = { processed: 0, failed: 0, dropped: 0, length: 0 }
 
-gauge('ackee_queue_length', 'Messages in the Redis ingestion stream not yet acknowledged', () => stats.length)
+// Read from Redis when scraped, not from the last value this process happened to see
+gauge('ackee_queue_length', 'Messages in the Redis ingestion stream not yet acknowledged', async () => {
+  if (usesQueue() === true) await refreshLength()
+
+  return stats.length
+})
 readCounter('ackee_queue_processed_total', 'Queue messages written to the event store', () => stats.processed)
 readCounter('ackee_queue_failed_total', 'Queue message deliveries that failed', () => stats.failed)
 readCounter(

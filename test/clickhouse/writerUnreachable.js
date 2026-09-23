@@ -10,7 +10,7 @@ import signale from '../../src/utils/signale.js'
 // Nothing listens on port 1, so every insert is refused immediately. The env is not
 // restored: the rows kept for the next attempt retry on the timer after the test and
 // must not reach the real ClickHouse of the npm script
-mockedEnv({ ACKEE_CLICKHOUSE_URL: 'http://localhost:1' })
+mockedEnv({ ACKEE_CLICKHOUSE: 'http://localhost:1' })
 
 // Not restored either, so that retry does not print into the test output
 const errors = []

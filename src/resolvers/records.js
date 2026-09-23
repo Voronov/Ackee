@@ -1,6 +1,10 @@
 import * as domains from '../database/domains.js'
 import * as records from '../database/records.js'
+import { enqueue } from '../queue/redis.js'
+import { getEventStore } from '../stores/index.js'
+import { usesQueue } from '../utils/config.js'
 import countryOf from '../utils/geo.js'
+import { recordsCreated } from '../utils/metrics.js'
 import matchesOrigin from '../utils/matchesOrigin.js'
 import identifier from '../utils/identifier.js'
 import KnownError from '../utils/KnownError.js'
@@ -90,10 +94,36 @@ export default {
 
       const data = polish({ ...input, clientId, country, domainId: domain.id })
 
+      // With the queue the tracker gets the same answer, but from the validated, not yet
+      // saved record: the worker creates it later with this id and these dates
+      if (usesQueue() === true) {
+        let validated
+
+        try {
+          validated = await records.validate(data)
+        } catch (error) {
+          if (error.name === 'ValidationError') {
+            throw new KnownError(messages(error.errors))
+          }
+
+          throw error
+        }
+
+        await enqueue('record.create', { ...data, ...validated })
+        recordsCreated.inc()
+
+        return {
+          success: true,
+          payload: validated,
+        }
+      }
+
+      const store = getEventStore()
+
       let entry
 
       try {
-        entry = await records.add(data)
+        entry = await store.addRecord(data)
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))
@@ -102,9 +132,11 @@ export default {
         throw error
       }
 
+      recordsCreated.inc()
+
       // Anonymize old entries with the same clientId to prevent that the browsing history
       // of a user is reconstructible. Will be skipped when there're no previous entries.
-      await records.anonymize(clientId, entry.id)
+      await store.anonymize(clientId, entry.id)
 
       return {
         success: true,
@@ -119,10 +151,18 @@ export default {
         }
       }
 
+      if (usesQueue() === true) {
+        await enqueue('record.touch', { id, updated: Date.now() })
+
+        return {
+          success: true,
+        }
+      }
+
       let entry
 
       try {
-        entry = await records.update(id)
+        entry = await getEventStore().touchRecord(id)
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))

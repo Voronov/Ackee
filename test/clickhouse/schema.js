@@ -95,6 +95,7 @@ test('creates the records table with all Record fields and a version', async (t)
     { name: 'siteLocation', type: 'String' },
     { name: 'siteReferrer', type: 'Nullable(String)' },
     { name: 'siteLanguage', type: 'LowCardinality(Nullable(String))' },
+    { name: 'country', type: 'LowCardinality(Nullable(String))' },
     { name: 'source', type: 'Nullable(String)' },
     { name: 'screenWidth', type: 'Nullable(UInt32)' },
     { name: 'screenHeight', type: 'Nullable(UInt32)' },

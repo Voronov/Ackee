@@ -198,8 +198,8 @@ test.before(async () => {
   await connect((await mongoDb).getUri())
   await ensureSchema(database)
 
-  const domain = await Domain.create({ title: 'Parity' })
-  const second = await Domain.create({ title: 'Parity second' })
+  const domain = await Domain.create({ title: 'Parity', workspaceId: uuid() })
+  const second = await Domain.create({ title: 'Parity second', workspaceId: uuid() })
   context.ids = [domain.id]
   context.bothIds = [domain.id, second.id]
 
@@ -272,9 +272,15 @@ test.serial('views are zero for an unknown domain and for no domain', async (t) 
 test.serial('durations match for every interval, limit and time zone, outliers included', async (t) => {
   await assertSameIntervals(t, 'durations', context.ids, (interval, limit) => [interval, limit], 'durations')
 
-  const [today] = await mongo.durations(context.ids, INTERVALS_DAILY, 1, dateDetails())
-  t.true(today.count > 0)
-  t.true(today.count < DURATIONS_LIMIT)
+  // A sanity check that the aggregation measures anything at all, rather than matching
+  // two empty results. Not pinned to today: the fixture puts the zero-duration visits on
+  // `now` and the longer ones a day apart, so which days carry a duration depends on the
+  // hour the suite runs at.
+  const week = await mongo.durations(context.ids, INTERVALS_DAILY, 7, dateDetails())
+  const measured = week.filter((entry) => entry.count > 0)
+
+  t.true(measured.length > 0)
+  t.true(measured.every((entry) => entry.count < DURATIONS_LIMIT))
 })
 
 const grouped = [

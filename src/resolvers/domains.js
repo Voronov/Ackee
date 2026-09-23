@@ -1,5 +1,5 @@
 import * as domains from '../database/domains.js'
-import * as records from '../database/records.js'
+import { getEventStore } from '../stores/index.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import KnownError from '../utils/KnownError.js'
@@ -86,7 +86,7 @@ export default {
 
       if (entry == null) throw new KnownError('Unknown domain')
 
-      await records.del(id)
+      await getEventStore().deleteRecords(id)
 
       return {
         success: true,
