@@ -18,7 +18,6 @@ const schema = new mongoose.Schema({
   domainId: {
     type: String,
     required: true,
-    index: true,
   },
   siteLocation: {
     type: String,
@@ -30,6 +29,13 @@ const schema = new mongoose.Schema({
     validate: isNullOrUrl,
   },
   siteLanguage: {
+    type: String,
+    minlength: 2,
+    maxlength: 2,
+  },
+  // ISO 3166-1 alpha-2, resolved from the IP on the server. The address itself is used
+  // for the lookup and then dropped; it is never stored.
+  country: {
     type: String,
     minlength: 2,
     maxlength: 2,
@@ -100,5 +106,14 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every report starts with `{ domainId: { $in: ids }, created: { $gte: … } }`, see
+// stages/matchDomains.js. A single index on `created` made the planner read millions of
+// documents; one on `domainId` made it read a domain's whole history. The compound index
+// covers both conditions at once.
+//
+// The standalone `domainId` index is gone: it is a prefix of this one, so it served the
+// same queries while costing writes and storage.
+schema.index({ domainId: 1, created: 1 })
 
 export default mongoose.model('Record', schema)

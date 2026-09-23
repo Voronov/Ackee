@@ -5,25 +5,30 @@ import requireAuth from '../middlewares/requireAuth.js'
 import KnownError from '../utils/KnownError.js'
 import messages from '../utils/messages.js'
 import pipe from '../utils/pipe.js'
+import { canEdit, workspaceIds } from '../utils/domainIds.js'
 
 export default {
   Event: {
     statistics: (parent) => parent,
   },
   Query: {
-    event: pipe(requireAuth, (parent, { id }) => {
-      return events.get(id)
+    event: pipe(requireAuth, (parent, { id }, { viewer }) => {
+      return events.get(id, workspaceIds(viewer))
     }),
-    events: pipe(requireAuth, () => {
-      return events.all()
+    events: pipe(requireAuth, (parent, args, { viewer }) => {
+      return events.all(workspaceIds(viewer))
     }),
   },
   Mutation: {
-    createEvent: pipe(requireAuth, blockDemoMode, async (parent, { input }) => {
+    createEvent: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {
       let entry
 
       try {
-        entry = await events.add(input)
+        const [workspaceId] = canEdit(viewer)
+
+        if (workspaceId == null) throw new KnownError('No workspace to add an event to')
+
+        entry = await events.add(input, workspaceId)
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))
@@ -37,11 +42,11 @@ export default {
         success: true,
       }
     }),
-    updateEvent: pipe(requireAuth, blockDemoMode, async (parent, { id, input }) => {
+    updateEvent: pipe(requireAuth, blockDemoMode, async (parent, { id, input }, { viewer }) => {
       let entry
 
       try {
-        entry = await events.update(id, input)
+        entry = await events.update(id, input, canEdit(viewer))
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))
@@ -59,9 +64,14 @@ export default {
         success: true,
       }
     }),
-    deleteEvent: pipe(requireAuth, blockDemoMode, async (parent, { id }) => {
+    deleteEvent: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
+      // Delete the event first, and only wipe its actions if it really belonged to the
+      // viewer. Otherwise knowing an id would be enough to destroy someone else's data.
+      const entry = await events.del(id, canEdit(viewer))
+
+      if (entry == null) throw new KnownError('Unknown event')
+
       await actions.del(id)
-      await events.del(id)
 
       return {
         success: true,

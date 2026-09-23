@@ -39,14 +39,67 @@ _or_
 PORT=3000
 ```
 
-## Username and password
+## Ingest key
 
-Username and password. Both are required to generate a new token.
+Every domain has an ingest key. The embed code carries it after the domain id, separated by
+a dot, and the tracker passes the whole value through untouched — so nothing about the
+tracker had to change.
+
+The key is **not a secret**: it sits in a script tag on a public page, and anyone who opens
+that page can read it. What it buys is a higher bar. Without it, a domain id found in
+someone's page source is enough to send events into their reports; with it, an attacker has
+to at least fetch the page, and the owner can rotate the key when that is not enough.
+
+Checking is off per domain until the owner turns it on, so an installation that predates
+this keeps working. Turn it on once the snippet on your site carries the key:
+
+```graphql
+mutation {
+  updateDomain(id: "…", input: { title: "example.com", strictIngest: true }) {
+    success
+  }
+}
+```
+
+With it on, an event also has to come from the site the domain is named after. That check
+only works when the domain title is a host name; a domain called "My blog" cannot be checked
+that way and is let through.
+
+Rotate a key that is being misused with `rotateIngestKey`. The old one stops working at once,
+so update the snippet on your site first.
+
+## Secret
+
+Encrypts credentials that people hand over, which so far means the Google service account
+key used to sync Analytics.
 
 ```
-ACKEE_USERNAME=username
-ACKEE_PASSWORD=password
+ACKEE_SECRET=<random string>
 ```
+
+Without it, connecting an Analytics property is refused rather than storing the key in a
+readable form. Changing it makes existing keys unreadable, and those connections have to be
+made again.
+
+## Registration
+
+Accounts live in the database and are created by registering, not by configuration.
+`ACKEE_USERNAME` and `ACKEE_PASSWORD` are gone.
+
+Registering creates a personal workspace along with the account. Domains belong to a workspace
+rather than to a user, so without one a new account would have nowhere to put a domain. A single
+user never sees this: for them it is simply "my domains". Everyone who registers gets the same
+thing — their own workspace, their own domains, and no view of anyone else's.
+
+Registration is open unless you close it:
+
+```
+ACKEE_ALLOW_SIGNUP=false
+```
+
+Close it when the instance exists to measure your own sites and nobody else should be able to
+create an account on it. Note that closing it leaves no way to add the first account either, so
+set it after you have registered.
 
 ## TTL
 
@@ -81,6 +134,99 @@ Set to `true` to enable demo mode. In demo mode, all mutations (creating, updati
 ```
 ACKEE_DEMO=true
 ```
+
+## Country
+
+Resolve the country of each visit from the IP address and store the two-letter code with the record.
+
+```
+ACKEE_GEO=true
+```
+
+Off by default. The lookup uses a database shipped with Ackee (`@ip-location-db`, CC0), so no request leaves your server and no account or API key is needed. The IP is used for the lookup and discarded — it is never stored, just as it already was for the visitor hash.
+
+Adds a `countries` report to the API. Records written before the variable was enabled have no country and are simply absent from that report.
+
+See [Anonymization](Anonymization.md#country) before turning this on: a country next to a browser version, an OS version and an exact screen size is close to a fingerprint. City-level resolution is deliberately not offered.
+
+## ClickHouse
+
+Store events in a columnar database alongside MongoDB and serve reports from it.
+
+```
+ACKEE_CLICKHOUSE=http://clickhouse:8123
+ACKEE_CLICKHOUSE_USER=ackee
+ACKEE_CLICKHOUSE_PASSWORD=<password>
+ACKEE_CLICKHOUSE_DATABASE=ackee
+```
+
+Setting the URL turns on dual-write: every event is written to both stores, with MongoDB
+remaining the source of truth. A failed ClickHouse insert is logged and does not reject the
+event. Reads keep coming from MongoDB until you enable them separately:
+
+```
+ACKEE_CLICKHOUSE_READS=true
+```
+
+Copy existing history over first, otherwise reports covering older data will keep falling back
+to MongoDB:
+
+```
+npm run clickhouse:backfill
+```
+
+Reports are answered by the fastest store that holds the whole window: ClickHouse, then hourly
+rollups, then raw MongoDB records. A store that cannot cover the window steps aside silently,
+so turning either variable off is an immediate rollback with no data migration.
+
+Unique views are always answered by MongoDB. Their meaning depends on erasing the visitor hash
+from older records, which would mean rewriting millions of rows in a columnar store — so the
+visitor hash is never copied there at all.
+
+See [ADR-004](adr/ADR-004-clickhouse.md) for why this exists next to rollups rather than
+instead of them.
+
+## Rollups
+
+Serve the top reports (pages, referrers, systems, devices, browsers, sizes, languages) from pre-computed hourly rollups instead of scanning raw records on every request.
+
+```
+ACKEE_ROLLUPS=true
+```
+
+Enabling this starts a worker that refreshes the last two hours every five minutes. Existing history has to be rolled up once:
+
+```
+npm run rollup:backfill
+```
+
+Reads stay correct while the backfill is incomplete: a report whose time window is not fully covered by the built rollups falls back to the raw records automatically. Turning the variable back off restores the 1.x read path immediately — no data migration is involved either way.
+
+Two reports are never served from rollups. `views` with `type: UNIQUE` counts distinct clients, which cannot be summed across buckets, and `durations` averages per-record values; both keep reading raw records, where the `{ domainId, created }` index serves them.
+
+## Metrics
+
+Ackee exposes Prometheus metrics at `/metrics` when a token is set. Without this variable the endpoint responds with `404 Not found`, and so does any request carrying a wrong token — the endpoint never confirms that it exists.
+
+```
+ACKEE_METRICS_TOKEN=<random string>
+```
+
+Scrape it with an `Authorization` header:
+
+```
+curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
+```
+
+Exposed series, next to the Node.js defaults:
+
+| Metric                                     | What it answers                                                                                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                                                                       |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile                                                       |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself                                                                 |
+| `ackee_rollup_build_duration_seconds`      | How long one day of rollups takes to build, split into `backfill` and `refresh`                                                                           |
+| `ackee_rollup_lag_seconds`                 | How far the worst-covered domain lags behind now — a growing value means the worker is falling behind and reports are quietly falling back to raw records |
 
 ## CORS headers
 

@@ -125,6 +125,9 @@ test(
   },
 )
 
+// NEW orders values by when each was first seen, newest first. The fixture writes one
+// record with zeroed sizes a day ago and thirteen records of 414x896 spread over two
+// weeks, so the zeroed value is the one that appeared most recently.
 test(
   macro,
   {
@@ -134,7 +137,7 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px')
+    t.is(sizes[0].value, '0px')
   },
 )
 
@@ -147,7 +150,7 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '719px')
+    t.is(sizes[0].value, '0px')
   },
 )
 
@@ -160,7 +163,7 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px x 719px')
+    t.is(sizes[0].value, '0px x 0px')
   },
 )
 
@@ -265,7 +268,7 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px')
+    t.is(sizes[0].value, '0px')
   },
 )
 
@@ -278,7 +281,7 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '896px')
+    t.is(sizes[0].value, '0px')
   },
 )
 
@@ -291,6 +294,6 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px x 896px')
+    t.is(sizes[0].value, '0px x 0px')
   },
 )

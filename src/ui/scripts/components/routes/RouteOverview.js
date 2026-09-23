@@ -18,6 +18,7 @@ import useMergedDevices from '../../api/hooks/devices/useMergedDevices.js'
 import useMergedDurations from '../../api/hooks/durations/useMergedDurations.js'
 import useMergedActiveVisitors from '../../api/hooks/facts/useMergedActiveVisitors.js'
 import useMergedFacts from '../../api/hooks/facts/useMergedFacts.js'
+import useMergedCountries from '../../api/hooks/countries/useMergedCountries.js'
 import useMergedLanguages from '../../api/hooks/languages/useMergedLanguages.js'
 import useMergedPages from '../../api/hooks/pages/useMergedPages.js'
 import useMergedReferrers from '../../api/hooks/referrers/useMergedReferrers.js'
@@ -30,6 +31,7 @@ import CardStatistics from '../cards/CardStatistics.js'
 
 import RendererDurations from '../renderers/RendererDurations.js'
 import RendererList from '../renderers/RendererList.js'
+import RendererMap from '../renderers/RendererMap.js'
 import RendererReferrers from '../renderers/RendererReferrers.js'
 import RendererViews from '../renderers/RendererViews.js'
 
@@ -187,6 +189,22 @@ const RouteOverview = (props) => {
         },
       ],
       renderer: RendererList,
+      rendererProps: {
+        sorting: SORTINGS_TOP,
+        range: RANGES_LAST_24_HOURS,
+      },
+    }),
+    h(CardStatistics, {
+      headline: 'Countries',
+      onMore: () => props.setRoute('/insights/countries'),
+      hook: useMergedCountries,
+      hookArgs: [
+        {
+          sorting: SORTINGS_TOP,
+          range: RANGES_LAST_24_HOURS,
+        },
+      ],
+      renderer: RendererMap,
       rendererProps: {
         sorting: SORTINGS_TOP,
         range: RANGES_LAST_24_HOURS,

@@ -18,8 +18,13 @@ export default (ids, properties, range, limit, dateDetails, or) => {
       },
     },
     {
+      // The secondary key is required. MongoDB's sort is not stable and `$limit` follows
+      // it, so without one both the order and the membership of the result would vary:
+      // rows with equal counts at the cut-off would appear at random (D-001).
+      // rollups/read.js mirrors this order so both read paths agree.
       $sort: {
         count: -1,
+        ...Object.fromEntries(properties.map((property) => [`_id.${property}`, 1])),
       },
     },
     {

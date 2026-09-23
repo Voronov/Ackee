@@ -8,6 +8,12 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
+  // A session token belongs to the user who signed in. Without this field the request
+  // only knows that it is authenticated, not who by, which is how version 1.0 worked.
+  userId: {
+    type: String,
+    required: true,
+  },
   created: {
     type: Date,
     required: true,

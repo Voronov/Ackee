@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import status from '../../utils/status.js'
 
 export default (query, selector, enhancer, options) => {
-  const { loading, data } = useQuery(query, {
+  const { loading, data, refetch } = useQuery(query, {
     fetchPolicy: 'cache-and-network',
     nextFetchPolicy: 'cache-first',
     ...options,
@@ -25,5 +25,8 @@ export default (query, selector, enhancer, options) => {
   return {
     value: _value,
     status: _status,
+    // Needed where a mutation elsewhere changes what this query returns, such as
+    // connecting an Analytics property.
+    refetch,
   }
 }

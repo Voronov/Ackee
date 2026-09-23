@@ -22,4 +22,14 @@ export default defineConfig([
       'unicorn/no-process-exit': 0,
     },
   },
+  {
+    // Maintenance scripts, run by hand and not part of the package. They import the map
+    // data they convert, which is installed on demand rather than declared as a
+    // dependency, because nothing at run time uses it.
+    files: ['tools/**/*.js'],
+    rules: {
+      'import-x/no-unresolved': 0,
+      'import-x/no-extraneous-dependencies': 0,
+    },
+  },
 ])

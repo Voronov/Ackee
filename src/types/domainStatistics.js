@@ -252,6 +252,29 @@ export default gql`
     created: DateTime
   }
 
+  type Country {
+    """
+    Country identifier.
+    """
+    id: ID!
+    """
+    Name of the country, or the raw code when unknown.
+    """
+    value: String!
+    """
+    ISO 3166-1 alpha-2 code. Intended for flags and maps, where a name is not enough.
+    """
+    code: String
+    """
+    Amount of occurrences.
+    """
+    count: UnsignedInt
+    """
+    Identifies the date and time when the object was created.
+    """
+    created: DateTime
+  }
+
   """
   Statistics of a domain. Usually data that needs to be represented in a list or chart.
   """
@@ -363,6 +386,18 @@ export default gql`
       """
       limit: Int = 30
     ): [Language!]
+    """
+    Countries your visitors come from. Derived from the IP address at ingest time;
+    the address itself is never stored. Empty unless ACKEE_GEO is enabled.
+    """
+    countries(
+      sorting: Sorting!
+      range: Range = LAST_7_DAYS
+      """
+      Number of entries to return.
+      """
+      limit: Int = 30
+    ): [Country!]
   }
 
   type Query {

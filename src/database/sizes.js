@@ -1,6 +1,5 @@
 import aggregateNewRecords from '../aggregations/aggregateNewRecords.js'
 import aggregateRecentRecords from '../aggregations/aggregateRecentRecords.js'
-import aggregateTopRecords from '../aggregations/aggregateTopRecords.js'
 import {
   SIZES_TYPE_BROWSER_HEIGHT,
   SIZES_TYPE_BROWSER_RESOLUTION,
@@ -12,22 +11,19 @@ import {
 import { SORTINGS_NEW, SORTINGS_RECENT, SORTINGS_TOP } from '../constants/sortings.js'
 import Record from '../models/Record.js'
 import recursiveId from '../utils/recursiveId.js'
+import topRecords from './topRecords.js'
+
+const propertiesFor = (type) => {
+  if (type === SIZES_TYPE_BROWSER_WIDTH) return ['browserWidth']
+  if (type === SIZES_TYPE_BROWSER_HEIGHT) return ['browserHeight']
+  if (type === SIZES_TYPE_BROWSER_RESOLUTION) return ['browserWidth', 'browserHeight']
+  if (type === SIZES_TYPE_SCREEN_WIDTH) return ['screenWidth']
+  if (type === SIZES_TYPE_SCREEN_HEIGHT) return ['screenHeight']
+  if (type === SIZES_TYPE_SCREEN_RESOLUTION) return ['screenWidth', 'screenHeight']
+}
 
 const get = async (ids, sorting, type, range, limit, dateDetails) => {
   const aggregation = (() => {
-    if (sorting === SORTINGS_TOP) {
-      if (type === SIZES_TYPE_BROWSER_WIDTH)
-        return aggregateTopRecords(ids, ['browserWidth'], range, limit, dateDetails)
-      if (type === SIZES_TYPE_BROWSER_HEIGHT)
-        return aggregateTopRecords(ids, ['browserHeight'], range, limit, dateDetails)
-      if (type === SIZES_TYPE_BROWSER_RESOLUTION)
-        return aggregateTopRecords(ids, ['browserWidth', 'browserHeight'], range, limit, dateDetails)
-      if (type === SIZES_TYPE_SCREEN_WIDTH) return aggregateTopRecords(ids, ['screenWidth'], range, limit, dateDetails)
-      if (type === SIZES_TYPE_SCREEN_HEIGHT)
-        return aggregateTopRecords(ids, ['screenHeight'], range, limit, dateDetails)
-      if (type === SIZES_TYPE_SCREEN_RESOLUTION)
-        return aggregateTopRecords(ids, ['screenWidth', 'screenHeight'], range, limit, dateDetails)
-    }
     if (sorting === SORTINGS_NEW) {
       if (type === SIZES_TYPE_BROWSER_WIDTH) return aggregateNewRecords(ids, ['browserWidth'], limit)
       if (type === SIZES_TYPE_BROWSER_HEIGHT) return aggregateNewRecords(ids, ['browserHeight'], limit)
@@ -71,7 +67,12 @@ const get = async (ids, sorting, type, range, limit, dateDetails) => {
     })
   }
 
-  return enhance(await Record.aggregate(aggregation))
+  const entries =
+    sorting === SORTINGS_TOP
+      ? await topRecords(ids, propertiesFor(type), range, limit, dateDetails)
+      : await Record.aggregate(aggregation)
+
+  return enhance(entries)
 }
 
 export default get

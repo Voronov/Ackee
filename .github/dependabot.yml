@@ -1,0 +1,23 @@
+version: 2
+
+# Left to open pull requests rather than merge anything on its own. A dependency bump goes
+# through the same tests and the same review as any other change.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One pull request for the small stuff, so a week of patches is one review and not
+      # fifteen. Anything that changes a major version still comes on its own.
+      patch-and-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3

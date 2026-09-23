@@ -8,12 +8,15 @@ import whenBelow from '../utils/whenBelow.js'
 
 import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
 import Modals from './modals/Modals.js'
+import Tabs from './Tabs.js'
+import UserMenu from './UserMenu.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
 import RouteDevices from './routes/RouteDevices.js'
 import RouteDomain from './routes/RouteDomain.js'
 import RouteDurations from './routes/RouteDurations.js'
 import RouteEvents from './routes/RouteEvents.js'
+import RouteCountries from './routes/RouteCountries.js'
 import RouteLanguages from './routes/RouteLanguages.js'
 import RouteOverview from './routes/RouteOverview.js'
 import RoutePages from './routes/RoutePages.js'
@@ -36,6 +39,7 @@ const routeComponents = {
   [routes.BROWSERS]: RouteBrowsers,
   [routes.SIZES]: RouteSizes,
   [routes.LANGUAGES]: RouteLanguages,
+  [routes.COUNTRIES]: RouteCountries,
   [routes.SETTINGS]: RouteSettings,
 }
 
@@ -54,6 +58,7 @@ const Dashboard = (props) => {
   useHotkey('r', () => props.setRoute('/insights/referrers'))
   useHotkey('d', () => props.setRoute('/insights/durations'))
   useHotkey('e', () => props.setRoute('/insights/events'))
+  useHotkey('c', () => props.setRoute('/insights/countries'))
   useHotkey('s', () => props.setRoute('/settings'))
   useHotkey('0,1,2,3,4,5,6,7,8,9', (event, { key }) => gotoDomainWhenDefined(domains.value, props.setRoute, key), {}, [
     domains.value,
@@ -81,14 +86,33 @@ const Dashboard = (props) => {
     createDropdownButton('Browsers', '/insights/browsers', props.route, props.setRoute),
     createDropdownButton('Sizes', '/insights/sizes', props.route, props.setRoute),
     createDropdownButton('Languages', '/insights/languages', props.route, props.setRoute),
+    createDropdownButton('Countries', '/insights/countries', props.route, props.setRoute, 'c'),
   ]
 
+  // Settings is not here any more: it belongs to the person, so it lives in the menu
+  // under their avatar on the right. The `s` shortcut still goes there.
   const items = [
     createButton('Overview', '/', props.route, props.setRoute),
     hasDomains === true ? createDropdown(domainsLabel, domainsItems) : undefined,
     createDropdown(insightsLabel, insightsItems),
-    createButton('Settings', '/settings', props.route, props.setRoute),
   ].filter(Boolean)
+
+  // The same sections as the Insights menu, in the open. The menu stays for its keyboard
+  // shortcuts; the tabs are for finding things without opening anything first.
+  const tabs = [
+    { label: 'Overview', route: '/' },
+    { label: 'Views', route: '/insights/views' },
+    { label: 'Pages', route: '/insights/pages' },
+    { label: 'Referrers', route: '/insights/referrers' },
+    { label: 'Durations', route: '/insights/durations' },
+    { label: 'Countries', route: '/insights/countries' },
+    { label: 'Events', route: '/insights/events' },
+    { label: 'Systems', route: '/insights/systems' },
+    { label: 'Devices', route: '/insights/devices' },
+    { label: 'Browsers', route: '/insights/browsers' },
+    { label: 'Sizes', route: '/insights/sizes' },
+    { label: 'Languages', route: '/insights/languages' },
+  ]
 
   return h(
     'div',
@@ -97,10 +121,26 @@ const Dashboard = (props) => {
       modals: props.modals,
       removeModal: props.removeModal,
     }),
-    h(Header, {
-      loading: props.loading,
-      items,
-    }),
+    h(
+      Header,
+      {
+        loading: props.loading,
+        items,
+      },
+      h(UserMenu, {
+        token: props.token,
+        reset: props.reset,
+        setRoute: props.setRoute,
+      }),
+    ),
+    // Hidden on the settings page and on a single domain, where the sections do not apply.
+    props.route.startsWith('/settings') === false &&
+      props.route.startsWith('/domains/') === false &&
+      h(Tabs, {
+        items: tabs,
+        route: props.route,
+        setRoute: props.setRoute,
+      }),
     h(
       'main',
       { className: 'content' },

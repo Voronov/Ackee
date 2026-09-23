@@ -109,12 +109,14 @@ const Header = (props) => {
     'header',
     { className: 'header' },
     h(Logo, { loading: props.loading }),
+    // The navigation scrolls sideways when it does not fit. The wrapper holds the fades
+    // over its edges: put them on the scrolling element itself and they scroll away.
     h(
-      'nav',
-      { className: 'header__nav' },
+      'div',
+      { className: 'header__navWrap' },
       h(
-        'div',
-        { className: 'header__buttons' },
+        'nav',
+        { className: 'header__nav' },
         props.items.map((item, index) => {
           if (item.type === BUTTON)
             return h(
@@ -138,12 +140,15 @@ const Header = (props) => {
         }),
       ),
     ),
+    // Everything about the person, in one place on the right.
+    props.children,
   )
 }
 
 Header.propTypes = {
   loading: PropTypes.bool.isRequired,
   items: PropTypes.arrayOf(PropTypes.object).isRequired,
+  children: PropTypes.node,
 }
 
 export const createButton = (label, targetRoute, currentRoute, setRoute) => ({

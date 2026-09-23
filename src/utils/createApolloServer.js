@@ -51,7 +51,15 @@ const httpHeadersPlugin = {
 }
 
 export default (options = {}) => {
-  const { plugins: extraPlugins = [], ...restOptions } = options
+  // The schema can be swapped, for the ingest service, but the scalar definitions below
+  // always come along. Overwriting the whole array would drop them and leave the schema
+  // referring to types that no longer exist.
+  const {
+    plugins: extraPlugins = [],
+    typeDefs: ownTypeDefs = typeDefs,
+    resolvers: ownResolvers = resolvers,
+    ...restOptions
+  } = options
 
   return new ApolloServer({
     introspection: config.isDemoMode === true || config.isDevelopmentMode === true,
@@ -70,14 +78,14 @@ export default (options = {}) => {
       DateTimeTypeDefinition,
       PositiveFloatTypeDefinition,
       URLTypeDefinition,
-      typeDefs,
+      ownTypeDefs,
     ],
     resolvers: {
       UnsignedInt: UnsignedIntResolver,
       DateTime: DateTimeResolver,
       PositiveFloat: PositiveFloatResolver,
       URL: URLResolver,
-      ...resolvers,
+      ...ownResolvers,
     },
     ...restOptions,
   })

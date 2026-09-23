@@ -37,4 +37,14 @@ The following data is considered as "personal data":
 
 All those parameters are considered as personal data, because you could point at the tracked person when sitting in the same room (even when this is probably never the case and totally unrealistic).
 
+## Country
+
+When `ACKEE_GEO` is enabled, Ackee resolves the country of a visit from the IP address and stores the two-letter code alongside the record. The address itself is used for the lookup and then discarded — it is never written to the database, exactly as it already was for the `clientId` hash.
+
+The lookup runs against a database bundled with the installation, not an external service. A third-party geolocation API would mean handing every visitor's IP to someone else, which is the opposite of what the rest of this page describes.
+
+The country is personal data by the same reasoning as the parameters above, and it narrows the field further: a country combined with a browser version, an OS version and an exact screen size is close to a fingerprint. Enable it deliberately, and treat it as personal data. It is off by default.
+
+City-level resolution is intentionally not offered. It would make records identifiable in a way that no amount of salting compensates for.
+
 `siteReferrer` and visit duration (calculated using the creation and update time of a record) is not considered as personal data as you won't be able to identify a user with this piece of information. Even when you are in the same room you would need access to the browsing history of the user.
