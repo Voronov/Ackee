@@ -82,6 +82,22 @@ export const update = async (id) => {
   return enhance(entry)
 }
 
+const anonymized = {
+  clientId: null,
+  siteLanguage: null,
+  screenWidth: null,
+  screenHeight: null,
+  screenColorDepth: null,
+  deviceName: null,
+  deviceManufacturer: null,
+  osName: null,
+  osVersion: null,
+  browserName: null,
+  browserVersion: null,
+  browserWidth: null,
+  browserHeight: null,
+}
+
 export const anonymize = (clientId, ignoreId) => {
   // Don't return anything about the update
   return Record.updateMany(
@@ -95,22 +111,15 @@ export const anonymize = (clientId, ignoreId) => {
         },
       ],
     },
-    {
-      clientId: null,
-      siteLanguage: null,
-      screenWidth: null,
-      screenHeight: null,
-      screenColorDepth: null,
-      deviceName: null,
-      deviceManufacturer: null,
-      osName: null,
-      osVersion: null,
-      browserName: null,
-      browserVersion: null,
-      browserWidth: null,
-      browserHeight: null,
-    },
+    anonymized,
   )
+}
+
+// Same update as anonymize, but for records a caller has already read: a store that
+// mirrors them elsewhere must null exactly the set it mirrored, not whatever matches
+// the clientId by the time the update runs
+export const anonymizeByIds = (ids) => {
+  return Record.updateMany({ id: { $in: ids } }, anonymized)
 }
 
 export const del = (domainId) => {

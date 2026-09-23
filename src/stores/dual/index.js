@@ -16,6 +16,7 @@ export {
   browsers,
   sizes,
   languages,
+  countries,
   activeVisitors,
   actionsChart,
   actionsList,
