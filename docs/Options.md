@@ -167,7 +167,13 @@ environment change, not a data migration.
 
 `clickhouse` requires the ClickHouse settings below and **does not fall back to MongoDB**:
 reports answer from the columnar store alone, so history that was never copied over simply
-reads as zero. Run the migration before switching.
+reads as zero. Run the migration before switching; a start that finds ClickHouse far behind
+MongoDB warns about it, but still starts.
+
+A serverless deployment (Vercel, Netlify) supports `mongo` together with
+`ACKEE_INGEST_QUEUE=none` only and refuses to start with anything else: a function freezes
+after the response, so buffered and queued events are lost, see
+[ClickHouse](ClickHouse.md#serverless).
 
 See [ADR-006](adr/ADR-006-event-store.md) for why the choice is made here rather than inside
 each report, and [ClickHouse](ClickHouse.md) for what the store guarantees.

@@ -39,6 +39,16 @@ To stop reading from ClickHouse, set `ACKEE_EVENT_STORE=dual` and restart. Repor
 
 Either way, follow "Switching on" again from step 2 and compare the counts before switching reads back.
 
+A start in `clickhouse` mode warns when MongoDB holds records and ClickHouse holds noticeably fewer, because that is what a forgotten migration looks like: reports answer from ClickHouse alone and show the missing history as zero. The warning does not stop the start, since an empty store can be intentional, and it is not raised in `dual` mode, where MongoDB answers the reports anyway.
+
+## Serverless
+
+The serverless entry points (`api/index.js` for Vercel, `netlify/functions/api.js` for Netlify) support `ACKEE_EVENT_STORE=mongo` together with `ACKEE_INGEST_QUEUE=none` only, and refuse to start with anything else.
+
+A function has no lifecycle to hang a schema migration or a buffer flush on: it freezes as soon as it has answered. The ClickHouse schema would never be created, the rows waiting in the write buffer would freeze with the process, and the same is true of events handed to the ingest queue, which needs a worker that outlives the request. Flushing inside every request would avoid the loss at the cost of a round trip on every tracked event, which is what the buffer exists to prevent, so the combination is refused instead.
+
+Run Ackee as a long-lived server to use ClickHouse or the queue.
+
 ## Metrics
 
 With `ACKEE_METRICS_TOKEN=<token>` Ackee serves Prometheus metrics at `GET /metrics` (see [Options](Options.md#metrics)). The endpoint answers only to `Authorization: Bearer <token>` and returns 404 to anything else, so an installation without metrics never advertises that they exist. Give Prometheus the same token. The counters live in memory and start at zero on every restart, which is how Prometheus counters are meant to work.

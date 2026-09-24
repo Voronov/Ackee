@@ -1,6 +1,11 @@
 import { HeaderMap } from '@apollo/server'
 
-import config from './utils/config.js'
+import config, {
+  usesClickHouse,
+  usesQueue,
+  validateEventStoreConfig,
+  validateIngestQueueConfig,
+} from './utils/config.js'
 import connect from './utils/connect.js'
 import createApolloServer from './utils/createApolloServer.js'
 import { createServerlessContext } from './utils/createContext.js'
@@ -9,6 +14,22 @@ import setSecurityHeaders from './utils/securityHeaders.js'
 
 if (config.dbUrl == null) {
   throw new Error('MongoDB connection URI missing in environment')
+}
+
+// A typo in the env must stop the function here too, and before the next check reads it
+validateEventStoreConfig()
+validateIngestQueueConfig()
+
+/*
+ * A function has no lifecycle to hang a schema migration or a buffer flush on: it freezes
+ * right after the response, so rows buffered for ClickHouse and events handed to the
+ * queue would never leave the process. Flushing inside every request would trade that
+ * loss for latency on every tracked event, so the combination is refused at startup.
+ */
+if (usesClickHouse() === true || usesQueue() === true) {
+  throw new Error(
+    `Serverless supports ACKEE_EVENT_STORE=mongo and ACKEE_INGEST_QUEUE=none only, got '${config.eventStore}' and '${config.ingestQueue}'. A function freezes after the response, so buffered and queued events are lost. Run Ackee as a server to use ClickHouse or the ingest queue.`,
+  )
 }
 
 connect(config.dbUrl)

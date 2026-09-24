@@ -1,16 +1,8 @@
 import express from 'express'
 
-import getBrowsers from './database/browsers.js'
-import getCountries from './database/countries.js'
-import getDevices from './database/devices.js'
+// A domain is metadata and stays in MongoDB, unlike the records the reports read
 import * as domains from './database/domains.js'
-import getDurations from './database/durations.js'
-import getLanguages from './database/languages.js'
-import getPages from './database/pages.js'
-import getReferrers from './database/referrers.js'
-import getSizes from './database/sizes.js'
-import getSystems from './database/systems.js'
-import getViews from './database/views.js'
+import { getEventStore } from './stores/index.js'
 import { BROWSERS_TYPE_NO_VERSION } from './constants/browsers.js'
 import { DEVICES_TYPE_NO_MODEL } from './constants/devices.js'
 import { INTERVALS_DAILY } from './constants/intervals.js'
@@ -35,19 +27,29 @@ import KnownError from './utils/KnownError.js'
  * scripting against Ackee, which is the more likely reason to want this at all.
  */
 
+/*
+ * The store is resolved per request, like in the resolvers: `ACKEE_EVENT_STORE` is read
+ * at runtime, and a download must not answer from a different store than the dashboard.
+ */
 const REPORTS = {
-  'views': (ids, { limit, dateDetails }) => getViews(ids, VIEWS_TYPE_TOTAL, INTERVALS_DAILY, limit, dateDetails),
+  'views': (ids, { limit, dateDetails }) =>
+    getEventStore().views(ids, VIEWS_TYPE_TOTAL, INTERVALS_DAILY, limit, dateDetails),
   'unique-views': (ids, { limit, dateDetails }) =>
-    getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, limit, dateDetails),
-  'durations': (ids, { limit, dateDetails }) => getDurations(ids, INTERVALS_DAILY, limit, dateDetails),
-  'pages': (ids, o) => getPages(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
-  'referrers': (ids, o) => getReferrers(ids, SORTINGS_TOP, REFERRERS_TYPE_WITH_SOURCE, o.range, o.limit, o.dateDetails),
-  'systems': (ids, o) => getSystems(ids, SORTINGS_TOP, SYSTEMS_TYPE_NO_VERSION, o.range, o.limit, o.dateDetails),
-  'devices': (ids, o) => getDevices(ids, SORTINGS_TOP, DEVICES_TYPE_NO_MODEL, o.range, o.limit, o.dateDetails),
-  'browsers': (ids, o) => getBrowsers(ids, SORTINGS_TOP, BROWSERS_TYPE_NO_VERSION, o.range, o.limit, o.dateDetails),
-  'sizes': (ids, o) => getSizes(ids, SORTINGS_TOP, SIZES_TYPE_BROWSER_RESOLUTION, o.range, o.limit, o.dateDetails),
-  'languages': (ids, o) => getLanguages(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
-  'countries': (ids, o) => getCountries(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
+    getEventStore().views(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, limit, dateDetails),
+  'durations': (ids, { limit, dateDetails }) => getEventStore().durations(ids, INTERVALS_DAILY, limit, dateDetails),
+  'pages': (ids, o) => getEventStore().pages(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
+  'referrers': (ids, o) =>
+    getEventStore().referrers(ids, SORTINGS_TOP, REFERRERS_TYPE_WITH_SOURCE, o.range, o.limit, o.dateDetails),
+  'systems': (ids, o) =>
+    getEventStore().systems(ids, SORTINGS_TOP, SYSTEMS_TYPE_NO_VERSION, o.range, o.limit, o.dateDetails),
+  'devices': (ids, o) =>
+    getEventStore().devices(ids, SORTINGS_TOP, DEVICES_TYPE_NO_MODEL, o.range, o.limit, o.dateDetails),
+  'browsers': (ids, o) =>
+    getEventStore().browsers(ids, SORTINGS_TOP, BROWSERS_TYPE_NO_VERSION, o.range, o.limit, o.dateDetails),
+  'sizes': (ids, o) =>
+    getEventStore().sizes(ids, SORTINGS_TOP, SIZES_TYPE_BROWSER_RESOLUTION, o.range, o.limit, o.dateDetails),
+  'languages': (ids, o) => getEventStore().languages(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
+  'countries': (ids, o) => getEventStore().countries(ids, SORTINGS_TOP, o.range, o.limit, o.dateDetails),
 }
 
 export const REPORT_NAMES = Object.keys(REPORTS)
