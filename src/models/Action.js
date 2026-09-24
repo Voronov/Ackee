@@ -11,7 +11,6 @@ const schema = new mongoose.Schema({
   eventId: {
     type: String,
     required: true,
-    index: true,
   },
   key: {
     type: String,
@@ -37,5 +36,9 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Event reports filter by event and a time range, then group, the same shape the record
+// reports have. Without the compound index the planner reads an event's whole history.
+schema.index({ eventId: 1, created: 1 })
 
 export default mongoose.model('Action', schema)

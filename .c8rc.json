@@ -6,9 +6,9 @@
     "src/serverless.js",
     "src/healthcheck.js",
     "src/index.js",
+    "src/worker.js",
     "src/mcp/index.js",
     "src/rollups/backfill.js",
-    "src/clickhouse/backfill.js",
     "src/import/cli.js"
   ],
   "reports-dir": "coverage",

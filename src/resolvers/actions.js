@@ -1,4 +1,8 @@
 import * as actions from '../database/actions.js'
+import { enqueue } from '../queue/redis.js'
+import { getEventStore } from '../stores/index.js'
+import { usesQueue } from '../utils/config.js'
+import { actionsCreated } from '../utils/metrics.js'
 import * as events from '../database/events.js'
 import KnownError from '../utils/KnownError.js'
 import messages from '../utils/messages.js'
@@ -35,10 +39,34 @@ export default {
 
       if (event == null) throw new KnownError('Unknown event')
 
+      // With the queue the tracker gets the same answer, but from the validated, not yet
+      // saved action: the worker creates it later with this id and these dates
+      if (usesQueue() === true) {
+        let validated
+
+        try {
+          validated = await actions.validate(data)
+        } catch (error) {
+          if (error.name === 'ValidationError') {
+            throw new KnownError(messages(error.errors))
+          }
+
+          throw error
+        }
+
+        await enqueue('action.create', { ...data, ...validated })
+        actionsCreated.inc()
+
+        return {
+          success: true,
+          payload: validated,
+        }
+      }
+
       let entry
 
       try {
-        entry = await actions.add(data)
+        entry = await getEventStore().addAction(data)
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))
@@ -46,6 +74,8 @@ export default {
 
         throw error
       }
+
+      actionsCreated.inc()
 
       return {
         success: true,
@@ -60,10 +90,18 @@ export default {
         }
       }
 
+      if (usesQueue() === true) {
+        await enqueue('action.touch', { id, ...input, updated: Date.now() })
+
+        return {
+          success: true,
+        }
+      }
+
       let entry
 
       try {
-        entry = await actions.update(id, input)
+        entry = await getEventStore().touchAction(id, input)
       } catch (error) {
         if (error.name === 'ValidationError') {
           throw new KnownError(messages(error.errors))

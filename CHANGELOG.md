@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `ACKEE_EVENT_STORE` selects which store answers reports and takes writes: `mongo` (the default, unchanged behaviour), `dual` (both written, MongoDB answers) or `clickhouse`. The choice is made once, above the reports, instead of inside each of them
+- Unique views and active visitors are answered from ClickHouse. The columnar schema now keeps the visitor hash and versions rows, so anonymization is mirrored as a new version instead of rewriting history — which is what previously kept those two reports on MongoDB
+- An `actions` table, so event reports have a columnar path as well
+- `ACKEE_INGEST_QUEUE=redis` puts an accepted event on a Redis stream and lets `npm run worker:ingest` store it, so a slow store cannot slow the tracker down. The record is validated while the tracker is still waiting, and delivery is at-least-once
+- `npm run clickhouse:migrate` copies existing history with a checkpoint, so an interrupted run resumes. It replaces `npm run clickhouse:backfill`
+
+### Changed
+
+- `ACKEE_CLICKHOUSE_READS` is replaced by `ACKEE_EVENT_STORE`: a boolean could express two of the three states
+- Reports no longer fall back from ClickHouse to MongoDB. With `clickhouse` selected the columnar store answers alone, so history has to be migrated before switching. Rollups are untouched and keep serving the `mongo` and `dual` stores
+- Writes to ClickHouse are buffered and flushed in batches instead of inserted one row at a time inside the request
+- The action report orders by the earliest `created` per key rather than whichever document the storage engine returned first, matching the fix already made for records. The compound index `{ eventId, created }` added here is what made the previous order wrong
+
 ## [4.0.2] - 2026-09-22
 
 ### Changed

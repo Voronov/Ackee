@@ -11,9 +11,9 @@
 import mongoose from 'mongoose'
 
 import * as domains from '../database/domains.js'
-import { insert as insertIntoClickhouse } from '../clickhouse/records.js'
 import Record from '../models/Record.js'
-import { migrate as clickhouseMigrate } from '../utils/clickhouse.js'
+import { closeEventStore, connectEventStore } from '../stores/connect.js'
+import { getEventStore } from '../stores/index.js'
 import config from '../utils/config.js'
 import connect from '../utils/connect.js'
 import signale from '../utils/signale.js'
@@ -45,7 +45,7 @@ if (domainId == null || file == null) {
 
 signale.await(`Connecting to ${stripUrlAuth(config.dbUrl)}`)
 await connect(config.dbUrl)
-await clickhouseMigrate()
+await connectEventStore()
 
 const domain = await domains.getUnscoped(domainId)
 
@@ -79,7 +79,7 @@ const flush = async () => {
   if (batch.length === 0) return
 
   await Record.insertMany(batch, { ordered: false })
-  await insertIntoClickhouse(batch)
+  await getEventStore().mirrorRecords(batch)
 
   records += batch.length
   batch = []
@@ -99,4 +99,6 @@ await flush()
 signale.success(`Imported ${records} records from ${rows} rows in ${Math.round((Date.now() - started) / 1000)}s`)
 signale.warn('Imported records carry no visitor hash, so unique views over this period will read low')
 
+// The store buffers rows, so the process must not exit before they are flushed
+await closeEventStore()
 await mongoose.disconnect()

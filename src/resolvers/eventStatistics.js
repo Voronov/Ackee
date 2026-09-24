@@ -1,4 +1,4 @@
-import * as actions from '../database/actions.js'
+import { getEventStore } from '../stores/index.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import pipe from '../utils/pipe.js'
 
@@ -9,11 +9,11 @@ export default {
     }),
     chart: pipe(requireAuth, (event, { type, interval, limit }, { dateDetails }) => {
       const ids = [event.id]
-      return actions.getChart(ids, type, interval, limit, dateDetails)
+      return getEventStore().actionsChart(ids, type, interval, limit, dateDetails)
     }),
     list: pipe(requireAuth, (event, { sorting, type, range, limit }, { dateDetails }) => {
       const ids = [event.id]
-      return actions.getList(ids, sorting, type, range, limit, dateDetails)
+      return getEventStore().actionsList(ids, sorting, type, range, limit, dateDetails)
     }),
   },
 }
