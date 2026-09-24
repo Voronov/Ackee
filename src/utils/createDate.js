@@ -24,9 +24,9 @@ const sanitizeTimeZone = (tz) => {
   }
 }
 
-export default (userTimeZone) => {
+// `currentDate` is only passed by tests that need both stores measured from the same "now"
+export default (userTimeZone, currentDate = new Date()) => {
   const safeTimeZone = sanitizeTimeZone(userTimeZone)
-  const currentDate = new Date()
 
   // This is the biggest, positive timezone offset possible (starting from UTC).
   // We should always additionally include this amount of hours when selecting data,
