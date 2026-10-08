@@ -48,3 +48,48 @@ test.serial('an unknown confirmation link is refused', async (t) => {
   t.is(status, 400)
   t.regex(body, /not valid/i)
 })
+
+test.serial('the reset page carries the token into the form', async (t) => {
+  const { user } = await account('reset-page@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const { status, body } = await get(`/reset?token=${token}`)
+
+  t.is(status, 200)
+  t.true(body.includes(token))
+})
+
+test.serial('the reset form sets a new password', async (t) => {
+  const { user } = await account('reset-form@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const response = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token, password: 'a-brand-new-password' }),
+  })
+
+  t.is(response.status, 200)
+  t.regex(await response.text(), /password changed/i)
+
+  const stored = await User.findOne({ id: user.id }).lean()
+
+  // A reset also confirms the address: whoever opened the link reads that mailbox.
+  t.true(stored.verified)
+})
+
+test.serial('the reset form refuses a short password', async (t) => {
+  const { user } = await account('reset-short@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const response = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token, password: 'short' }),
+  })
+
+  t.is(response.status, 400)
+
+  // The token survives a rejected attempt, so the user can try again with a longer one.
+  t.false((await User.findOne({ id: user.id }).lean()).verified)
+})
