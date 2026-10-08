@@ -13,6 +13,7 @@ supported, because the versioned migration mechanism is deliberately out of scop
 
 ### Added
 
+- An ingest key per domain, carried by the embed code after the domain id. Checking is off per domain until the owner turns it on, and with it on an event also has to come from the site the domain is named after. The key is visible on the page, so it raises the bar rather than closing the door, and it can be rotated
 - Accounts, workspaces and roles. Anyone can register and gets a personal workspace to put their own domains in; nobody administers anyone else. `ACKEE_ALLOW_SIGNUP=false` closes registration on instances that exist to measure their owner's own sites
 - Compound index `{ domainId, created }` on records. Every report matches on both fields, so the previous single-field indexes made the planner read the whole domain history or the whole collection
 - Hourly rollups for all top reports and for total views, behind `ACKEE_ROLLUPS`. Whole hours are read from pre-computed buckets, the two partial edges of the window from raw records, so results stay exact rather than approximate

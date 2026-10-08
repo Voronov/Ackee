@@ -39,6 +39,35 @@ _or_
 PORT=3000
 ```
 
+## Ingest key
+
+Every domain has an ingest key. The embed code carries it after the domain id, separated by
+a dot, and the tracker passes the whole value through untouched — so nothing about the
+tracker had to change.
+
+The key is **not a secret**: it sits in a script tag on a public page, and anyone who opens
+that page can read it. What it buys is a higher bar. Without it, a domain id found in
+someone's page source is enough to send events into their reports; with it, an attacker has
+to at least fetch the page, and the owner can rotate the key when that is not enough.
+
+Checking is off per domain until the owner turns it on, so an installation that predates
+this keeps working. Turn it on once the snippet on your site carries the key:
+
+```graphql
+mutation {
+  updateDomain(id: "…", input: { title: "example.com", strictIngest: true }) {
+    success
+  }
+}
+```
+
+With it on, an event also has to come from the site the domain is named after. That check
+only works when the domain title is a host name; a domain called "My blog" cannot be checked
+that way and is let through.
+
+Rotate a key that is being misused with `rotateIngestKey`. The old one stops working at once,
+so update the snippet on your site first.
+
 ## Registration
 
 Accounts live in the database and are created by registering, not by configuration.
