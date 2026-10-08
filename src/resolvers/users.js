@@ -1,7 +1,7 @@
 import * as userTokens from '../database/userTokens.js'
 import * as users from '../database/users.js'
 import config from '../utils/config.js'
-import { sendVerification } from '../utils/emails.js'
+import { sendPasswordReset, sendVerification } from '../utils/emails.js'
 import { isEnabled as mailEnabled } from '../utils/mailer.js'
 import { hour } from '../utils/times.js'
 import KnownError from '../utils/KnownError.js'
@@ -94,8 +94,8 @@ export default {
 
       return { success: true }
     },
-    // Always reports success. Saying "no such address" would turn the form into a way to
-    // find out who has an account here.
+    // Both of the next two always report success. Saying "no such address" would turn
+    // either form into a way to find out who has an account here.
     resendVerification: async (parent, { email }) => {
       const user = await users.byEmail(email)
 
@@ -103,6 +103,34 @@ export default {
         await userTokens.revoke(user.id, 'VERIFY')
         await sendVerification(user.email, await userTokens.issue(user.id, 'VERIFY'))
       }
+
+      return { success: true }
+    },
+    requestPasswordReset: async (parent, { email }) => {
+      const user = await users.byEmail(email)
+
+      if (user != null && (await withinSendingLimit(user.id, 'RESET'))) {
+        await userTokens.revoke(user.id, 'RESET')
+        await sendPasswordReset(user.email, await userTokens.issue(user.id, 'RESET'))
+      }
+
+      return { success: true }
+    },
+    resetPassword: async (parent, { input }) => {
+      const password = String(input.password ?? '')
+
+      if (password.length < MINIMUM_PASSWORD_LENGTH) {
+        throw new KnownError(`Password must be at least ${MINIMUM_PASSWORD_LENGTH} characters long`)
+      }
+
+      const result = await userTokens.redeem(input.token, 'RESET')
+
+      if (result.status === 'USED') throw new KnownError('This link has already been used')
+      if (result.status === 'EXPIRED') throw new KnownError('This link has expired')
+      if (result.status !== 'OK') throw new KnownError('This link is not valid')
+
+      // A reset also confirms the address: whoever opened the link reads that mailbox.
+      await users.setPassword(result.userId, password)
 
       return { success: true }
     },

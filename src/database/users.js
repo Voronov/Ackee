@@ -49,6 +49,18 @@ export const add = async ({ email, password, verified = false, workspaceTitle })
   return { user: response(user), workspace: { id: workspace.id, title: workspace.title } }
 }
 
+// Setting a password also confirms the address: whoever opened the link from the email
+// can read that mailbox, which is exactly what confirmation proves.
+export const setPassword = async (id, password) => {
+  const entry = await User.findOneAndUpdate(
+    { id },
+    { $set: { password: await hash(password), verified: true, updated: Date.now() } },
+    { returnDocument: 'after' },
+  )
+
+  return entry == null ? null : response(entry)
+}
+
 export const verify = async (id) => {
   const entry = await User.findOneAndUpdate(
     { id },
