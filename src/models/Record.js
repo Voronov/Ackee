@@ -18,7 +18,6 @@ const schema = new mongoose.Schema({
   domainId: {
     type: String,
     required: true,
-    index: true,
   },
   siteLocation: {
     type: String,
@@ -100,5 +99,14 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every report starts with `{ domainId: { $in: ids }, created: { $gte: … } }`, see
+// stages/matchDomains.js. A single index on `created` made the planner read millions of
+// documents; one on `domainId` made it read a domain's whole history. The compound index
+// covers both conditions at once.
+//
+// The standalone `domainId` index is gone: it is a prefix of this one, so it served the
+// same queries while costing writes and storage.
+schema.index({ domainId: 1, created: 1 })
 
 export default mongoose.model('Record', schema)
