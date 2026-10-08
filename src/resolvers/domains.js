@@ -69,6 +69,16 @@ export default {
         success: true,
       }
     }),
+    rotateIngestKey: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
+      const entry = await domains.rotateIngestKey(id, canEdit(viewer))
+
+      if (entry == null) throw new KnownError('Unknown domain')
+
+      return {
+        payload: entry,
+        success: true,
+      }
+    }),
     deleteDomain: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
       // Delete the domain first, and only wipe its records if it really belonged to the
       // viewer. Otherwise knowing an id would be enough to destroy someone else's data.
