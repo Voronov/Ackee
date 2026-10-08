@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { createElement as h } from 'react'
+import { createElement as h, useState } from 'react'
 
 import { homepage } from '../../../../../package.json'
 
@@ -11,28 +11,70 @@ import Spinner from '../Spinner.js'
 import Text from '../Text.js'
 
 import useCreateToken from '../../api/hooks/tokens/useCreateToken.js'
+import useCreateUser from '../../api/hooks/users/useCreateUser.js'
+import useSignup from '../../api/hooks/users/useSignup.js'
 import useInputs from '../../hooks/useInputs.js'
 
-const OverlayLogin = (props) => {
-  const createToken = useCreateToken()
+// One screen with two modes rather than two routes. The interface is a single page
+// behind a hash router, and signing in is the only thing that happens before it loads.
+const SIGN_IN = 'SIGN_IN'
+const REGISTER = 'REGISTER'
 
-  const hasError = createToken.error != null
-  const loading = createToken.loading === true
+const copy = {
+  [SIGN_IN]: { lead: 'Welcome back, sign in to continue.', submit: 'Sign In →' },
+  [REGISTER]: { lead: 'Create an account to start measuring your sites.', submit: 'Create account →' },
+}
+
+const OverlayLogin = (props) => {
+  const [mode, setMode] = useState(SIGN_IN)
+  const [notice, setNotice] = useState(null)
+
+  const signup = useSignup()
+  const createToken = useCreateToken()
+  const createUser = useCreateUser()
+
+  const current = { [SIGN_IN]: createToken, [REGISTER]: createUser }[mode]
+
+  const loading = current.loading === true
+  const hasError = current.error != null
 
   const [inputs, onInputChange] = useInputs({
     username: globalThis.env.isDemoMode === true ? 'admin' : '',
     password: globalThis.env.isDemoMode === true ? '123456' : '',
   })
 
+  const switchTo = (next) => (event) => {
+    event.preventDefault()
+    setNotice(null)
+    setMode(next)
+  }
+
   const onSubmit = async (event) => {
     event.preventDefault()
-    const { data } = await createToken.mutate({
-      variables: {
-        input: inputs,
-      },
+    setNotice(null)
+
+    if (mode === SIGN_IN) {
+      const { data } = await createToken.mutate({ variables: { input: inputs } })
+      return props.setToken(data.createToken.payload.id)
+    }
+
+    const { data } = await createUser.mutate({
+      variables: { input: { email: inputs.username, password: inputs.password } },
     })
-    props.setToken(data.createToken.payload.id)
+
+    // With outgoing mail configured the account waits for a confirmation link, so
+    // signing in straight away would fail. Without it the account is ready at once.
+    if (data.createUser.payload.verified === true) {
+      const signedIn = await createToken.mutate({ variables: { input: inputs } })
+      return props.setToken(signedIn.data.createToken.payload.id)
+    }
+
+    setMode(SIGN_IN)
+    setNotice('Account created. Check your email for a confirmation link.')
   }
+
+  const link = (label, target) =>
+    h('a', { className: 'card__button link', href: '#', onClick: switchTo(target) }, label)
 
   return h(
     'form',
@@ -42,40 +84,28 @@ const OverlayLogin = (props) => {
       { className: 'card__inner align-center' },
 
       h(Spacer, { size: 2.4 }),
-
-      h(
-        Headline,
-        {
-          type: 'h1',
-        },
-        'Ackee',
-      ),
-      h(
-        Text,
-        {
-          type: 'p',
-        },
-        'Welcome back, sign in to continue.',
-      ),
-
+      h(Headline, { type: 'h1' }, 'Ackee'),
+      h(Text, { type: 'p' }, copy[mode].lead),
       h(Spacer, { size: 2.5 }),
 
-      hasError === true && h(Message, { status: 'error' }, createToken.error.message),
+      notice != null && h(Message, { status: 'success' }, notice),
+      hasError === true && h(Message, { status: 'error' }, current.error.message),
 
       h(Input, {
         type: 'username',
         required: true,
         disabled: loading === true,
         focused: true,
-        placeholder: 'Username',
+        placeholder: mode === SIGN_IN ? 'Email' : 'Email address',
         value: inputs.username,
         onChange: onInputChange('username'),
       }),
+
       h(Input, {
         type: 'password',
         required: true,
         disabled: loading === true,
-        placeholder: 'Password',
+        placeholder: mode === REGISTER ? 'Password, at least 10 characters' : 'Password',
         value: inputs.password,
         onChange: onInputChange('password'),
       }),
@@ -86,20 +116,13 @@ const OverlayLogin = (props) => {
       'div',
       { className: 'card__footer' },
 
-      h(
-        'a',
-        {
-          className: 'card__button link',
-          href: homepage,
-          target: '_blank',
-          rel: 'noopener',
-        },
-        'Help',
-      ),
+      mode === SIGN_IN && signup.allowed === true && link('Create account', REGISTER),
+      mode !== SIGN_IN && link('← Back to sign in', SIGN_IN),
+      mode === SIGN_IN &&
+        signup.allowed === false &&
+        h('a', { className: 'card__button link', href: homepage, target: '_blank', rel: 'noopener' }, 'Help'),
 
-      h('div', {
-        className: 'card__separator',
-      }),
+      h('div', { className: 'card__separator' }),
 
       h(
         'button',
@@ -107,7 +130,7 @@ const OverlayLogin = (props) => {
           className: 'card__button card__button--primary link color-white',
           disabled: loading === true,
         },
-        loading === true ? h(Spinner) : 'Sign In →',
+        loading === true ? h(Spinner) : copy[mode].submit,
       ),
     ),
   )
