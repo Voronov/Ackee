@@ -12,8 +12,6 @@ export default new Proxy(
         dbUrl: process.env.ACKEE_MONGODB || process.env.MONGODB_URI,
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
-        username: process.env.ACKEE_USERNAME,
-        password: process.env.ACKEE_PASSWORD,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         rollups: process.env.ACKEE_ROLLUPS === 'true',
         isDemoMode: process.env.ACKEE_DEMO === 'true',

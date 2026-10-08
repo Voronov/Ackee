@@ -7,6 +7,10 @@ import Event from '../../src/models/Event.js'
 import PermanentToken from '../../src/models/PermanentToken.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
+import User from '../../src/models/User.js'
+import Workspace from '../../src/models/Workspace.js'
+import Membership from '../../src/models/Membership.js'
+import * as users from '../../src/database/users.js'
 import connect from '../../src/utils/connect.js'
 import createArray from '../../src/utils/createArray.js'
 import { job as saltJob } from '../../src/utils/salt.js'
@@ -14,15 +18,33 @@ import { day, minute } from '../../src/utils/times.js'
 
 const mongoDb = MongoMemoryServer.create()
 
+// The fixture password is fixed so that sign-in tests can use it.
+export const FIXTURE_PASSWORD = 'example-password'
+
 export const connectToDatabase = async () => {
   const dbUrl = (await mongoDb).getUri()
   return connect(dbUrl)
 }
 
 export const fillDatabase = async (t) => {
+  // Tokens belong to a user, so the fixture starts with one. Registering also creates the
+  // user's workspace and membership.
+  const email = `user-${Math.random().toString(36).slice(2)}@example.com`
+
+  const { user, workspace } = await users.add({
+    email,
+    password: FIXTURE_PASSWORD,
+    verified: true,
+    workspaceTitle: 'Example workspace',
+  })
+
   // Saves to context so tests can access ids
-  t.context.token = await Token.create({})
-  t.context.permanentToken = await PermanentToken.create({ title: 'Example' })
+  t.context.email = email
+  t.context.password = FIXTURE_PASSWORD
+  t.context.user = user
+  t.context.workspace = workspace
+  t.context.token = await Token.create({ userId: user.id })
+  t.context.permanentToken = await PermanentToken.create({ title: 'Example', userId: user.id })
   t.context.domain = await Domain.create({ title: 'Example' })
   t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART' })
 
@@ -70,6 +92,11 @@ export const cleanupDatabase = async (t) => {
   await Domain.findOneAndDelete({
     id: t.context.domain.id,
   })
+  // The user and workspace go too, or the next run would hit the unique index on the
+  // email address.
+  await Membership.deleteMany({ userId: t.context.user.id })
+  await Workspace.findOneAndDelete({ id: t.context.workspace.id })
+  await User.findOneAndDelete({ id: t.context.user.id })
 }
 
 export const cleanup = (server) => async () => {

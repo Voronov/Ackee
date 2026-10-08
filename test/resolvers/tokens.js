@@ -16,8 +16,8 @@ test.beforeEach(fillDatabase)
 test.afterEach.always(cleanupDatabase)
 
 test.serial('return token and cookie after successful login', async (t) => {
-  const username = 'admin'
-  const password = '123456'
+  const username = t.context.email
+  const password = t.context.password
 
   const body = {
     query: gql`
@@ -39,8 +39,6 @@ test.serial('return token and cookie after successful login', async (t) => {
   }
 
   const restore = mockedEnv({
-    ACKEE_USERNAME: username,
-    ACKEE_PASSWORD: password,
     ACKEE_ALLOW_ORIGIN: 'https://badexample.com,https://bad.example.com,https://example.com',
   })
 
