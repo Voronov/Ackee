@@ -93,7 +93,7 @@ app.options('/{*path}', (request, response) => {
 // Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
 app.get('/metrics', metrics.handler)
 
-// Pages that links in emails point at.
+// Pages that links in emails point at: confirming an address and resetting a password.
 app.use(pages)
 
 // Serve static files

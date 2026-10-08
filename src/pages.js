@@ -2,14 +2,17 @@ import express from 'express'
 
 import * as userTokens from './database/userTokens.js'
 import * as users from './database/users.js'
+import signale from './utils/signale.js'
 
 /*
- * Pages that links in emails point at.
+ * The two pages that links in emails point at.
  *
  * They are plain server-rendered pages rather than part of the single-page interface.
  * A confirmation link has to work in any mail client, including one that opens it in a
  * stripped-down browser, so the fewer moving parts the better.
  */
+const MINIMUM_PASSWORD_LENGTH = 10
+
 const page = (title, body) => `<!doctype html>
 <html lang="en">
 <head>
@@ -64,6 +67,52 @@ router.get('/verify', async (request, response) => {
   await users.verify(result.userId)
 
   response.send(message('Address confirmed', 'Your account is ready. You can sign in now.'))
+})
+
+router.get('/reset', (request, response) => {
+  const token = String(request.query.token ?? '')
+
+  response.send(
+    page(
+      'Choose a new password',
+      `<h1>Choose a new password</h1>
+       <p>At least ${MINIMUM_PASSWORD_LENGTH} characters. Length matters more than symbols.</p>
+       <form method="post" action="/reset">
+         <input type="hidden" name="token" value="${token.replaceAll('"', '&quot;')}">
+         <label for="password">New password</label>
+         <input id="password" name="password" type="password" minlength="${MINIMUM_PASSWORD_LENGTH}" required autofocus>
+         <button type="submit">Save</button>
+       </form>`,
+    ),
+  )
+})
+
+router.post('/reset', express.urlencoded({ extended: false }), async (request, response) => {
+  const password = String(request.body.password ?? '')
+
+  if (password.length < MINIMUM_PASSWORD_LENGTH) {
+    return response
+      .status(400)
+      .send(message('Password too short', `It needs at least ${MINIMUM_PASSWORD_LENGTH} characters.`))
+  }
+
+  const result = await userTokens.redeem(String(request.body.token ?? ''), 'RESET')
+
+  if (result.status !== 'OK') {
+    const [title, text] = explain(result.status)
+
+    return response.status(400).send(message(title, text))
+  }
+
+  try {
+    await users.setPassword(result.userId, password)
+  } catch (error) {
+    signale.fatal(error)
+
+    return response.status(500).send(message('Something went wrong', 'Please try again in a moment.'))
+  }
+
+  response.send(message('Password changed', 'You can sign in with the new password now.'))
 })
 
 export default router
