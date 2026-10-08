@@ -44,6 +44,21 @@ PORT=3000
 Accounts live in the database and are created by registering, not by configuration.
 `ACKEE_USERNAME` and `ACKEE_PASSWORD` are gone.
 
+Registering creates a personal workspace along with the account. Domains belong to a workspace
+rather than to a user, so without one a new account would have nowhere to put a domain. A single
+user never sees this: for them it is simply "my domains". Everyone who registers gets the same
+thing — their own workspace, their own domains, and no view of anyone else's.
+
+Registration is open unless you close it:
+
+```
+ACKEE_ALLOW_SIGNUP=false
+```
+
+Close it when the instance exists to measure your own sites and nobody else should be able to
+create an account on it. Note that closing it leaves no way to add the first account either, so
+set it after you have registered.
+
 ## Email
 
 Confirmation and password reset links are sent over SMTP. Without `ACKEE_SMTP_HOST` no email
