@@ -39,14 +39,10 @@ _or_
 PORT=3000
 ```
 
-## Username and password
+## Registration
 
-Username and password. Both are required to generate a new token.
-
-```
-ACKEE_USERNAME=username
-ACKEE_PASSWORD=password
-```
+Accounts live in the database and are created by registering, not by configuration.
+`ACKEE_USERNAME` and `ACKEE_PASSWORD` are gone.
 
 ## TTL
 

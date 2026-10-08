@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+The next major version, because several changes break an existing installation: the single account
+configured through the environment is gone, domains now belong to a workspace, and events to
+a user. It is **install-from-scratch only** — upgrading a 3.x installation is not
+supported, because the versioned migration mechanism is deliberately out of scope.
+
 ### Added
 
 - Compound index `{ domainId, created }` on records. Every report matches on both fields, so the previous single-field indexes made the planner read the whole domain history or the whole collection
@@ -16,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- `ACKEE_USERNAME` and `ACKEE_PASSWORD` are gone. The single hard-coded account they described could not be extended into real users: the request context carried "is this authenticated" rather than "who is this", so no domain could have an owner. Passwords are now stored as scrypt hashes and tokens belong to a user
 - The single-field `domainId` index is gone. It is a prefix of the new compound index, so it served the same queries while costing writes and storage
 
 ### Fixed
