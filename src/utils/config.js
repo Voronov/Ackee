@@ -12,6 +12,9 @@ export default new Proxy(
         dbUrl: process.env.ACKEE_MONGODB || process.env.MONGODB_URI,
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
+        // Registration is open until it is closed. A closed instance is the exception,
+        // for someone who only measures their own sites.
+        allowSignup: process.env.ACKEE_ALLOW_SIGNUP !== 'false',
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         rollups: process.env.ACKEE_ROLLUPS === 'true',
         // Public address of this instance. Used to build the links inside emails, so a

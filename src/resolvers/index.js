@@ -9,9 +9,11 @@ import facts from './facts.js'
 import permanentTokens from './permanentTokens.js'
 import records from './records.js'
 import tokens from './tokens.js'
+import users from './users.js'
 
 export default mergeResolvers([
   tokens,
+  users,
   permanentTokens,
   records,
   domains,

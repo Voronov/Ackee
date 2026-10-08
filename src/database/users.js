@@ -49,6 +49,16 @@ export const add = async ({ email, password, verified = false, workspaceTitle })
   return { user: response(user), workspace: { id: workspace.id, title: workspace.title } }
 }
 
+export const verify = async (id) => {
+  const entry = await User.findOneAndUpdate(
+    { id },
+    { $set: { verified: true, updated: Date.now() } },
+    { returnDocument: 'after' },
+  )
+
+  return entry == null ? null : response(entry)
+}
+
 // A user's workspaces and their role in each. Read on every API request, so it is one
 // indexed query rather than a scan.
 export const memberships = async (userId) => {
