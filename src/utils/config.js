@@ -14,6 +14,14 @@ export default new Proxy(
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         rollups: process.env.ACKEE_ROLLUPS === 'true',
+        // Public address of this instance. Used to build the links inside emails, so a
+        // wrong value produces links that go nowhere.
+        publicUrl: process.env.ACKEE_URL,
+        smtpHost: process.env.ACKEE_SMTP_HOST,
+        smtpPort: Number(process.env.ACKEE_SMTP_PORT || 465),
+        smtpUser: process.env.ACKEE_SMTP_USER,
+        smtpPassword: process.env.ACKEE_SMTP_PASSWORD,
+        smtpFrom: process.env.ACKEE_SMTP_FROM || process.env.ACKEE_SMTP_USER,
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
