@@ -1,17 +1,21 @@
-import debouncePromise from 'debounce-promise'
-
 import * as domains from '../database/domains.js'
 
-// A zero timeout is enough to ensure that this task
-// runs only once on every API call. It's a task that would
-// otherwise execute multiple times.
-const loadDomains = debouncePromise(domains.all, 0)
+/*
+ * The domains a viewer may read.
+ *
+ * Every report goes through here: each statistics and facts resolver starts with this
+ * call. That is why the limit lives here — missing it in one resolver out of twenty
+ * would be far too easy.
+ *
+ * The result is cached on the viewer, which is built per request, so the cache lives
+ * exactly as long as the request. The earlier version used `debouncePromise`, which
+ * returns the same promise to every caller within a tick regardless of its arguments.
+ * With workspaces that would hand one user another user's domains.
+ */
+export default (domain, viewer) => {
+  if (domain.id != null) return Promise.resolve([domain.id])
 
-export default async (domain) => {
-  if (domain.id == null) {
-    const allDomains = await loadDomains()
-    return allDomains.map((domain) => domain.id)
-  }
+  viewer.allDomainIds ??= domains.all(workspaceIds(viewer)).then((entries) => entries.map((entry) => entry.id))
 
-  return [domain.id]
+  return viewer.allDomainIds
 }
