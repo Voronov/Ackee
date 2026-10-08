@@ -104,6 +104,9 @@ app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
 
+// Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
+app.get('/metrics', metrics.handler)
+
 // Serve static files
 for (const [route, filename, type] of staticFiles) {
   app.get(route, async (request, response) => {
