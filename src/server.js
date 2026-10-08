@@ -11,6 +11,7 @@ import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
+import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
 import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
@@ -91,6 +92,9 @@ app.options('/{*path}', (request, response) => {
 
 // Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
 app.get('/metrics', metrics.handler)
+
+// Pages that links in emails point at.
+app.use(pages)
 
 // Serve static files
 app.get('/', async (request, response) => {
