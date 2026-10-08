@@ -35,6 +35,34 @@ const mongoDuration = new client.Histogram({
   registers: [registry],
 })
 
+const rollupBuild = new client.Histogram({
+  name: 'ackee_rollup_build_duration_seconds',
+  help: 'How long one day of rollups takes to build',
+  labelNames: ['mode'],
+  buckets: [0.1, 0.5, 1, 5, 15, 30, 60, 120, 300, 600],
+  registers: [registry],
+})
+
+// How far the worst-covered domain lags behind now. A growing value means the worker is
+// falling behind and reports are quietly falling back to raw records.
+const rollupLag = new client.Gauge({
+  name: 'ackee_rollup_lag_seconds',
+  help: 'How far the worst-covered rollup range lags behind now',
+  registers: [registry],
+})
+
+export const observeRollupBuild = (mode, seconds) => {
+  if (isEnabled() === false) return
+
+  rollupBuild.observe({ mode }, seconds)
+}
+
+export const setRollupLag = (seconds) => {
+  if (isEnabled() === false) return
+
+  rollupLag.set(seconds)
+}
+
 // Routes are listed explicitly. A label taken from an arbitrary request path would blow
 // up cardinality and make the metrics store unusable.
 const KNOWN_ROUTES = new Set([

@@ -1,3 +1,4 @@
+import { start as startRollupWorker } from './rollups/worker.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -20,6 +21,8 @@ connect(config.dbUrl)
     signale.start(`Starting the server`)
 
     server.listen(config.port)
+
+    startRollupWorker()
 
     if (config.isDevelopmentMode === true) {
       signale.info('Development mode enabled')

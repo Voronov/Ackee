@@ -15,6 +15,7 @@ export default new Proxy(
         username: process.env.ACKEE_USERNAME,
         password: process.env.ACKEE_PASSWORD,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
+        rollups: process.env.ACKEE_ROLLUPS === 'true',
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
