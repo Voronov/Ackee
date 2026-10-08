@@ -1,6 +1,14 @@
 import test from 'ava'
 
-import { apolloPlugin, handler, httpMiddleware, isEnabled, registry } from '../../src/utils/metrics.js'
+import {
+  apolloPlugin,
+  handler,
+  httpMiddleware,
+  isEnabled,
+  observeRollupBuild,
+  registry,
+  setRollupLag,
+} from '../../src/utils/metrics.js'
 
 const fakeResponse = () => {
   const listeners = []
@@ -109,4 +117,20 @@ test.serial('the plugin stays quiet while metrics are off', async (t) => {
   delete process.env.ACKEE_METRICS_TOKEN
 
   t.deepEqual(await apolloPlugin.requestDidStart(), {})
+})
+
+test.serial('rollup metrics are recorded only while enabled', async (t) => {
+  delete process.env.ACKEE_METRICS_TOKEN
+  observeRollupBuild('backfill', 1)
+  setRollupLag(42)
+
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+  observeRollupBuild('refresh', 2)
+  setRollupLag(7)
+
+  const output = await registry.metrics()
+
+  t.true(output.includes('mode="refresh"'))
+  t.false(output.includes('mode="backfill"'))
+  t.true(output.includes('ackee_rollup_lag_seconds{app="ackee"} 7'))
 })
