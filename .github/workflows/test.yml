@@ -118,9 +118,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # A built image is not the same as one that runs. This starts it next to MongoDB and
-      # waits for the interface to answer.
-      - name: Image starts
+      # A container that starts is not the same as an instance somebody can use. This
+      # registers an account through the image, which is the first thing a new instance
+      # has to be able to do since ACKEE_USERNAME was removed.
+      - name: Image starts and accepts a first account
         run: |
           docker network create ackee-ci
           docker run -d --name mongo --network ackee-ci mongo:7
@@ -129,7 +130,14 @@ jobs:
             ackee:ci
 
           for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:3000/ >/dev/null && exit 0
+            curl -sf http://127.0.0.1:3000/ >/dev/null && break
             sleep 2
+            if [ "$i" = "30" ]; then echo "Container did not start"; docker logs ackee; exit 1; fi
           done
-          echo "Container did not start"; docker logs ackee; exit 1
+
+          body=$(curl -sf http://127.0.0.1:3000/api \
+            -H 'Content-Type: application/json' \
+            -d '{"query":"mutation { createUser(input: {email: \"ci@example.com\", password: \"ci-password-long\"}) { success } }"}')
+
+          echo "$body"
+          echo "$body" | grep -q '"success":true' || { docker logs ackee; exit 1; }
