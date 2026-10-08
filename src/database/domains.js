@@ -3,7 +3,6 @@ import sortByProperty from '../utils/sortByProperty.js'
 
 const response = (entry) => ({
   id: entry.id,
-  workspaceId: entry.workspaceId,
   title: entry.title,
   workspaceId: entry.workspaceId,
   created: entry.created,

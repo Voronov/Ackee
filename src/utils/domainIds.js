@@ -1,4 +1,6 @@
+import { REPORTS_READ } from '../constants/permissions.js'
 import * as domains from '../database/domains.js'
+import { workspacesWith } from './permissions.js'
 
 /*
  * The domains a viewer may read.
@@ -15,7 +17,7 @@ import * as domains from '../database/domains.js'
 export default (domain, viewer) => {
   if (domain.id != null) return Promise.resolve([domain.id])
 
-  viewer.allDomainIds ??= domains.all(workspaceIds(viewer)).then((entries) => entries.map((entry) => entry.id))
+  viewer.allDomainIds ??= domains.all(workspacesWith(viewer, REPORTS_READ)).then((entries) => entries.map((entry) => entry.id))
 
   return viewer.allDomainIds
 }
