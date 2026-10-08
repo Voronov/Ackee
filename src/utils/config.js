@@ -14,6 +14,7 @@ export default new Proxy(
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,
         password: process.env.ACKEE_PASSWORD,
+        metricsToken: process.env.ACKEE_METRICS_TOKEN,
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
