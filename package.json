@@ -29,6 +29,7 @@
     "healthcheck": "node --env-file-if-exists=.env src/healthcheck.js",
     "lint": "npm run eslint && npm run prettier -- --check",
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
+    "rollup:backfill": "node --env-file-if-exists=.env src/rollups/backfill.js",
     "server": "node --env-file-if-exists=.env src/index.js",
     "start": "npm run build && npm run server",
     "test": "npm run lint && ava",
