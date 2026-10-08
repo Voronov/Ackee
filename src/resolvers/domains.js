@@ -40,6 +40,16 @@ export default {
         success: true,
       }
     }),
+    rotateIngestKey: pipe(requireAuth, blockDemoMode, async (parent, { id }) => {
+      const entry = await domains.rotateIngestKey(id)
+
+      if (entry == null) throw new KnownError('Unknown domain')
+
+      return {
+        payload: entry,
+        success: true,
+      }
+    }),
     deleteDomain: pipe(requireAuth, blockDemoMode, async (parent, { id }) => {
       await records.del(id)
       await domains.del(id)
