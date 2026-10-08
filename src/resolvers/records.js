@@ -62,7 +62,8 @@ export default {
       const clientId = identifier(ip, userAgent, domainId)
       const data = polish({ ...input, clientId, domainId })
 
-      const domain = await domains.get(domainId)
+      // Tracking is unauthenticated, so the domain is looked up without a workspace filter.
+      const domain = await domains.getUnscoped(domainId)
 
       if (domain == null) throw new KnownError('Unknown domain')
 
