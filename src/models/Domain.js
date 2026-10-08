@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { randomBytes, randomUUID as uuid } from 'node:crypto'
+import { randomUUID as uuid } from 'node:crypto'
 
 const schema = new mongoose.Schema({
   id: {
@@ -19,10 +19,11 @@ const schema = new mongoose.Schema({
   // the site can read it. What it buys is a higher bar — you have to visit the site
   // rather than read an id out of someone's source — and a way for the owner to rotate
   // it when that is not enough.
+  //
+  // No default here: a default would give a domain from before keys a new random key on
+  // every read without storing it. The data layer issues and stores it (database/domains.js).
   ingestKey: {
     type: String,
-    required: true,
-    default: () => randomBytes(16).toString('base64url'),
   },
   // While this is off, events are accepted with or without a key, so an existing snippet
   // keeps working. The owner turns it on once the snippet on their site carries the key.
