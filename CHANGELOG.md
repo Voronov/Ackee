@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Prometheus metrics at `/metrics`, behind `ACKEE_METRICS_TOKEN`: HTTP, GraphQL and MongoDB command durations
 - Test coverage thresholds, dependency audit, Docker image build and CodeQL scanning in CI
 
+### Fixed
+
+- Top reports (`pages`, `referrers`, `systems`, `devices`, `browsers`, `sizes`, `languages`) returned a non-deterministic result: `$sort` ran on `count` alone with `$limit` after it, so both the order and — at the cut-off — the membership of the top-N varied between identical requests on unchanged data. Sorting now falls back to the dimension's own fields
+
 ## [3.6.1] - 2026-09-18
 
 ### Changed
