@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Prometheus metrics at `/metrics`, behind `ACKEE_METRICS_TOKEN`: HTTP, GraphQL and MongoDB command durations
 - Test coverage thresholds, dependency audit, Docker image build and CodeQL scanning in CI
 
 ## [3.6.1] - 2026-09-18
