@@ -1,5 +1,6 @@
 import * as domains from '../database/domains.js'
 import * as records from '../database/records.js'
+import matchesOrigin from '../utils/matchesOrigin.js'
 import identifier from '../utils/identifier.js'
 import KnownError from '../utils/KnownError.js'
 import messages from '../utils/messages.js'
@@ -45,7 +46,7 @@ const polish = (obj) => {
 
 export default {
   Mutation: {
-    createRecord: async (parent, { domainId, input }, { ip, userAgent, isIgnored }) => {
+    createRecord: async (parent, { domainId, input }, { ip, userAgent, isIgnored, ingestKey, origin }) => {
       // Ignore your own records when logged in
       if (isIgnored === true) {
         return {
@@ -59,13 +60,30 @@ export default {
         }
       }
 
-      const clientId = identifier(ip, userAgent, domainId)
-      const data = polish({ ...input, clientId, domainId })
+      // The key may arrive two ways. A custom integration can send a header, but the
+      // bundled tracker passes the domain id straight through and sets no headers of its
+      // own, so the snippet carries "<id>.<key>" and the server splits it here. A dot
+      // appears in neither a UUID nor a base64url key, so the split is unambiguous.
+      const [id, keyFromId] = String(domainId).split('.')
+      const key = ingestKey ?? keyFromId
 
       // Tracking is unauthenticated, so the domain is looked up without a workspace filter.
-      const domain = await domains.getUnscoped(domainId)
+      const domain = await domains.getUnscoped(id)
 
       if (domain == null) throw new KnownError('Unknown domain')
+
+      // The key is not a secret: it sits in the snippet on a public page. What it stops is
+      // the easy case, someone reading a domain id out of a site's source and pointing
+      // their own traffic at it. Strict mode is off until the owner turns it on, so an
+      // existing snippet keeps working.
+      if (domain.strictIngest === true) {
+        if (key !== domain.ingestKey) throw new KnownError('Ingest key missing or wrong')
+        if (matchesOrigin(origin, domain.title) === false) throw new KnownError('Origin does not match the domain')
+      }
+
+      const clientId = identifier(ip, userAgent, domain.id)
+
+      const data = polish({ ...input, clientId, domainId: domain.id })
 
       let entry
 

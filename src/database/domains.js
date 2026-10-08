@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import Domain from '../models/Domain.js'
 import sortByProperty from '../utils/sortByProperty.js'
 
@@ -5,6 +7,8 @@ const response = (entry) => ({
   id: entry.id,
   workspaceId: entry.workspaceId,
   title: entry.title,
+  ingestKey: entry.ingestKey,
+  strictIngest: entry.strictIngest,
   created: entry.created,
   updated: entry.updated,
 })
@@ -57,6 +61,9 @@ export const update = async (id, data, workspaceIds) => {
       {
         $set: {
           title: data.title,
+          // Left alone when the caller does not mention it, so editing a title cannot
+          // turn strict mode off by accident.
+          ...(data.strictIngest == null ? {} : { strictIngest: data.strictIngest }),
           updated: Date.now(),
         },
       },
@@ -93,4 +100,15 @@ export const allUnscoped = async () => {
   const entries = await Domain.find({})
 
   return entries.map(response)
+}
+
+// Issues a new key and invalidates the old one at once. Used when a key has been abused.
+export const rotateIngestKey = async (id, workspaceIds) => {
+  const entry = await Domain.findOneAndUpdate(
+    { id, ...within(workspaceIds) },
+    { $set: { ingestKey: randomBytes(16).toString('base64url'), updated: Date.now() } },
+    { returnDocument: 'after' },
+  )
+
+  return entry == null ? null : response(entry)
 }

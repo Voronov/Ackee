@@ -23,6 +23,10 @@ const createContext = async (ip, headers) => {
     isIgnored: isSet(headers['cookie']),
     dateDetails: createDate(headers['time-zone']),
     userAgent: headers['user-agent'],
+    // Ingest key and origin, both read straight from the request. Kept in the context so
+    // that the tracking resolver does not have to know about headers.
+    ingestKey: headers['x-ackee-key'],
+    origin: headers['origin'],
     ip,
     // Variables used by to set and read cookies and headers
     setCookies: [],
