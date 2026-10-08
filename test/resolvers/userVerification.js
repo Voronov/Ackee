@@ -114,3 +114,88 @@ test.serial('an unknown link is refused', async (t) => {
   const { json } = await verify('not-a-real-token')
   t.regex(json.errors[0].message, /not valid/i)
 })
+
+test.serial('a reset request never reveals whether the address exists', async (t) => {
+  const restore = withMail()
+  await account()
+
+  const request = (email) =>
+    api(base, {
+      query: gql`
+        mutation requestPasswordReset($email: String!) {
+          requestPasswordReset(email: $email) {
+            success
+          }
+        }
+      `,
+      variables: { email },
+    })
+
+  const known = await request('someone@example.com')
+  const unknown = await request('nobody@example.com')
+
+  t.true(known.json.data.requestPasswordReset.success)
+  t.true(unknown.json.data.requestPasswordReset.success)
+
+  // Only the real address gets a link, but the answer is the same either way.
+  t.is(await UserToken.countDocuments({ purpose: 'RESET' }), 1)
+
+  restore()
+})
+
+test.serial('a reset sets the new password and confirms the address', async (t) => {
+  const { user } = await account()
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const { json } = await api(base, {
+    query: gql`
+      mutation resetPassword($input: ResetPasswordInput!) {
+        resetPassword(input: $input) {
+          success
+        }
+      }
+    `,
+    variables: { input: { token, password: 'a-brand-new-password' } },
+  })
+
+  t.true(json.data.resetPassword.success)
+
+  const signIn = await api(base, {
+    query: gql`
+      mutation createToken($input: CreateTokenInput!) {
+        createToken(input: $input) {
+          success
+        }
+      }
+    `,
+    variables: { input: { username: 'someone@example.com', password: 'a-brand-new-password' } },
+  })
+
+  t.true(signIn.json.data.createToken.success)
+})
+
+test.serial('sending is rate limited', async (t) => {
+  const restore = withMail()
+  const { user } = await account()
+
+  const request = () =>
+    api(base, {
+      query: gql`
+        mutation requestPasswordReset($email: String!) {
+          requestPasswordReset(email: $email) {
+            success
+          }
+        }
+      `,
+      variables: { email: 'someone@example.com' },
+    })
+
+  for (let attempt = 0; attempt < 5; attempt++) await request()
+
+  // Five requests, at most three links. An earlier version deleted superseded links, which
+  // reset the counter every time and left the limit doing nothing.
+  const issued = await UserToken.countDocuments({ userId: user.id, purpose: 'RESET' })
+  t.is(issued, 3)
+
+  restore()
+})
