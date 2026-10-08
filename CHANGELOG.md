@@ -8,8 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Compound index `{ domainId, created }` on records. Every report matches on both fields, so the previous single-field indexes made the planner read the whole domain history or the whole collection
 - Prometheus metrics at `/metrics`, behind `ACKEE_METRICS_TOKEN`: HTTP, GraphQL and MongoDB command durations
 - Test coverage thresholds, dependency audit, Docker image build and CodeQL scanning in CI
+
+### Changed
+
+- The single-field `domainId` index is gone. It is a prefix of the new compound index, so it served the same queries while costing writes and storage
 
 ### Fixed
 
