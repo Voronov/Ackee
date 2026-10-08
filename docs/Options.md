@@ -82,6 +82,24 @@ Set to `true` to enable demo mode. In demo mode, all mutations (creating, updati
 ACKEE_DEMO=true
 ```
 
+## Rollups
+
+Serve the top reports (pages, referrers, systems, devices, browsers, sizes, languages) from pre-computed hourly rollups instead of scanning raw records on every request.
+
+```
+ACKEE_ROLLUPS=true
+```
+
+Enabling this starts a worker that refreshes the last two hours every five minutes. Existing history has to be rolled up once:
+
+```
+npm run rollup:backfill
+```
+
+Reads stay correct while the backfill is incomplete: a report whose time window is not fully covered by the built rollups falls back to the raw records automatically. Turning the variable back off restores the 1.x read path immediately — no data migration is involved either way.
+
+Two reports are never served from rollups. `views` with `type: UNIQUE` counts distinct clients, which cannot be summed across buckets, and `durations` averages per-record values; both keep reading raw records, where the `{ domainId, created }` index serves them.
+
 ## Metrics
 
 Ackee exposes Prometheus metrics at `/metrics` when a token is set. Without this variable the endpoint responds with `404 Not found`, and so does any request carrying a wrong token — the endpoint never confirms that it exists.
@@ -98,11 +116,13 @@ curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
 
 Exposed series, next to the Node.js defaults:
 
-| Metric                                     | What it answers                                                                                     |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
-| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
-| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
+| Metric                                     | What it answers                                                                                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                                                                       |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile                                                       |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself                                                                 |
+| `ackee_rollup_build_duration_seconds`      | How long one day of rollups takes to build, split into `backfill` and `refresh`                                                                           |
+| `ackee_rollup_lag_seconds`                 | How far the worst-covered domain lags behind now — a growing value means the worker is falling behind and reports are quietly falling back to raw records |
 
 ## CORS headers
 
