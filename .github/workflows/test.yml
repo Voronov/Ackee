@@ -96,3 +96,40 @@ jobs:
       - name: Audit all dependencies (report only)
         run: npm audit --audit-level=moderate
         continue-on-error: true
+
+  docker:
+    name: 'Docker image'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Built but not published: this job answers whether the image still works, and
+      # release.yml answers where it goes.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ackee:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A built image is not the same as one that runs. This starts it next to MongoDB and
+      # waits for the interface to answer.
+      - name: Image starts
+        run: |
+          docker network create ackee-ci
+          docker run -d --name mongo --network ackee-ci mongo:7
+          docker run -d --name ackee --network ackee-ci -p 3000:3000 \
+            -e ACKEE_MONGODB=mongodb://mongo:27017/ackee \
+            ackee:ci
+
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:3000/ >/dev/null && exit 0
+            sleep 2
+          done
+          echo "Container did not start"; docker logs ackee; exit 1
