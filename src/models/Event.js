@@ -18,6 +18,12 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
+  // An event belongs to a workspace, like a domain. Without this every account on the
+  // instance would see every other account's events.
+  workspaceId: {
+    type: String,
+    required: true,
+  },
   title: {
     type: String,
     required: true,
@@ -39,5 +45,8 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every event query is limited to the viewer's workspaces, so this is the main path.
+schema.index({ workspaceId: 1 })
 
 export default mongoose.model('Event', schema)

@@ -8,6 +8,12 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
+  // A domain belongs to a workspace rather than to a user. Roles only mean something
+  // when there is shared ground to describe (ADR-002).
+  workspaceId: {
+    type: String,
+    required: true,
+  },
   title: {
     type: String,
     required: true,
@@ -24,5 +30,8 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every domain query is limited to the viewer's workspaces, so this is the main path.
+schema.index({ workspaceId: 1 })
 
 export default mongoose.model('Domain', schema)
