@@ -1,4 +1,5 @@
 import test from 'ava'
+import { randomUUID as uuid } from 'node:crypto'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
@@ -12,8 +13,11 @@ const base = listen(server)
 test.before(connectToDatabase)
 test.after.always(cleanup(server))
 test.beforeEach(async (t) => {
-  t.context.domain1 = await Domain.create({ title: 'fqdn.example.com' })
-  t.context.domain2 = await Domain.create({ title: 'No fqdn' })
+  // CORS looks at every domain on the instance, so the workspace only has to exist.
+  const workspaceId = uuid()
+
+  t.context.domain1 = await Domain.create({ title: 'fqdn.example.com', workspaceId })
+  t.context.domain2 = await Domain.create({ title: 'No fqdn', workspaceId })
 })
 test.afterEach.always(async (t) => {
   await Domain.findOneAndDelete({ id: t.context.domain1.id })

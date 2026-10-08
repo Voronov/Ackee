@@ -27,8 +27,8 @@ export const connectToDatabase = async () => {
 }
 
 export const fillDatabase = async (t) => {
-  // Tokens belong to a user, so the fixture starts with one. Registering also creates the
-  // user's workspace and membership.
+  // Tokens belong to a user and domains to a workspace, so the fixture builds the whole
+  // chain: user, workspace, membership, domain.
   const email = `user-${Math.random().toString(36).slice(2)}@example.com`
 
   const { user, workspace } = await users.add({
@@ -45,8 +45,8 @@ export const fillDatabase = async (t) => {
   t.context.workspace = workspace
   t.context.token = await Token.create({ userId: user.id })
   t.context.permanentToken = await PermanentToken.create({ title: 'Example', userId: user.id })
-  t.context.domain = await Domain.create({ title: 'Example' })
-  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART' })
+  t.context.domain = await Domain.create({ title: 'Example', workspaceId: workspace.id })
+  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART', workspaceId: workspace.id })
 
   const now = Date.now()
 
