@@ -10,6 +10,12 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
+  // A domain belongs to a workspace rather than to a user. Roles only mean something
+  // when there is shared ground to describe (ADR-002).
+  workspaceId: {
+    type: String,
+    required: true,
+  },
   title: {
     type: String,
     required: true,
