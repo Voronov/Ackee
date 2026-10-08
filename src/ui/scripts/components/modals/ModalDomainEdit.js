@@ -4,6 +4,7 @@ import { createElement as h } from 'react'
 import Input from '../Input.js'
 import Label from '../Label.js'
 import Spacer from '../Spacer.js'
+import Text from '../Text.js'
 import Textarea from '../Textarea.js'
 
 import useDeleteDomain from '../../api/hooks/domains/useDeleteDomain.js'
@@ -43,6 +44,10 @@ const ModalDomainEdit = (props) => {
   const titleId = shortId()
   const idId = shortId()
   const embedId = shortId()
+
+  // Without a key the snippet is exactly what it was before, so an existing installation
+  // keeps working and nothing has to be updated at once.
+  const trackingId = props.ingestKey == null ? props.id : `${props.id}.${props.ingestKey}`
 
   const trackerUrl = globalThis.env.customTracker.url || '/tracker.js'
   const srcUrl = new URL(trackerUrl, location.href).href
@@ -86,9 +91,22 @@ const ModalDomainEdit = (props) => {
         id: embedId,
         readOnly: true,
         rows: 4,
-        value: `<script async src="${srcUrl}" data-ackee-server="${serverUrl}" data-ackee-domain-id="${props.id}"></script>`,
+        // The id in the snippet carries the ingest key after a dot. The bundled tracker
+        // passes the value through untouched, so the key reaches the server without the
+        // tracker having to know about it.
+        value: `<script async src="${srcUrl}" data-ackee-server="${serverUrl}" data-ackee-domain-id="${trackingId}"></script>`,
         copyOnFocus: true,
       }),
+
+      h(Spacer, { size: 0.5 }),
+
+      h(
+        Text,
+        { type: 'p', className: 'color-secondary' },
+        props.ingestKey == null
+          ? 'Reopen this domain to see its ingest key.'
+          : 'The key in this snippet is visible to anyone who opens your site. It raises the bar for someone sending events to your domain, but it is not a secret. Rotate it if it is being misused.',
+      ),
     ),
     h(
       'div',
@@ -134,6 +152,7 @@ const ModalDomainEdit = (props) => {
 }
 
 ModalDomainEdit.propTypes = {
+  ingestKey: PropTypes.string,
   ...commonModalProps,
   id: PropTypes.string.isRequired,
   title: PropTypes.string.isRequired,
