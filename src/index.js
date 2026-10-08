@@ -2,6 +2,7 @@ import { start as startRollupWorker } from './rollups/worker.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
+import { check as mailCheck } from './utils/mailer.js'
 import signale from './utils/signale.js'
 import stripUrlAuth from './utils/stripUrlAuth.js'
 
@@ -23,6 +24,7 @@ connect(config.dbUrl)
     server.listen(config.port)
 
     startRollupWorker()
+    mailCheck()
 
     if (config.isDevelopmentMode === true) {
       signale.info('Development mode enabled')
