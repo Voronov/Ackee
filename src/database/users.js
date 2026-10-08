@@ -3,10 +3,12 @@ import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import Membership from '../models/Membership.js'
 import User from '../models/User.js'
 import Workspace from '../models/Workspace.js'
+import { hash } from '../utils/password.js'
 
 const response = (entry) => ({
   id: entry.id,
   email: entry.email,
+  verified: entry.verified,
   created: entry.created,
   updated: entry.updated,
 })
@@ -32,7 +34,7 @@ const upsert = async (Model, filter, data = {}) => {
  * without a migration step.
  */
 export const ensureAdmin = async (email) => {
-  const user = await upsert(User, { email: String(email).trim().toLowerCase() })
+  const user = await upsert(User, { email: String(email).trim().toLowerCase() }, { verified: true })
 
   await upsert(Workspace, { id: DEFAULT_WORKSPACE_ID }, { title: 'Default' })
   await upsert(Membership, { userId: user.id, workspaceId: DEFAULT_WORKSPACE_ID }, { role: ROLE_OWNER })
@@ -50,6 +52,38 @@ export const byEmail = async (email) => {
   const entry = await User.findOne({ email: String(email).trim().toLowerCase() })
 
   return entry == null ? entry : response(entry)
+}
+
+/*
+ * Registers a user together with a personal workspace.
+ *
+ * Domains belong to a workspace, so without one a new account would have nowhere to put a
+ * domain. A single user never sees it: for them it is simply "my domains".
+ */
+export const add = async ({ email, password }) => {
+  const user = await User.create({ email, password: await hash(password) })
+  const workspace = await Workspace.create({ title: 'Personal' })
+
+  await Membership.create({ userId: user.id, workspaceId: workspace.id, role: ROLE_OWNER })
+
+  return { user: response(user), workspace: { id: workspace.id, title: workspace.title } }
+}
+
+export const verify = async (id) => {
+  const entry = await User.findOneAndUpdate(
+    { id },
+    { $set: { verified: true, updated: Date.now() } },
+    { returnDocument: 'after' },
+  )
+
+  return entry == null ? entry : response(entry)
+}
+
+// For signing in only: the one place the password hash leaves this module.
+export const credentials = async (email) => {
+  const entry = await User.findOne({ email: String(email).trim().toLowerCase() })
+
+  return entry == null ? entry : { ...response(entry), password: entry.password }
 }
 
 // A user's workspaces and their role in each.

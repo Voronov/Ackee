@@ -3,7 +3,7 @@ import { randomUUID as uuid } from 'node:crypto'
 
 import { SCHEMA_VERSION } from '../constants/workspaces.js'
 
-// The email address is also the login. The password arrives with registration (ACKEE-10).
+// The email address is also the login.
 const schema = new mongoose.Schema({
   id: {
     type: String,
@@ -18,6 +18,16 @@ const schema = new mongoose.Schema({
     lowercase: true,
     trim: true,
     maxlength: 320,
+  },
+  // A scrypt hash (utils/password.js). The env admin has none and signs in with the env.
+  password: {
+    type: String,
+  },
+  // Registered accounts cannot sign in until the address is confirmed.
+  verified: {
+    type: Boolean,
+    required: true,
+    default: false,
   },
   schemaVersion: {
     type: Number,
