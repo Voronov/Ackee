@@ -101,7 +101,7 @@ app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
 
-// Pages that links in emails point at.
+// Pages that links in emails point at: confirming an address and resetting a password.
 app.use(pages)
 
 // Serve static files
