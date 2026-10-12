@@ -1,4 +1,5 @@
 import * as tokens from '../database/tokens.js'
+import * as users from '../database/users.js'
 import config from '../utils/config.js'
 import { off as ignoreCookieOff, on as ignoreCookieOn } from '../utils/ignoreCookie.js'
 import KnownError from '../utils/KnownError.js'
@@ -20,7 +21,8 @@ export default {
       if (username !== config.username) throw new KnownError('Username or password incorrect')
       if (password !== config.password) throw new KnownError('Username or password incorrect')
 
-      const entry = await tokens.add()
+      const user = await users.ensureAdmin(config.username)
+      const entry = await tokens.add(user.id)
 
       // Set cookie to avoid reporting your own visits
       setCookies.push(ignoreCookieOn)
