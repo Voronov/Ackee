@@ -9,6 +9,8 @@ name: Deploy
 #   DEPLOY_KEY   private half of the key the server pins to /usr/local/bin/ackee-deploy
 # Variable, under each environment:
 #   DEPLOY_URL   address to check once the container is back
+# Variable, for the repository:
+#   DEPLOY_KNOWN_HOSTS  the server's host key line, for example "1.2.3.4 ssh-ed25519 AAAA..."
 
 on:
   push:
@@ -142,6 +144,7 @@ jobs:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
       STAGE: ${{ needs.image.outputs.stage }}
       TAG: ${{ needs.image.outputs.tag }}
 
@@ -154,8 +157,9 @@ jobs:
           [ -z "$DEPLOY_HOST" ] && missing="$missing DEPLOY_HOST"
           [ -z "$DEPLOY_USER" ] && missing="$missing DEPLOY_USER"
           [ -z "$DEPLOY_KEY" ] && missing="$missing DEPLOY_KEY"
+          [ -z "$DEPLOY_KNOWN_HOSTS" ] && missing="$missing DEPLOY_KNOWN_HOSTS"
           if [ -n "$missing" ]; then
-            echo "Missing secrets in the $STAGE environment:$missing"
+            echo "Missing secrets or variables for $STAGE:$missing"
             exit 1
           fi
           echo "Deploying $TAG to $STAGE"
@@ -167,7 +171,9 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # The host key is pinned, not scanned. A scan opens several connections that
+          # never log in, and fail2ban on the server bans the runner for them.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
 
       # The server pins the key to one script. It reads "<stage> <tag>", checks both and
       # runs compose for that one stand. Nothing else can be asked of it.
