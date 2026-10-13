@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import client from 'prom-client'
 
 import config from './config.js'
@@ -130,15 +131,24 @@ export const instrumentMongo = (client) => {
   client.on('commandFailed', (event) => finish(event, 'error'))
 }
 
+// Compares in constant time: a plain comparison returns sooner the earlier the first wrong
+// character is, and that timing would let someone guess the token one character at a time.
+// Hashing first gives both sides the same length.
+const sameSecret = (provided, expected) => {
+  const digest = (value) => createHash('sha256').update(value).digest()
+
+  return timingSafeEqual(digest(provided), digest(expected))
+}
+
 // The endpoint stays quiet when metrics are off: 404 rather than 401, so it never
 // confirms that it exists.
 export const handler = async (request, response) => {
   if (isEnabled() === false) return response.status(404).send('Not found')
 
   const expected = `Bearer ${config.metricsToken}`
-  const provided = request.headers['authorization']
+  const provided = String(request.headers['authorization'] ?? '')
 
-  if (provided !== expected) return response.status(404).send('Not found')
+  if (sameSecret(provided, expected) === false) return response.status(404).send('Not found')
 
   response.setHeader('Content-Type', registry.contentType)
   response.end(await registry.metrics())
