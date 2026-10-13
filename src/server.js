@@ -11,6 +11,7 @@ import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
+import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
 import signale from './utils/signale.js'
 
@@ -99,6 +100,9 @@ app.use(attachCorsHeaders)
 app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
+
+// Pages that links in emails point at: confirming an address and resetting a password.
+app.use(pages)
 
 // Serve static files
 for (const [route, filename, type] of staticFiles) {

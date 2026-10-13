@@ -15,8 +15,9 @@ export default {
     }),
   },
   Mutation: {
-    createPermanentToken: pipe(requireAuth, blockDemoMode, async (parent, { input }) => {
-      const entry = await validated(permanentTokens.add(input))
+    createPermanentToken: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {
+      // The owner comes from the viewer, so a token cannot be created in someone else's name.
+      const entry = await validated(permanentTokens.add({ title: input.title, userId: viewer.userId }))
 
       return {
         payload: entry,
