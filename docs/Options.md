@@ -50,9 +50,11 @@ ACKEE_PASSWORD=password
 
 ## Email
 
-Confirmation and password reset links are sent over SMTP. Without `ACKEE_SMTP_HOST` no email
-is sent at all, and a new account is confirmed straight away, because nobody could open a
-link that never arrives.
+Confirmation, password reset and invitation links are sent over SMTP. Without
+`ACKEE_SMTP_HOST` no email is sent at all. With `NODE_ENV=development` emails are written to the
+log instead of being sent, so a link can be opened without a mail server.
+
+Keep the SMTP password in the environment or in an `.env` file, never in the repository.
 
 ```
 ACKEE_URL=https://ackee.example.com
