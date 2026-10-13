@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
 import { randomUUID as uuid } from 'node:crypto'
 
+import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
+
 import {
   EVENTS_TYPE_AVERAGE_CHART,
   EVENTS_TYPE_AVERAGE_LIST,
@@ -17,6 +19,14 @@ const schema = new mongoose.Schema({
     required: true,
     unique: true,
     default: uuid,
+  },
+  // An event belongs to a workspace, like a domain. Without this every account on the
+  // instance would see every other account's events. Events from before workspaces are in
+  // the default one, as domains are.
+  workspaceId: {
+    type: String,
+    required: true,
+    default: DEFAULT_WORKSPACE_ID,
   },
   title: {
     type: String,
@@ -39,5 +49,8 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every event query is limited to the viewer's workspaces, so this is the main path.
+schema.index({ workspaceId: 1 })
 
 export default mongoose.model('Event', schema)

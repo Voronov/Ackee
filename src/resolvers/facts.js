@@ -42,46 +42,46 @@ export default {
     }),
   },
   Facts: {
-    id: pipe(requireAuth, async (domain) => {
-      const ids = await domainIds(domain)
+    id: pipe(requireAuth, async (domain, args, { viewer }) => {
+      const ids = await domainIds(domain, viewer)
 
       // Provide a static fallback id when there're domains to create a recursive id from
       if (ids.length === 0) return '882b8e8a-f30b-414d-85e1-00d8ed5585a6'
 
       return recursiveId(ids)
     }),
-    activeVisitors: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    activeVisitors: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const activeVisitors = await getActiveVisitors(ids, dateDetails)
 
       return activeVisitors
     }),
-    averageViews: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    averageViews: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const entries = getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 15, dateDetails)
 
       return entries
     }),
-    averageDuration: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    averageDuration: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const entries = getDurations(ids, INTERVALS_DAILY, 15, dateDetails)
 
       return entries
     }),
-    viewsToday: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    viewsToday: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 1, dateDetails)
 
       return entries[0].count
     }),
-    viewsMonth: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    viewsMonth: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_MONTHLY, 1, dateDetails)
 
       return entries[0].count
     }),
-    viewsYear: pipe(requireAuth, async (domain, _, { dateDetails }) => {
-      const ids = await domainIds(domain)
+    viewsYear: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
       const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_YEARLY, 1, dateDetails)
 
       return entries[0].count

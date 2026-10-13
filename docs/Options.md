@@ -48,6 +48,41 @@ ACKEE_USERNAME=username
 ACKEE_PASSWORD=password
 ```
 
+People can also register their own account with an email address and a password. Registering
+creates a personal workspace with the new account as its owner. The address must be confirmed
+through the emailed link before the account can sign in.
+
+Registration is closed unless you open it:
+
+```
+ACKEE_ALLOW_SIGNUP=true
+```
+
+It needs outgoing email (see below), because an account that cannot confirm its address can
+never sign in. The account from `ACKEE_USERNAME` keeps working either way.
+
+## Email
+
+Confirmation, password reset and invitation links are sent over SMTP. Without
+`ACKEE_SMTP_HOST` no email is sent at all. With `NODE_ENV=development` emails are written to the
+log instead of being sent, so a link can be opened without a mail server.
+
+Keep the SMTP password in the environment or in an `.env` file, never in the repository.
+
+```
+ACKEE_URL=https://ackee.example.com
+ACKEE_SMTP_HOST=smtp.example.com
+ACKEE_SMTP_PORT=465
+ACKEE_SMTP_USER=ackee@example.com
+ACKEE_SMTP_PASSWORD=<password>
+ACKEE_SMTP_FROM=ackee@example.com
+```
+
+`ACKEE_URL` is the public address of this instance; the links in emails are built from it.
+Port 465 uses TLS from the start, any other port upgrades with STARTTLS. The settings are
+checked once at start-up, so a wrong password shows up in the log rather than when the first
+person registers.
+
 ## TTL
 
 Specifies how long a generated token is valid. Defaults to `86400000` (1 day).

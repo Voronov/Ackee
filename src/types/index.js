@@ -1,6 +1,7 @@
 import { mergeTypeDefs } from '@graphql-tools/merge'
 
 import actions from './actions.js'
+import auditLog from './auditLog.js'
 import domains from './domains.js'
 import domainStatistics from './domainStatistics.js'
 import events from './events.js'
@@ -10,8 +11,22 @@ import miscellaneous from './miscellaneous.js'
 import permanentTokens from './permanentTokens.js'
 import records from './records.js'
 import tokens from './tokens.js'
+import users from './users.js'
 
 export default mergeTypeDefs(
-  [tokens, permanentTokens, records, domains, events, actions, facts, miscellaneous, domainStatistics, eventStatistics],
+  [
+    tokens,
+    users,
+    permanentTokens,
+    records,
+    domains,
+    events,
+    actions,
+    facts,
+    miscellaneous,
+    domainStatistics,
+    eventStatistics,
+    auditLog,
+  ],
   { all: true },
 )

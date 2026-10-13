@@ -29,7 +29,9 @@ export default {
 
       const data = polish({ ...input, eventId })
 
-      const event = await events.get(eventId)
+      // Recording an action is unauthenticated, like tracking a page view, so the event
+      // is looked up without a workspace filter.
+      const event = await events.getUnscoped(eventId)
 
       if (event == null) throw new KnownError('Unknown event')
 

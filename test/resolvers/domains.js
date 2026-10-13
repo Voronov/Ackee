@@ -8,8 +8,6 @@ import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from '
 
 const base = listen(server)
 
-let validDomain
-
 const defaultTitle = uuid()
 const updatedTitle = uuid()
 
@@ -43,9 +41,6 @@ test.serial('create domain', async (t) => {
   t.true(json.data.createDomain.success)
   t.is(typeof json.data.createDomain.payload.id, 'string')
   t.is(json.data.createDomain.payload.title, defaultTitle)
-
-  // Save domain for the next test
-  validDomain = json.data.createDomain.payload
 })
 
 test.serial('update domain', async (t) => {
@@ -62,7 +57,7 @@ test.serial('update domain', async (t) => {
       }
     `,
     variables: {
-      id: validDomain.id,
+      id: t.context.domain.id,
       input: {
         title: updatedTitle,
       },
@@ -72,11 +67,8 @@ test.serial('update domain', async (t) => {
   const { json } = await api(base, body, t.context.token.id)
 
   t.true(json.data.updateDomain.success)
-  t.is(json.data.updateDomain.payload.id, validDomain.id)
+  t.is(json.data.updateDomain.payload.id, t.context.domain.id)
   t.is(json.data.updateDomain.payload.title, updatedTitle)
-
-  // Save domain for the next test
-  validDomain = json.data.updateDomain.payload
 })
 
 test.serial('fetch domains', async (t) => {
@@ -94,9 +86,9 @@ test.serial('fetch domains', async (t) => {
   const { json } = await api(base, body, t.context.token.id)
 
   const domains = json.data.domains
-  const domain = domains.find((domain) => domain.id === validDomain.id)
+  const domain = domains.find((domain) => domain.id === t.context.domain.id)
 
-  t.is(domain.title, validDomain.title)
+  t.is(domain.title, t.context.domain.title)
 })
 
 test.serial('fetch domain', async (t) => {
@@ -110,14 +102,14 @@ test.serial('fetch domain', async (t) => {
       }
     `,
     variables: {
-      id: validDomain.id,
+      id: t.context.domain.id,
     },
   }
 
   const { json } = await api(base, body, t.context.token.id)
 
-  t.is(json.data.domain.id, validDomain.id)
-  t.is(json.data.domain.title, validDomain.title)
+  t.is(json.data.domain.id, t.context.domain.id)
+  t.is(json.data.domain.title, t.context.domain.title)
 })
 
 test.serial('delete domain', async (t) => {
@@ -130,7 +122,7 @@ test.serial('delete domain', async (t) => {
       }
     `,
     variables: {
-      id: validDomain.id,
+      id: t.context.domain.id,
     },
   }
 

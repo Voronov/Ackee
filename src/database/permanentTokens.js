@@ -3,6 +3,7 @@ import sortByProperty from '../utils/sortByProperty.js'
 
 const response = (entry) => ({
   id: entry.id,
+  userId: entry.userId,
   title: entry.title,
   created: entry.created,
   updated: entry.updated,
@@ -16,27 +17,31 @@ export const add = async (data) => {
   return enhance(
     await PermanentToken.create({
       title: data.title,
+      userId: data.userId,
     }),
   )
 }
 
-export const all = async () => {
+// API tokens are personal: everything but the sign-in lookup is limited to the owner.
+const ownedBy = (userId) => (userId === undefined ? {} : { userId })
+
+export const all = async (userId) => {
   const enhance = (entries) => {
     return entries.map(response).toSorted(sortByProperty('title'))
   }
 
-  return enhance(await PermanentToken.find({}))
+  return enhance(await PermanentToken.find(ownedBy(userId)))
 }
 
-export const get = async (id) => {
+export const get = async (id, userId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(await PermanentToken.findOne({ id }))
+  return enhance(await PermanentToken.findOne({ id, ...ownedBy(userId) }))
 }
 
-export const update = async (id, data) => {
+export const update = async (id, data, userId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -45,6 +50,7 @@ export const update = async (id, data) => {
     await PermanentToken.findOneAndUpdate(
       {
         id,
+        ...ownedBy(userId),
       },
       {
         $set: {
@@ -60,8 +66,9 @@ export const update = async (id, data) => {
   )
 }
 
-export const del = (id) => {
+export const del = (id, userId) => {
   return PermanentToken.findOneAndDelete({
     id,
+    ...ownedBy(userId),
   })
 }

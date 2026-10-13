@@ -1,12 +1,16 @@
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
 
+import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
+import * as users from '../../src/database/users.js'
 import Action from '../../src/models/Action.js'
 import Domain from '../../src/models/Domain.js'
 import Event from '../../src/models/Event.js'
+import Membership from '../../src/models/Membership.js'
 import PermanentToken from '../../src/models/PermanentToken.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
+import User from '../../src/models/User.js'
 import connect from '../../src/utils/connect.js'
 import createArray from '../../src/utils/createArray.js'
 import { job as saltJob } from '../../src/utils/salt.js'
@@ -21,10 +25,14 @@ export const connectToDatabase = async () => {
 
 export const fillDatabase = async (t) => {
   // Saves to context so tests can access ids
-  t.context.token = await Token.create({})
-  t.context.permanentToken = await PermanentToken.create({ title: 'Example' })
-  t.context.domain = await Domain.create({ title: 'Example' })
-  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART' })
+  // Tokens belong to a user. Each test gets its own, so parallel files do not share one.
+  // The user owns the default workspace, where the domain and the event live.
+  t.context.user = await users.ensureAdmin(`user-${Math.random().toString(36).slice(2)}@example.com`)
+  t.context.workspace = { id: DEFAULT_WORKSPACE_ID }
+  t.context.token = await Token.create({ userId: t.context.user.id })
+  t.context.permanentToken = await PermanentToken.create({ title: 'Example', userId: t.context.user.id })
+  t.context.domain = await Domain.create({ title: 'Example', workspaceId: DEFAULT_WORKSPACE_ID })
+  t.context.event = await Event.create({ title: 'Example', type: 'TOTAL_CHART', workspaceId: DEFAULT_WORKSPACE_ID })
 
   const now = Date.now()
 
@@ -70,6 +78,8 @@ export const cleanupDatabase = async (t) => {
   await Domain.findOneAndDelete({
     id: t.context.domain.id,
   })
+  await Membership.deleteMany({ userId: t.context.user.id })
+  await User.findOneAndDelete({ id: t.context.user.id })
 }
 
 export const cleanup = (server) => async () => {
