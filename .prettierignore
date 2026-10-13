@@ -6,3 +6,5 @@ dist
 
 # Vercel
 .vercel
+playwright-report
+test-results

@@ -30,3 +30,7 @@ dist/*
 
 # Vercel
 .vercel
+
+# Browser test output
+playwright-report
+test-results
