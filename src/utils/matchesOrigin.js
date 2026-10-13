@@ -19,7 +19,10 @@ export default (origin, title) => {
   if (origin == null) return false
 
   try {
-    return new URL(origin).hostname.toLowerCase() === host
+    const hostname = new URL(origin).hostname.toLowerCase()
+
+    // A subdomain such as www belongs to the same site.
+    return hostname === host || hostname.endsWith(`.${host}`)
   } catch {
     return false
   }

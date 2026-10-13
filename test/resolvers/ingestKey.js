@@ -1,6 +1,7 @@
 import test from 'ava'
 import listen from 'test-listen'
 
+import * as domains from '../../src/database/domains.js'
 import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
 import server from '../../src/server.js'
@@ -31,15 +32,48 @@ const track = (domainId, headers) =>
     headers,
   )
 
-test.serial('a domain gets an ingest key of its own', async (t) => {
-  const first = await Domain.findOne({ id: t.context.domain.id }).lean()
+// The key as the owner sees it: read through the data layer, which issues one if missing.
+const keyOf = async (id) => (await domains.get(id)).ingestKey
 
-  t.is(typeof first.ingestKey, 'string')
-  t.true(first.ingestKey.length >= 20)
+test.serial('a domain from before keys gets one on first read, and keeps it', async (t) => {
+  // The fixture domain is created like one from an older version: without a key.
+  t.is((await Domain.findOne({ id: t.context.domain.id }).lean()).ingestKey, undefined)
+
+  const issued = await keyOf(t.context.domain.id)
+
+  t.is(typeof issued, 'string')
+  t.true(issued.length >= 20)
+  // Stored, not made up on every read: the snippet must match what the server checks.
+  t.is(await keyOf(t.context.domain.id), issued)
+  t.is((await Domain.findOne({ id: t.context.domain.id }).lean()).ingestKey, issued)
+})
+
+test.serial('a new domain has its own key and checks it from the start', async (t) => {
+  const { json } = await api(
+    base,
+    {
+      query: gql`
+        mutation createDomain($input: CreateDomainInput!) {
+          createDomain(input: $input) {
+            payload {
+              id
+              ingestKey
+              strictIngest
+            }
+          }
+        }
+      `,
+      variables: { input: { title: 'new.example.com' } },
+    },
+    t.context.token.id,
+  )
+  const created = json.data.createDomain.payload
 
   // Two domains must not share a key, or one owner could write into the other's data.
-  const second = await Domain.create({ title: 'Other', workspaceId: t.context.workspace.id })
-  t.not(second.ingestKey, first.ingestKey)
+  t.not(created.ingestKey, await keyOf(t.context.domain.id))
+  t.true(created.strictIngest)
+
+  await Domain.deleteOne({ id: created.id })
 })
 
 test.serial('with strict mode off an event is accepted without a key', async (t) => {
@@ -70,11 +104,9 @@ test.serial('with strict mode on a wrong key is refused', async (t) => {
 
 test.serial('the right key from the right site is accepted', async (t) => {
   await Domain.updateOne({ id: t.context.domain.id }, { $set: { strictIngest: true, title: 'example.com' } })
-  const domain = await Domain.findOne({ id: t.context.domain.id }).lean()
-
   const { json } = await track(t.context.domain.id, {
-    'X-Ackee-Key': domain.ingestKey,
-    'Origin': 'https://example.com',
+    'X-Ackee-Key': await keyOf(t.context.domain.id),
+    'Origin': 'https://www.example.com',
   })
 
   t.true(json.data.createRecord.success)
@@ -82,12 +114,10 @@ test.serial('the right key from the right site is accepted', async (t) => {
 
 test.serial('the right key from another site is refused', async (t) => {
   await Domain.updateOne({ id: t.context.domain.id }, { $set: { strictIngest: true, title: 'example.com' } })
-  const domain = await Domain.findOne({ id: t.context.domain.id }).lean()
-
   // The key is public, so someone who read it off the page could still try to use it
   // from their own site. The origin check is what stops that particular attempt.
   const { json } = await track(t.context.domain.id, {
-    'X-Ackee-Key': domain.ingestKey,
+    'X-Ackee-Key': await keyOf(t.context.domain.id),
     'Origin': 'https://somewhere-else.example',
   })
 
@@ -96,7 +126,7 @@ test.serial('the right key from another site is refused', async (t) => {
 
 test.serial('rotating the key invalidates the old one', async (t) => {
   await Domain.updateOne({ id: t.context.domain.id }, { $set: { strictIngest: true, title: 'example.com' } })
-  const before = await Domain.findOne({ id: t.context.domain.id }).lean()
+  const before = { ingestKey: await keyOf(t.context.domain.id) }
 
   const { json } = await api(
     base,
@@ -131,7 +161,7 @@ test.serial('rotating the key invalidates the old one', async (t) => {
 // inside the domain id. Without this the strict mode could not be used at all.
 test.serial('the key can travel inside the domain id', async (t) => {
   await Domain.updateOne({ id: t.context.domain.id }, { $set: { strictIngest: true, title: 'example.com' } })
-  const domain = await Domain.findOne({ id: t.context.domain.id }).lean()
+  const domain = { id: t.context.domain.id, ingestKey: await keyOf(t.context.domain.id) }
 
   const accepted = await track(`${domain.id}.${domain.ingestKey}`, { Origin: 'https://example.com' })
   t.true(accepted.json.data.createRecord.success)
