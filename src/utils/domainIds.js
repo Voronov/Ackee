@@ -17,7 +17,9 @@ import { workspacesWith } from './permissions.js'
 export default (domain, viewer) => {
   if (domain.id != null) return Promise.resolve([domain.id])
 
-  viewer.allDomainIds ??= domains.all(workspacesWith(viewer, REPORTS_READ)).then((entries) => entries.map((entry) => entry.id))
+  viewer.allDomainIds ??= domains
+    .all(workspacesWith(viewer, REPORTS_READ))
+    .then((entries) => entries.map((entry) => entry.id))
 
   return viewer.allDomainIds
 }
