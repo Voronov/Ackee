@@ -9,6 +9,7 @@ import User from '../../src/models/User.js'
 import UserToken from '../../src/models/UserToken.js'
 import Workspace from '../../src/models/Workspace.js'
 import server from '../../src/server.js'
+import signale from '../../src/utils/signale.js'
 import { api } from '../_utils.js'
 import { cleanup, connectToDatabase, gql } from './_utils.js'
 
@@ -26,12 +27,29 @@ test.beforeEach(async () => {
   ])
 })
 
-// A host that cannot be reached is enough: sending fails and is logged, but the flow
-// around it still runs, which is what these tests are about.
-const withMail = () => mockedEnv({ ACKEE_SMTP_HOST: 'smtp.invalid', ACKEE_SMTP_PORT: '465' })
+// Registration open, emails to the log, where the tests read the link from.
+let restoreEnv
 
-const account = () =>
-  users.add({ email: 'someone@example.com', password: 'sufficiently-long', workspaceTitle: 'Personal' })
+test.beforeEach(() => {
+  restoreEnv = mockedEnv({ ACKEE_ALLOW_SIGNUP: 'true', NODE_ENV: 'development' })
+})
+
+test.afterEach.always(() => restoreEnv())
+
+const captureEmails = () => {
+  const info = signale.info
+  const logged = []
+  signale.info = (message) => logged.push(String(message))
+
+  return {
+    logged,
+    restore: () => {
+      signale.info = info
+    },
+  }
+}
+
+const account = () => users.add({ email: 'someone@example.com', password: 'sufficiently-long' })
 
 const verify = (token) =>
   api(base, {
@@ -45,8 +63,22 @@ const verify = (token) =>
     variables: { token },
   })
 
-test.serial('with mail configured an account starts unconfirmed', async (t) => {
-  const restore = withMail()
+const signIn = (username, password) =>
+  api(base, {
+    query: gql`
+      mutation createToken($input: CreateTokenInput!) {
+        createToken(input: $input) {
+          payload {
+            id
+          }
+        }
+      }
+    `,
+    variables: { input: { username, password } },
+  })
+
+test.serial('register, follow the link from the email, then sign in', async (t) => {
+  const emails = captureEmails()
 
   const { json } = await api(base, {
     query: gql`
@@ -60,29 +92,23 @@ test.serial('with mail configured an account starts unconfirmed', async (t) => {
     `,
     variables: { input: { email: 'new@example.com', password: 'sufficiently-long' } },
   })
+
+  emails.restore()
 
   t.false(json.data.createUser.payload.verified)
 
-  restore()
-})
+  const before = await signIn('new@example.com', 'sufficiently-long')
+  t.regex(before.json.errors[0].message, /confirm your email/i)
 
-test.serial('without mail an account is usable straight away', async (t) => {
-  const { json } = await api(base, {
-    query: gql`
-      mutation createUser($input: CreateUserInput!) {
-        createUser(input: $input) {
-          payload {
-            verified
-          }
-        }
-      }
-    `,
-    variables: { input: { email: 'new@example.com', password: 'sufficiently-long' } },
-  })
+  const token = emails.logged.join('\n').match(/verify\?token=([\w-]+)/)?.[1]
+  t.truthy(token)
 
-  // Nobody could confirm an address on an instance with no outgoing mail, so requiring
-  // it would leave the account unusable forever.
-  t.true(json.data.createUser.payload.verified)
+  const confirmed = await verify(token)
+  t.true(confirmed.json.data.verifyUser.success)
+
+  const after = await signIn('new@example.com', 'sufficiently-long')
+  t.is(after.json.errors, undefined)
+  t.is(typeof after.json.data.createToken.payload.id, 'string')
 })
 
 test.serial('a link confirms the address once and only once', async (t) => {
@@ -113,4 +139,65 @@ test.serial('an expired link is refused', async (t) => {
 test.serial('an unknown link is refused', async (t) => {
   const { json } = await verify('not-a-real-token')
   t.regex(json.errors[0].message, /not valid/i)
+})
+
+const resend = (email) =>
+  api(base, {
+    query: gql`
+      mutation resendVerification($email: String!) {
+        resendVerification(email: $email) {
+          success
+        }
+      }
+    `,
+    variables: { email },
+  })
+
+test.serial('a new confirmation link replaces the old one, at most three an hour', async (t) => {
+  const { user } = await account()
+  const old = await userTokens.issue(user.id, 'VERIFY')
+  const emails = captureEmails()
+
+  for (let index = 0; index < 4; index++)
+    t.true((await resend('someone@example.com')).json.data.resendVerification.success)
+
+  emails.restore()
+
+  // One link was issued above, so only two more fit into the hour.
+  t.is(emails.logged.length, 2)
+  t.regex((await verify(old)).json.errors[0].message, /already been used/i)
+})
+
+test.serial('asking for a link never tells whether an address has an account', async (t) => {
+  const emails = captureEmails()
+
+  const { json } = await resend('nobody@example.com')
+
+  emails.restore()
+
+  t.true(json.data.resendVerification.success)
+  t.is(emails.logged.length, 0)
+})
+
+test.serial('the viewer query returns the signed-in account', async (t) => {
+  const { user } = await account()
+  await users.verify(user.id)
+  const signedIn = await signIn('someone@example.com', 'sufficiently-long')
+
+  const { json } = await api(
+    base,
+    {
+      query: gql`
+        query {
+          viewer {
+            email
+            verified
+          }
+        }
+      `,
+    },
+    signedIn.json.data.createToken.payload.id,
+  )
+
+  t.deepEqual(json.data.viewer, { email: 'someone@example.com', verified: true })
 })
