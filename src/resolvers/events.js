@@ -1,7 +1,11 @@
 import * as actions from '../database/actions.js'
+import * as auditLog from '../database/auditLog.js'
 import * as events from '../database/events.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
+import requirePermission from '../middlewares/requirePermission.js'
+import { EVENTS_MANAGE, REPORTS_READ } from '../constants/permissions.js'
+import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import KnownError from '../utils/KnownError.js'
 import pipe from '../utils/pipe.js'
 import validated from '../utils/validated.js'
@@ -11,41 +15,62 @@ export default {
     statistics: (parent) => parent,
   },
   Query: {
-    event: pipe(requireAuth, (parent, { id }) => {
+    event: pipe(requireAuth, requirePermission(REPORTS_READ), (parent, { id }) => {
       return events.get(id)
     }),
-    events: pipe(requireAuth, () => {
+    events: pipe(requireAuth, requirePermission(REPORTS_READ), () => {
       return events.all()
     }),
   },
   Mutation: {
-    createEvent: pipe(requireAuth, blockDemoMode, async (parent, { input }) => {
-      const entry = await validated(events.add(input))
+    createEvent: pipe(
+      requireAuth,
+      requirePermission(EVENTS_MANAGE),
+      blockDemoMode,
+      async (parent, { input }, { viewer }) => {
+        const entry = await validated(events.add(input))
 
-      return {
-        payload: entry,
-        success: true,
-      }
-    }),
-    updateEvent: pipe(requireAuth, blockDemoMode, async (parent, { id, input }) => {
-      const entry = await validated(events.update(id, input))
+        // Events have no workspace of their own yet (ACKEE-12).
+        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'event.create', entry.id)
 
-      if (entry == null) {
-        throw new KnownError('Unknown event')
-      }
+        return {
+          payload: entry,
+          success: true,
+        }
+      },
+    ),
+    updateEvent: pipe(
+      requireAuth,
+      requirePermission(EVENTS_MANAGE),
+      blockDemoMode,
+      async (parent, { id, input }, { viewer }) => {
+        const entry = await validated(events.update(id, input))
 
-      return {
-        payload: entry,
-        success: true,
-      }
-    }),
-    deleteEvent: pipe(requireAuth, blockDemoMode, async (parent, { id }) => {
-      await actions.del(id)
-      await events.del(id)
+        if (entry == null) {
+          throw new KnownError('Unknown event')
+        }
 
-      return {
-        success: true,
-      }
-    }),
+        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'event.update', entry.id)
+
+        return {
+          payload: entry,
+          success: true,
+        }
+      },
+    ),
+    deleteEvent: pipe(
+      requireAuth,
+      requirePermission(EVENTS_MANAGE),
+      blockDemoMode,
+      async (parent, { id }, { viewer }) => {
+        await actions.del(id)
+        await events.del(id)
+        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'event.delete', id)
+
+        return {
+          success: true,
+        }
+      },
+    ),
   },
 }
