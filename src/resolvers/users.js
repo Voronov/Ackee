@@ -1,3 +1,4 @@
+import * as tokens from '../database/tokens.js'
 import * as userTokens from '../database/userTokens.js'
 import * as users from '../database/users.js'
 import config from '../utils/config.js'
@@ -127,6 +128,9 @@ export default {
 
       // A reset also confirms the address: whoever opened the link reads that mailbox.
       await users.setPassword(result.userId, password)
+
+      // A reset often follows a stolen password, so whoever used it is signed out too.
+      await tokens.delByUser(result.userId)
 
       return { success: true }
     },

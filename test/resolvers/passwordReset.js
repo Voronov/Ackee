@@ -5,6 +5,8 @@ import listen from 'test-listen'
 import * as userTokens from '../../src/database/userTokens.js'
 import * as users from '../../src/database/users.js'
 import Membership from '../../src/models/Membership.js'
+import PermanentToken from '../../src/models/PermanentToken.js'
+import Token from '../../src/models/Token.js'
 import User from '../../src/models/User.js'
 import UserToken from '../../src/models/UserToken.js'
 import Workspace from '../../src/models/Workspace.js'
@@ -166,4 +168,19 @@ test.serial('reset requests are limited to three links an hour', async (t) => {
 
   t.is(emails.logged.length, 3)
   t.is(await UserToken.countDocuments({ userId: user.id, purpose: 'RESET' }), 3)
+})
+
+test.serial('a reset signs the user out everywhere', async (t) => {
+  const { user } = await account()
+  const session = await Token.create({ userId: user.id })
+  const apiToken = await PermanentToken.create({ title: 'CI', userId: user.id })
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  await resetPassword(token, 'a-brand-new-password')
+
+  t.is(await Token.findOne({ id: session.id }), null)
+  // API tokens were created on purpose and stay.
+  t.not(await PermanentToken.findOne({ id: apiToken.id }), null)
+
+  await PermanentToken.deleteOne({ id: apiToken.id })
 })
