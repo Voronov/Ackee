@@ -1,0 +1,19 @@
+# What a laptop needs to run Ackee from source: MongoDB and a mail catcher.
+# Start with `docker compose -f docker-compose.dev.yml up -d`, then `npm run dev`.
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-dev:/data/db
+
+  # Catches every email the app sends. Read them at http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+volumes:
+  mongo-dev:

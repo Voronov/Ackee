@@ -3,6 +3,7 @@ import sortByProperty from '../utils/sortByProperty.js'
 
 const response = (entry) => ({
   id: entry.id,
+  userId: entry.userId,
   title: entry.title,
   created: entry.created,
   updated: entry.updated,
@@ -16,6 +17,7 @@ export const add = async (data) => {
   return enhance(
     await PermanentToken.create({
       title: data.title,
+      userId: data.userId,
     }),
   )
 }
