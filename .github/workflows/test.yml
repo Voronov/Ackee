@@ -3,7 +3,12 @@ name: Test
 permissions:
   contents: read
 
-on: [push, pull_request]
+# A branch is checked through its pull request. Running on every push as well doubled the
+# runs, and with several open pull requests the macOS jobs queued until they were cancelled.
+on:
+  push:
+    branches: [develop]
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
