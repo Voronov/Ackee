@@ -14,6 +14,8 @@ export default new Proxy(
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,
         password: process.env.ACKEE_PASSWORD,
+        // Which build this is: a version tag or sha-<commit>, set by CI when the image is built.
+        build: process.env.ACKEE_BUILD || 'local',
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
