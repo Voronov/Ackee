@@ -25,6 +25,11 @@ COPY dist /srv/app/dist
 
 FROM node:24-alpine
 EXPOSE 3000
+
+# Which build this image is, so a deploy can check that the stand runs what it shipped.
+
+ARG ACKEE_BUILD=local
+ENV ACKEE_BUILD=$ACKEE_BUILD
 WORKDIR /srv/app/
 
 # Copy the source from the build stage to the second stage
