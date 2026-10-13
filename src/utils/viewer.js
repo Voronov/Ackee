@@ -1,4 +1,5 @@
 import * as permanentTokens from '../database/permanentTokens.js'
+import * as roles from '../database/roles.js'
 import * as tokens from '../database/tokens.js'
 import * as users from '../database/users.js'
 import config from './config.js'
@@ -50,9 +51,12 @@ export default async (authorization, ttl) => {
 
   if (user == null) return new KnownError('Token invalid')
 
+  const memberships = await users.memberships(user.id)
+  const permissions = await roles.permissionsFor(memberships.map((membership) => membership.role))
+
   return {
     userId: user.id,
     email: user.email,
-    memberships: await users.memberships(user.id),
+    memberships: memberships.map((membership) => ({ ...membership, permissions: permissions[membership.role] })),
   }
 }
