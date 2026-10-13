@@ -165,15 +165,25 @@ test.serial('a stored role overrides the built-in one of the same name', async (
 })
 
 test.serial('an unknown role grants nothing', async (t) => {
+  const owner = await as('OWNER')
+  await owner.call(createDomain, { input: { title: 'Site' } })
   const stranger = await as('NOBODY')
 
-  t.true(denied((await stranger.call(listDomains)).json))
+  t.deepEqual((await stranger.call(listDomains)).json.data.domains, [])
+  t.true(denied((await stranger.call(createDomain, { input: { title: 'Nope' } })).json))
 })
 
 test.serial('a role in another workspace does not count here', async (t) => {
+  const owner = await as('OWNER')
+  const site = await owner.call(createDomain, { input: { title: 'Site' } })
   const elsewhere = await as('OWNER', 'other-workspace')
 
-  t.true(denied((await elsewhere.call(createDomain, { input: { title: 'Nope' } })).json))
+  // Owner over there, nobody here: the domain does not exist for them.
+  t.deepEqual((await elsewhere.call(listDomains)).json.data.domains, [])
+  t.regex(
+    (await elsewhere.call(deleteDomain, { id: site.json.data.createDomain.payload.id })).json.errors[0].message,
+    /unknown domain/i,
+  )
 })
 
 test('a role refuses a permission that does not exist', async (t) => {
