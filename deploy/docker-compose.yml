@@ -13,6 +13,22 @@ x-logging: &logging
     max-size: 10m
     max-file: '3'
 
+# Mailbux. The values live in .env on the server, never in the repository. Each stand has
+# its own mailbox, so mail from dev is easy to tell apart and its password opens nothing on live.
+x-smtp-live: &smtp-live
+  ACKEE_SMTP_HOST: ${ACKEE_SMTP_HOST}
+  ACKEE_SMTP_PORT: ${ACKEE_SMTP_PORT}
+  ACKEE_SMTP_USER: ${ACKEE_SMTP_USER}
+  ACKEE_SMTP_PASSWORD: ${ACKEE_SMTP_PASSWORD}
+  ACKEE_SMTP_FROM: ${ACKEE_SMTP_FROM}
+
+x-smtp-dev: &smtp-dev
+  ACKEE_SMTP_HOST: ${ACKEE_SMTP_HOST}
+  ACKEE_SMTP_PORT: ${ACKEE_SMTP_PORT}
+  ACKEE_SMTP_USER: ${ACKEE_DEV_SMTP_USER}
+  ACKEE_SMTP_PASSWORD: ${ACKEE_DEV_SMTP_PASSWORD}
+  ACKEE_SMTP_FROM: ${ACKEE_DEV_SMTP_FROM}
+
 services:
   mongo:
     image: mongo:7
@@ -59,6 +75,8 @@ services:
       ACKEE_PASSWORD: ${ACKEE_PASSWORD}
       ACKEE_ALLOW_ORIGIN: https://ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
+      ACKEE_URL: https://ackee2.varlex.app
+      <<: *smtp-live
     depends_on:
       mongo:
         condition: service_healthy
@@ -76,6 +94,8 @@ services:
       ACKEE_PASSWORD: ${ACKEE_PASSWORD}
       ACKEE_ALLOW_ORIGIN: https://dev.ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
+      ACKEE_URL: https://dev.ackee2.varlex.app
+      <<: *smtp-dev
     depends_on:
       mongo:
         condition: service_healthy
