@@ -4,6 +4,7 @@ import listen from 'test-listen'
 import * as users from '../../src/database/users.js'
 import Domain from '../../src/models/Domain.js'
 import Event from '../../src/models/Event.js'
+import PermanentToken from '../../src/models/PermanentToken.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
@@ -217,4 +218,70 @@ test("another workspace's event cannot be deleted", async (t) => {
 
   t.truthy(json.errors)
   t.not(await Event.findOne({ id: mallory.event.id }), null)
+})
+
+// An API token acts as its owner, and its id is the secret itself. Seeing another
+// account's token would mean acting as that account.
+test("another account's API tokens are neither listed nor reachable", async (t) => {
+  const malloryToken = await PermanentToken.create({ title: 'Mallory CI', userId: mallory.user.id })
+  const aliceToken = await PermanentToken.create({ title: 'Alice CI', userId: alice.user.id })
+
+  const call = (query, variables) => api(base, { query, variables }, alice.token.id)
+
+  const listed = await call(gql`
+    query {
+      permanentTokens {
+        id
+      }
+    }
+  `)
+  t.deepEqual(
+    listed.json.data.permanentTokens.map((token) => token.id),
+    [aliceToken.id],
+  )
+
+  const fetched = await call(
+    gql`
+      query fetchToken($id: ID!) {
+        permanentToken(id: $id) {
+          id
+        }
+      }
+    `,
+    { id: malloryToken.id },
+  )
+  t.is(fetched.json.data.permanentToken, null)
+
+  const deleted = await call(
+    gql`
+      mutation deleteToken($id: ID!) {
+        deletePermanentToken(id: $id) {
+          success
+        }
+      }
+    `,
+    { id: malloryToken.id },
+  )
+  t.regex(deleted.json.errors[0].message, /unknown token/i)
+  t.not(await PermanentToken.findOne({ id: malloryToken.id }), null)
+})
+
+test("another workspace's event cannot be changed", async (t) => {
+  const { json } = await api(
+    base,
+    {
+      query: gql`
+        mutation updateEvent($id: ID!, $input: UpdateEventInput!) {
+          updateEvent(id: $id, input: $input) {
+            success
+          }
+        }
+      `,
+      variables: { id: mallory.event.id, input: { title: 'Taken over', type: 'TOTAL_CHART' } },
+    },
+    alice.token.id,
+  )
+
+  t.regex(json.errors[0].message, /unknown event/i)
+  t.is((await Event.findOne({ id: mallory.event.id })).title, 'mallory signups')
 })

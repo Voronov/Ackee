@@ -4,8 +4,8 @@ import { can } from '../utils/permissions.js'
 
 // Runs after `requireAuth`. `workspaceOf` names the workspace the request touches.
 export default (permission, workspaceOf = () => DEFAULT_WORKSPACE_ID) =>
-  async (parent, args, { viewer }) => {
-    if (can(viewer, permission, await workspaceOf(parent, args)) === false) {
+  async (parent, args, context) => {
+    if (can(context.viewer, permission, await workspaceOf(parent, args, context)) === false) {
       throw new KnownError('You do not have permission to do this')
     }
   }
