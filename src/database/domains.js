@@ -48,7 +48,10 @@ export const all = async () => {
     return entries.map(response).toSorted(sortByProperty('title'))
   }
 
-  return enhance(await Promise.all((await Domain.find({})).map(withIngestKey)))
+  // A domain deleted while the list was read comes back as null and is left out.
+  const entries = await Promise.all((await Domain.find({})).map(withIngestKey))
+
+  return enhance(entries.filter((entry) => entry != null))
 }
 
 export const get = async (id) => {

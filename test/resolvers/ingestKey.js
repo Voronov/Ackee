@@ -173,3 +173,21 @@ test.serial('the key can travel inside the domain id', async (t) => {
   const stored = await Record.findOne({ domainId: domain.id }).lean()
   t.not(stored, null)
 })
+
+test.serial('a domain deleted while keys are handed out is left out of the list', async (t) => {
+  const doomed = await Domain.create({ title: 'Doomed' })
+  const findOneAndUpdate = Domain.findOneAndUpdate.bind(Domain)
+
+  // Delete it in the moment between reading the list and storing its key.
+  Domain.findOneAndUpdate = async (filter, ...rest) => {
+    if (filter.id === doomed.id) await Domain.deleteOne({ id: doomed.id })
+    return findOneAndUpdate(filter, ...rest)
+  }
+
+  const listed = await domains.all().finally(() => {
+    Domain.findOneAndUpdate = findOneAndUpdate
+  })
+
+  t.false(listed.some((entry) => entry.id === doomed.id))
+  t.true(listed.some((entry) => entry.id === t.context.domain.id))
+})
