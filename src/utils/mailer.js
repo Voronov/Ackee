@@ -9,22 +9,29 @@ let transport = null
 
 export const isEnabled = () => config.smtpHost != null && config.smtpHost !== ''
 
-const getTransport = () => {
-  if (isEnabled() === false) return null
+// Mailbux on the stands: port 465 with TLS and a login. Mailpit on a laptop: port 1025,
+// no TLS, no login. Port 587 must upgrade with STARTTLS, or the password goes out in clear.
+export const transportOptions = () => ({
+  host: config.smtpHost,
+  port: config.smtpPort,
+  secure: config.smtpPort === 465,
+  requireTLS: config.smtpPort === 587,
+  auth: config.smtpUser ? { user: config.smtpUser, pass: config.smtpPassword } : undefined,
+})
 
-  transport ??= createTransport({
-    host: config.smtpHost,
-    port: config.smtpPort,
-    // Port 465 speaks TLS from the first byte; 587 upgrades with STARTTLS.
-    secure: config.smtpPort === 465,
-    requireTLS: config.smtpPort !== 465,
-    auth: { user: config.smtpUser, pass: config.smtpPassword },
-  })
+const getTransport = () => {
+  transport ??= createTransport(transportOptions())
 
   return transport
 }
 
 export const send = async ({ to, subject, text, html }) => {
+  // During development without a mail server the email goes to the log, so a link can still be opened.
+  if (config.isDevelopmentMode === true && isEnabled() === false) {
+    signale.info(`Email to ${to}: ${subject}\n${text}`)
+    return true
+  }
+
   if (isEnabled() === false) {
     signale.warn(`Email to ${to} not sent: SMTP is not configured`)
     return false
