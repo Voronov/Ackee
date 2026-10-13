@@ -16,9 +16,15 @@ test.after.always(cleanup(server))
 
 // No shared fixture here: these tests are about registration itself, so they manage the
 // database state themselves.
+// Registration open, emails to the log instead of a mail server.
+let restoreEnv
+
 test.beforeEach(async () => {
   await Promise.all([User.deleteMany({}), Workspace.deleteMany({}), Membership.deleteMany({})])
+  restoreEnv = mockedEnv({ ACKEE_ALLOW_SIGNUP: 'true', NODE_ENV: 'development' })
 })
+
+test.afterEach.always(() => restoreEnv())
 
 const register = (email, password) =>
   api(base, {
@@ -64,10 +70,8 @@ test.serial('every registered user is equal to every other', async (t) => {
   t.is(workspaces, 2)
 })
 
-test.serial('a closed instance accepts no registrations', async (t) => {
-  const restore = mockedEnv({ ACKEE_ALLOW_SIGNUP: 'false' })
-
-  const state = await api(base, {
+const signupAllowed = async () => {
+  const { json } = await api(base, {
     query: gql`
       query {
         signup {
@@ -76,24 +80,32 @@ test.serial('a closed instance accepts no registrations', async (t) => {
       }
     `,
   })
-  t.false(state.json.data.signup.allowed)
+
+  return json.data.signup.allowed
+}
+
+test.serial('registration is closed unless switched on', async (t) => {
+  t.true(await signupAllowed())
+
+  const restore = mockedEnv({ ACKEE_ALLOW_SIGNUP: undefined })
+
+  t.false(await signupAllowed())
 
   const attempt = await register('someone@example.com', 'sufficiently-long')
   t.regex(attempt.json.errors[0].message, /closed/i)
 
   restore()
+})
 
-  // Without the variable registration is open: a closed instance is the exception.
-  const open = await api(base, {
-    query: gql`
-      query {
-        signup {
-          allowed
-        }
-      }
-    `,
-  })
-  t.true(open.json.data.signup.allowed)
+test.serial('registration needs outgoing email outside development', async (t) => {
+  const restore = mockedEnv({ NODE_ENV: 'production', ACKEE_SMTP_HOST: undefined })
+
+  const { json } = await register('someone@example.com', 'sufficiently-long')
+
+  restore()
+
+  t.regex(json.errors[0].message, /needs outgoing email/i)
+  t.is(await User.countDocuments(), 0)
 })
 
 test.serial('rejects a taken address, a short password and a non-address', async (t) => {
