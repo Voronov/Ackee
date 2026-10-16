@@ -82,6 +82,28 @@ Set to `true` to enable demo mode. In demo mode, all mutations (creating, updati
 ACKEE_DEMO=true
 ```
 
+## Metrics
+
+Ackee exposes Prometheus metrics at `/metrics` when a token is set. Without this variable the endpoint responds with `404 Not found`, and so does any request carrying a wrong token — the endpoint never confirms that it exists.
+
+```
+ACKEE_METRICS_TOKEN=<random string>
+```
+
+Scrape it with an `Authorization` header:
+
+```
+curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
+```
+
+Exposed series, next to the Node.js defaults:
+
+| Metric                                     | What it answers                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
+
 ## CORS headers
 
 Quick solution for setting [CORS headers](CORS%20headers.md) instead of using a [reverse proxy](SSL%20and%20HTTPS.md). This is helpful if you are running Ackee on a platform that handles SSL for you.

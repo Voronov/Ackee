@@ -59,6 +59,8 @@ services:
       ACKEE_PASSWORD: ${ACKEE_PASSWORD}
       ACKEE_ALLOW_ORIGIN: https://ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
+      # Prometheus reads /metrics with this token. Each stand has its own.
+      ACKEE_METRICS_TOKEN: ${ACKEE_METRICS_TOKEN:-}
     depends_on:
       mongo:
         condition: service_healthy
@@ -76,6 +78,8 @@ services:
       ACKEE_PASSWORD: ${ACKEE_PASSWORD}
       ACKEE_ALLOW_ORIGIN: https://dev.ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
+      # Prometheus reads /metrics with this token. Each stand has its own.
+      ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
     depends_on:
       mongo:
         condition: service_healthy
