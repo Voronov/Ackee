@@ -48,6 +48,26 @@ Simply run Ackee with `NODE_ENV` set to `development` to get access to the [Grap
 npm run dev
 ```
 
+### Database and email on your machine
+
+`docker-compose.dev.yml` starts MongoDB and [Mailpit](https://mailpit.axllent.org), which catches every email the app sends:
+
+```
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Then put this in `.env` and run `npm run dev`:
+
+```
+ACKEE_MONGODB=mongodb://localhost:27017/ackee
+ACKEE_URL=http://localhost:3000
+ACKEE_SMTP_HOST=localhost
+ACKEE_SMTP_PORT=1025
+ACKEE_SMTP_FROM=ackee@localhost
+```
+
+Sent emails are at http://localhost:8025. Without `ACKEE_SMTP_HOST`, development mode writes emails to the log instead.
+
 ## Code Quality
 
 ### Linting and Formatting
