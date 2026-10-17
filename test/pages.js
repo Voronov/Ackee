@@ -48,3 +48,16 @@ test.serial('an unknown confirmation link is refused', async (t) => {
   t.is(status, 400)
   t.regex(body, /not valid/i)
 })
+
+test.serial('stops answering one address after too many requests', async (t) => {
+  const from = { 'X-Forwarded-For': '203.0.113.7' }
+  const statuses = []
+
+  for (let index = 0; index < 31; index++) {
+    const response = await fetch(new URL('/verify?token=nothing', await base).href, { headers: from })
+    statuses.push(response.status)
+  }
+
+  t.is(statuses.filter((status) => status === 400).length, 30)
+  t.is(statuses.at(-1), 429)
+})

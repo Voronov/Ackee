@@ -1,4 +1,6 @@
 import express from 'express'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import { getClientIp } from 'request-ip'
 
 import * as userTokens from './database/userTokens.js'
 import * as users from './database/users.js'
@@ -51,6 +53,18 @@ const explain = (status) => {
 }
 
 const router = express.Router()
+
+// A token cannot be guessed (256 bits), but every request still costs a database lookup.
+// The address is read the same way as everywhere else, from the proxy headers.
+router.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    keyGenerator: (request) => ipKeyGenerator(getClientIp(request) ?? ''),
+    handler: (request, response) =>
+      response.status(429).send(message('Too many requests', 'Wait a few minutes and open the link again.')),
+  }),
+)
 
 router.get('/verify', async (request, response) => {
   const result = await userTokens.redeem(String(request.query.token ?? ''), 'VERIFY')
