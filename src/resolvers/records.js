@@ -81,7 +81,7 @@ export default {
         if (matchesOrigin(origin, domain.title) === false) throw new KnownError('Origin does not match the domain')
       }
 
-      const clientId = identifier(ip, userAgent, domain.id)
+      const clientId = await identifier(ip, userAgent, domain.id)
       const data = polish({ ...input, clientId, domainId: domain.id })
 
       const entry = await validated(records.add(data))
