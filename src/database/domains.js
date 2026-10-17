@@ -24,6 +24,7 @@ const response = (entry) => ({
   title: entry.title,
   ingestKey: entry.ingestKey,
   strictIngest: entry.strictIngest,
+  workspaceId: entry.workspaceId,
   created: entry.created,
   updated: entry.updated,
 })
