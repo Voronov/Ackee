@@ -1,0 +1,18 @@
+# Who reviews what. GitHub asks these people for a review, and develop requires an approval
+# from one of them.
+#
+# Every path has at least two owners: nobody can approve their own pull request, so a path
+# with a single owner could not be merged when that owner wrote the change.
+#
+# The last matching line wins.
+
+*                    @Voronov @OlexiyHR
+
+# CI/CD and the server.
+/.github/            @Voronov @VadymPenyaka
+/deploy/             @Voronov @VadymPenyaka
+/Dockerfile          @Voronov @VadymPenyaka
+/docker-compose*.yml @Voronov @VadymPenyaka
+
+# Tests – QA.
+/test/               @OlexiyHR @Voronov

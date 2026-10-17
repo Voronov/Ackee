@@ -96,6 +96,16 @@ Set the environment to `development` to see additional details in the console an
 NODE_ENV=development
 ```
 
+## Redis
+
+Set when more than one Ackee process records views, e.g. replicas or a separate ingest process. The processes then share the daily salt through Redis and compute the same `clientId` for the same visitor. A restart during the day keeps the salt as well. Without this variable every process keeps its own salt in memory.
+
+```
+ACKEE_REDIS=redis://redis:6379
+```
+
+The salt is stored under `ackee:salt:<date>` and expires after 25 hours. Run Redis without persistence (`--save '' --appendonly no`), so the salt never reaches a disk or a backup. While Redis is unreachable, recording waits for it.
+
 ## Demo mode
 
 Set to `true` to enable demo mode. In demo mode, all mutations (creating, updating, deleting) are blocked, and the GraphQL Playground is enabled.
@@ -103,6 +113,28 @@ Set to `true` to enable demo mode. In demo mode, all mutations (creating, updati
 ```
 ACKEE_DEMO=true
 ```
+
+## Metrics
+
+Ackee exposes Prometheus metrics at `/metrics` when a token is set. Without this variable the endpoint responds with `404 Not found`, and so does any request carrying a wrong token — the endpoint never confirms that it exists.
+
+```
+ACKEE_METRICS_TOKEN=<random string>
+```
+
+Scrape it with an `Authorization` header:
+
+```
+curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
+```
+
+Exposed series, next to the Node.js defaults:
+
+| Metric                                     | What it answers                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
 
 ## CORS headers
 
