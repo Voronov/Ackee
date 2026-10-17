@@ -74,6 +74,16 @@ Set the environment to `development` to see additional details in the console an
 NODE_ENV=development
 ```
 
+## Redis
+
+Set when more than one Ackee process records views, e.g. replicas or a separate ingest process. The processes then share the daily salt through Redis and compute the same `clientId` for the same visitor. A restart during the day keeps the salt as well. Without this variable every process keeps its own salt in memory.
+
+```
+ACKEE_REDIS=redis://redis:6379
+```
+
+The salt is stored under `ackee:salt:<date>` and expires after 25 hours. Run Redis without persistence (`--save '' --appendonly no`), so the salt never reaches a disk or a backup. While Redis is unreachable, recording waits for it.
+
 ## Demo mode
 
 Set to `true` to enable demo mode. In demo mode, all mutations (creating, updating, deleting) are blocked, and the GraphQL Playground is enabled.

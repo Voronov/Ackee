@@ -59,7 +59,7 @@ export default {
         }
       }
 
-      const clientId = identifier(ip, userAgent, domainId)
+      const clientId = await identifier(ip, userAgent, domainId)
       const data = polish({ ...input, clientId, domainId })
 
       const domain = await domains.get(domainId)
