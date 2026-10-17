@@ -104,16 +104,6 @@ jobs:
             type=sha,prefix=sha-,enable=${{ github.ref_type == 'branch' && inputs.tag == '' }}
             type=semver,pattern={{version}},value=${{ inputs.tag }}
 
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - id: tag
         env:
           RELEASE: ${{ github.ref_type == 'tag' || inputs.tag != '' }}
@@ -127,6 +117,18 @@ jobs:
             echo "stage=dev" >> "$GITHUB_OUTPUT"
             echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
           fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # The stand reports this back, and the smoke test compares it with what was deployed.
+          build-args: ACKEE_BUILD=${{ steps.tag.outputs.tag }}
 
   deploy:
     name: 'Deploy'
@@ -180,19 +182,19 @@ jobs:
       - name: Deploy
         run: ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" "$STAGE $TAG"
 
-      - name: Check it answers
+      # Not only that the page answers: the API works, reaches the database and runs exactly
+      # the build that was deployed. Read-only, so it is safe on live.
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Smoke test
         run: |
           if [ -z "$DEPLOY_URL" ]; then
-            echo "DEPLOY_URL is not set, skipping the check"
+            echo "DEPLOY_URL is not set, skipping the smoke test"
             exit 0
           fi
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$DEPLOY_URL")
-            [ "$code" = "200" ] && { echo "$DEPLOY_URL answers $code"; exit 0; }
-            sleep 5
-          done
-          echo "$DEPLOY_URL did not come back"
-          exit 1
+          .github/scripts/smoke.sh "$DEPLOY_URL" "$TAG"
 
       - name: Forget the key
         if: always()
