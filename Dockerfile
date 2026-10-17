@@ -12,14 +12,23 @@ WORKDIR /srv/app/
 
 # Add dependencies first so that Docker can use the cache as long as the dependencies stay unchanged
 
-COPY package.json package-lock.json /srv/app/
-RUN [ "npm", "ci" ]
+# The interface is built here, so it needs the dev dependencies too. They are removed again
+# below, before the second stage copies the result.
+
+COPY --chown=ackee:ackee package.json package-lock.json /srv/app/
+RUN [ "npm", "ci", "--include=dev" ]
 
 # Copy source after the dependency step as it's more likely that the source changes
 
-COPY build.js /srv/app/
-COPY src /srv/app/src
-COPY dist /srv/app/dist
+COPY --chown=ackee:ackee build.js /srv/app/
+COPY --chown=ackee:ackee src /srv/app/src
+COPY --chown=ackee:ackee dist /srv/app/dist
+
+# Build the interface from the source in this image. Without this the image would serve the
+# bundle committed in dist/, which goes stale with every interface change.
+
+RUN [ "npm", "run", "build:pre" ]
+RUN [ "npm", "prune", "--omit=dev" ]
 
 # Start with second build stage
 
