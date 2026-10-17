@@ -2,16 +2,17 @@ import Token from '../models/Token.js'
 
 const response = (entry) => ({
   id: entry.id,
+  userId: entry.userId,
   created: entry.created,
   updated: entry.updated,
 })
 
-export const add = async () => {
+export const add = async (userId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(await Token.create({}))
+  return enhance(await Token.create({ userId }))
 }
 
 export const get = async (id) => {
