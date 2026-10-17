@@ -61,6 +61,23 @@ export default {
         }
       },
     ),
+    rotateIngestKey: pipe(
+      requireAuth,
+      requirePermission(DOMAINS_MANAGE, workspaceOfDomain),
+      blockDemoMode,
+      async (parent, { id }, { viewer }) => {
+        const entry = await domains.rotateIngestKey(id)
+
+        if (entry == null) throw new KnownError('Unknown domain')
+
+        await auditLog.record(viewer, entry.workspaceId, 'domain.rotateIngestKey', entry.id)
+
+        return {
+          payload: entry,
+          success: true,
+        }
+      },
+    ),
     deleteDomain: pipe(
       requireAuth,
       requirePermission(DOMAINS_MANAGE, workspaceOfDomain),
