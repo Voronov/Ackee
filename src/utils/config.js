@@ -17,6 +17,14 @@ export default new Proxy(
         password: process.env.ACKEE_PASSWORD,
         // Which build this is: a version tag or sha-<commit>, set by CI when the image is built.
         build: process.env.ACKEE_BUILD || 'local',
+        // Public address of this instance. Used to build the links inside emails, so a
+        // wrong value produces links that go nowhere.
+        publicUrl: process.env.ACKEE_URL,
+        smtpHost: process.env.ACKEE_SMTP_HOST,
+        smtpPort: Number(process.env.ACKEE_SMTP_PORT || 465),
+        smtpUser: process.env.ACKEE_SMTP_USER,
+        smtpPassword: process.env.ACKEE_SMTP_PASSWORD,
+        smtpFrom: process.env.ACKEE_SMTP_FROM || process.env.ACKEE_SMTP_USER,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
