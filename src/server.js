@@ -13,6 +13,7 @@ import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
+import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
 
 const __dirname = import.meta.dirname
@@ -85,12 +86,15 @@ app.use(
   }),
 )
 
+// Response timing has to cover every route, so it goes before them.
+app.use(metrics.httpMiddleware)
+
 // Create HTTP server before Apollo Server (needed for drain plugin)
 const server = http.createServer(app)
 
 const apolloServer = createApolloServer({
   formatError: handleGraphError,
-  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server })], // eslint-disable-line new-cap
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin], // eslint-disable-line new-cap
 })
 
 // Apply CORS middleware
@@ -101,6 +105,8 @@ app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
 
+// Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
+app.get('/metrics', metrics.handler)
 // Pages that links in emails point at.
 app.use(pages)
 

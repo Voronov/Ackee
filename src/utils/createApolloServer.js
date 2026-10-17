@@ -35,10 +35,12 @@ const httpHeadersPlugin = {
     return {
       willSendResponse({ contextValue, response }) {
         if (contextValue.setCookies?.length > 0) {
-          for (const cookie of contextValue.setCookies) {
-            const cookieString = typeof cookie === 'string' ? cookie : formatCookie(cookie)
-            response.http?.headers.set('set-cookie', cookieString)
-          }
+          // All cookies at once, as a list: setting them one by one kept only the last.
+          // Express turns the list into one Set-Cookie header per cookie.
+          const cookies = contextValue.setCookies.map((cookie) =>
+            typeof cookie === 'string' ? cookie : formatCookie(cookie),
+          )
+          response.http?.headers.set('set-cookie', cookies)
         }
         if (contextValue.setHeaders?.length > 0) {
           for (const { key, value } of contextValue.setHeaders) {

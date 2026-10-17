@@ -27,12 +27,13 @@ test('a membership starts with the smallest role', (t) => {
   t.is(new Membership({ userId: 'user', workspaceId: 'workspace' }).role, ROLE_VIEWER)
 })
 
-test('a membership refuses an unknown role', async (t) => {
-  const error = await new Membership({ userId: 'user', workspaceId: 'workspace', role: 'ROOT' })
+// Roles can be added in the database without a release (ACKEE-13), so the model takes any name.
+test('a membership accepts a role that is not built in', async (t) => {
+  const error = await new Membership({ userId: 'user', workspaceId: 'workspace', role: 'ANALYST' })
     .validate()
     .catch((error_) => error_)
 
-  t.not(error?.errors.role, undefined)
+  t.is(error, undefined)
 })
 
 test('an email is stored in one form', (t) => {
