@@ -10,6 +10,7 @@ export default new Proxy(
         ttl: process.env.ACKEE_TTL || day,
         port: process.env.ACKEE_PORT || process.env.PORT || 3000,
         dbUrl: process.env.ACKEE_MONGODB || process.env.MONGODB_URI,
+        redisUrl: process.env.ACKEE_REDIS,
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,
