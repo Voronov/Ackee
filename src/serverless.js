@@ -76,7 +76,12 @@ export const handler = async (request) => {
   const responseHeaders = buildResponseHeaders(corsHeaders)
 
   for (const [key, value] of result.headers) {
-    responseHeaders.set(key, value)
+    // Cookies come as a list, and each needs a header of its own.
+    if (Array.isArray(value)) {
+      for (const item of value) responseHeaders.append(key, item)
+    } else {
+      responseHeaders.set(key, value)
+    }
   }
 
   for (const [key, value] of Object.entries(corsHeaders)) {
