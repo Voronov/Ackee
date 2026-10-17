@@ -8,6 +8,10 @@ const schema = new mongoose.Schema({
     unique: true,
     default: uuid,
   },
+  // Tokens created before accounts have no owner and count as the env admin's.
+  userId: {
+    type: String,
+  },
   created: {
     type: Date,
     required: true,
