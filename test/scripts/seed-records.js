@@ -159,9 +159,13 @@ test('keeps visitor fields only in the last record of every visitor per day', (t
 })
 
 test('gives the same visitor another clientId every day', (t) => {
-  t.is(clientId(42, 7, 20000), clientId(42, 7, 20000))
-  t.not(clientId(42, 7, 20000), clientId(42, 7, 20001))
-  t.not(clientId(42, 7, 20000), clientId(42, 8, 20000))
+  t.is(clientId(42, 7, 20000, 'a'), clientId(42, 7, 20000, 'a'))
+  t.not(clientId(42, 7, 20000, 'a'), clientId(42, 7, 20001, 'a'))
+  t.not(clientId(42, 7, 20000, 'a'), clientId(42, 8, 20000, 'a'))
+})
+
+test('gives the same visitor another clientId on every domain', (t) => {
+  t.not(clientId(42, 7, 20000, 'a'), clientId(42, 7, 20000, 'b'))
 })
 
 test('anonymizes a visitor within one day only', (t) => {

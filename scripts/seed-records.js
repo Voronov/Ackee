@@ -112,8 +112,9 @@ const referrers = [
 
 // The tracker salts clientId anew every day at 00:00 server time (src/utils/salt.js),
 // so the same visitor gets another clientId every day. The stand runs in UTC.
-export const clientId = (seed, visitor, utcDay) =>
-  crypto.createHash('sha256').update(`${seed}:${visitor}:${utcDay}`).digest('hex')
+// The domain is part of the hash, as in src/utils/identifier.js.
+export const clientId = (seed, visitor, utcDay, domainId) =>
+  crypto.createHash('sha256').update(`${seed}:${visitor}:${utcDay}:${domainId}`).digest('hex')
 
 const toUtcDay = (time) => Math.floor(time / day)
 
@@ -221,7 +222,7 @@ export const generateRecords = function* ({ records, days, domainId, seed = defa
 
     const record = withoutUndefined({
       id: createUuid(random),
-      clientId: clientId(seed, visitor, toUtcDay(time)),
+      clientId: clientId(seed, visitor, toUtcDay(time), domainId),
       domainId,
       siteLocation: pick(random, pages, 3),
       siteReferrer,
