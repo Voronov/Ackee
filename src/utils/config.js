@@ -17,6 +17,8 @@ export default new Proxy(
         password: process.env.ACKEE_PASSWORD,
         // Closed unless switched on, so an update never opens an install to strangers (ADR-002).
         allowSignup: process.env.ACKEE_ALLOW_SIGNUP === 'true',
+        // Which build this is: a version tag or sha-<commit>, set by CI when the image is built.
+        build: process.env.ACKEE_BUILD || 'local',
         // Public address of this instance. Used to build the links inside emails, so a
         // wrong value produces links that go nowhere.
         publicUrl: process.env.ACKEE_URL,
