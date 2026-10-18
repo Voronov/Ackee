@@ -1,3 +1,4 @@
+import { REPORTS_READ } from '../constants/permissions.js'
 import getBrowsers from '../database/browsers.js'
 import getDevices from '../database/devices.js'
 import getDurations from '../database/durations.js'
@@ -8,6 +9,7 @@ import getSizes from '../database/sizes.js'
 import getSystems from '../database/systems.js'
 import getViews from '../database/views.js'
 import requireAuth from '../middlewares/requireAuth.js'
+import requirePermission from '../middlewares/requirePermission.js'
 import domainIds from '../utils/domainIds.js'
 import pipe from '../utils/pipe.js'
 import recursiveId from '../utils/recursiveId.js'
@@ -60,6 +62,7 @@ export default {
     }),
   },
   Query: {
-    statistics: () => ({}),
+    // Counts over every domain of the default workspace, so it needs the same right as `domains`
+    statistics: pipe(requireAuth, requirePermission(REPORTS_READ), () => ({})),
   },
 }

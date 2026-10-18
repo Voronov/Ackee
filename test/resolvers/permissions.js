@@ -170,6 +170,32 @@ test.serial('an unknown role grants nothing', async (t) => {
   t.true(denied((await stranger.call(listDomains)).json))
 })
 
+const readFacts = gql`
+  query {
+    facts {
+      viewsToday
+    }
+  }
+`
+const readStatistics = gql`
+  query {
+    statistics {
+      pages(sorting: TOP) {
+        value
+        count
+      }
+    }
+  }
+`
+
+test.serial('reports over all domains stay closed to someone with only a workspace of their own', async (t) => {
+  const stranger = await as('OWNER', 'personal-workspace')
+  await Domain.create({ title: 'secret.example.com' })
+
+  t.true(denied((await stranger.call(readFacts)).json))
+  t.true(denied((await stranger.call(readStatistics)).json))
+})
+
 test.serial('a role in another workspace does not count here', async (t) => {
   const elsewhere = await as('OWNER', 'other-workspace')
 
