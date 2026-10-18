@@ -39,6 +39,36 @@ _or_
 PORT=3000
 ```
 
+## Ingest key
+
+Every domain has an ingest key. The embed code carries it after the domain id, separated by
+a dot, and the tracker passes the whole value through untouched – so nothing about the
+tracker had to change.
+
+The key is **not a secret**: it sits in a script tag on a public page, and anyone who opens
+that page can read it. What it buys is a higher bar. Without it, a domain id found in
+someone's page source is enough to send events into their reports; with it, an attacker has
+to at least fetch the page, and the owner can rotate the key when that is not enough.
+
+A new domain checks the key from the start, because its embed code already carries it. A
+domain that existed before keys accepts events with or without one, so a snippet already on a
+site keeps working. Turn checking on once the snippet on your site carries the key:
+
+```graphql
+mutation {
+  updateDomain(id: "…", input: { title: "example.com", strictIngest: true }) {
+    success
+  }
+}
+```
+
+With it on, an event also has to come from the site the domain is named after (the `Origin`
+header, subdomains included). That check only works when the domain title is a host name; a
+domain called "My blog" cannot be checked that way and is let through.
+
+Rotate a key that is being misused with `rotateIngestKey`. The old one stops working at once,
+so update the snippet on your site first.
+
 ## Username and password
 
 Username and password. Both are required to generate a new token.
@@ -109,6 +139,16 @@ Set the environment to `development` to see additional details in the console an
 NODE_ENV=development
 ```
 
+## Redis
+
+Set when more than one Ackee process records views, e.g. replicas or a separate ingest process. The processes then share the daily salt through Redis and compute the same `clientId` for the same visitor. A restart during the day keeps the salt as well. Without this variable every process keeps its own salt in memory.
+
+```
+ACKEE_REDIS=redis://redis:6379
+```
+
+The salt is stored under `ackee:salt:<date>` and expires after 25 hours. Run Redis without persistence (`--save '' --appendonly no`), so the salt never reaches a disk or a backup. While Redis is unreachable, recording waits for it.
+
 ## Demo mode
 
 Set to `true` to enable demo mode. In demo mode, all mutations (creating, updating, deleting) are blocked, and the GraphQL Playground is enabled.
@@ -116,6 +156,28 @@ Set to `true` to enable demo mode. In demo mode, all mutations (creating, updati
 ```
 ACKEE_DEMO=true
 ```
+
+## Metrics
+
+Ackee exposes Prometheus metrics at `/metrics` when a token is set. Without this variable the endpoint responds with `404 Not found`, and so does any request carrying a wrong token — the endpoint never confirms that it exists.
+
+```
+ACKEE_METRICS_TOKEN=<random string>
+```
+
+Scrape it with an `Authorization` header:
+
+```
+curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
+```
+
+Exposed series, next to the Node.js defaults:
+
+| Metric                                     | What it answers                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
 
 ## CORS headers
 

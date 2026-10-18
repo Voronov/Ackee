@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 import { randomUUID as uuid } from 'node:crypto'
 
-import { ROLE_VIEWER, ROLES } from '../constants/roles.js'
+import { ROLE_VIEWER } from '../constants/roles.js'
 import { SCHEMA_VERSION } from '../constants/workspaces.js'
 
 // A user's role in a workspace. A collection rather than an array on the workspace:
@@ -24,7 +24,7 @@ const schema = new mongoose.Schema({
   role: {
     type: String,
     required: true,
-    enum: ROLES,
+    // Any role name: built-in or stored in the database (ACKEE-13). An unknown one grants nothing.
     default: ROLE_VIEWER,
   },
   schemaVersion: {

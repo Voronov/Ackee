@@ -4,5 +4,7 @@ export default gql`
   fragment domainFields on Domain {
     id
     title
+    ingestKey
+    strictIngest
   }
 `

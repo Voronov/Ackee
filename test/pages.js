@@ -50,6 +50,28 @@ test.serial('an unknown confirmation link is refused', async (t) => {
   t.regex(body, /not valid/i)
 })
 
+test.serial('stops answering one address after too many requests', async (t) => {
+  const from = { 'X-Forwarded-For': '203.0.113.7' }
+  const statuses = []
+
+  for (let index = 0; index < 31; index++) {
+    const response = await fetch(new URL('/verify?token=nothing', await base).href, { headers: from })
+    statuses.push(response.status)
+  }
+
+  t.is(statuses.filter((status) => status === 400).length, 30)
+  t.is(statuses.at(-1), 429)
+
+  // The limit belongs to the links, not to the rest of the app
+  const api = await fetch(new URL('/api', await base).href, {
+    method: 'POST',
+    headers: { ...from, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: '{ __typename }' }),
+  })
+  t.is(api.status, 200)
+  t.is((await fetch(new URL('/tracker.js', await base).href, { headers: from })).status, 200)
+})
+
 test.serial('the reset page carries the token into the form', async (t) => {
   const { user } = await account('reset-page@example.com')
   const token = await userTokens.issue(user.id, 'RESET')

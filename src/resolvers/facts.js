@@ -1,9 +1,11 @@
+import { REPORTS_READ } from '../constants/permissions.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import { VIEWS_TYPE_UNIQUE } from '../constants/views.js'
 import getDurations from '../database/durations.js'
 import getActiveVisitors from '../database/facts.js'
 import getViews from '../database/views.js'
 import requireAuth from '../middlewares/requireAuth.js'
+import requirePermission from '../middlewares/requirePermission.js'
 import domainIds from '../utils/domainIds.js'
 import pipe from '../utils/pipe.js'
 import recursiveId from '../utils/recursiveId.js'
@@ -88,6 +90,7 @@ export default {
     }),
   },
   Query: {
-    facts: () => ({}),
+    // Counts over every domain of the default workspace, so it needs the same right as `domains`
+    facts: pipe(requireAuth, requirePermission(REPORTS_READ), () => ({})),
   },
 }
