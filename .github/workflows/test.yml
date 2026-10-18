@@ -138,3 +138,33 @@ jobs:
             sleep 2
           done
           echo "Container did not start"; docker logs ackee; exit 1
+
+  e2e:
+    name: 'Browser tests'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The same command as on a laptop: Ackee built from this checkout, MongoDB, Mailpit and
+      # Playwright with Chromium, all in containers.
+      - name: Register, confirm and sign in through a real browser
+        run: docker compose -f e2e/docker-compose.yml run --rm --build tests
+
+      - name: Logs of the stand
+        if: failure()
+        run: docker compose -f e2e/docker-compose.yml logs ackee mailpit
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-tests
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Stop the stand
+        if: always()
+        run: docker compose -f e2e/docker-compose.yml down -v

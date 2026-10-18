@@ -1,0 +1,51 @@
+# Browser tests, all in Docker, the same way locally and in CI:
+#
+#   docker compose -f e2e/docker-compose.yml run --rm --build tests
+#   docker compose -f e2e/docker-compose.yml down
+#
+# Ackee is built from this checkout. Mailpit catches the emails; the tests read the links
+# from its API. Nothing needs a browser installed on the host.
+services:
+  mongo:
+    image: mongo:7
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '8025:8025'
+
+  ackee:
+    build: ..
+    ports:
+      - '3000:3000'
+    environment:
+      ACKEE_MONGODB: mongodb://mongo:27017/ackee
+      # The address the browser in the tests container uses, so links in emails work there.
+      ACKEE_URL: http://ackee:3000
+      ACKEE_ALLOW_SIGNUP: 'true'
+      ACKEE_SMTP_HOST: mailpit
+      ACKEE_SMTP_PORT: '1025'
+      ACKEE_SMTP_FROM: ackee@localhost
+    depends_on: [mongo, mailpit]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/']
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  # Same Playwright version as package.json, with Chromium and its system libraries.
+  tests:
+    image: mcr.microsoft.com/playwright:v1.56.1-noble
+    working_dir: /app
+    volumes:
+      - ..:/app
+      # The container installs its own dependencies instead of using the host's.
+      - /app/node_modules
+    environment:
+      E2E_URL: http://ackee:3000
+      E2E_MAILPIT: http://mailpit:8025
+      CI: ${CI:-}
+    command: sh -c "npm ci --ignore-scripts --no-audit --no-fund && npx playwright test"
+    depends_on:
+      ackee:
+        condition: service_healthy
