@@ -78,6 +78,19 @@ ACKEE_USERNAME=username
 ACKEE_PASSWORD=password
 ```
 
+People can also register their own account with an email address and a password. Registering
+creates a personal workspace with the new account as its owner. The address must be confirmed
+through the emailed link before the account can sign in.
+
+Registration is closed unless you open it:
+
+```
+ACKEE_ALLOW_SIGNUP=true
+```
+
+It needs outgoing email (see below), because an account that cannot confirm its address can
+never sign in. The account from `ACKEE_USERNAME` keeps working either way.
+
 ## Email
 
 Confirmation, password reset and invitation links are sent over SMTP. Without

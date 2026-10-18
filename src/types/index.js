@@ -12,10 +12,12 @@ import miscellaneous from './miscellaneous.js'
 import permanentTokens from './permanentTokens.js'
 import records from './records.js'
 import tokens from './tokens.js'
+import users from './users.js'
 
 export default mergeTypeDefs(
   [
     tokens,
+    users,
     permanentTokens,
     records,
     domains,

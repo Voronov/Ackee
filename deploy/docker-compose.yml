@@ -97,6 +97,8 @@ services:
       ACKEE_ALLOW_ORIGIN: https://dev.ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_URL: https://dev.ackee2.varlex.app
+      # Open on dev so registration can be tried. Live stays closed until decided.
+      ACKEE_ALLOW_SIGNUP: 'true'
       <<: *smtp-dev
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
