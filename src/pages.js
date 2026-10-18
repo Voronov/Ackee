@@ -1,5 +1,6 @@
 import express from 'express'
 
+import * as tokens from './database/tokens.js'
 import * as userTokens from './database/userTokens.js'
 import * as users from './database/users.js'
 import signale from './utils/signale.js'
@@ -106,6 +107,8 @@ router.post('/reset', express.urlencoded({ extended: false }), async (request, r
 
   try {
     await users.setPassword(result.userId, password)
+    // Whoever knew the old password must lose access too, the same as in `resetPassword`
+    await tokens.delByUser(result.userId)
   } catch (error) {
     signale.fatal(error)
 

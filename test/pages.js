@@ -1,6 +1,7 @@
 import test from 'ava'
 import listen from 'test-listen'
 
+import * as tokens from '../src/database/tokens.js'
 import * as userTokens from '../src/database/userTokens.js'
 import * as users from '../src/database/users.js'
 import User from '../src/models/User.js'
@@ -61,6 +62,7 @@ test.serial('the reset page carries the token into the form', async (t) => {
 
 test.serial('the reset form sets a new password', async (t) => {
   const { user } = await account('reset-form@example.com')
+  const session = await tokens.add(user.id)
   const token = await userTokens.issue(user.id, 'RESET')
 
   const response = await fetch(new URL('/reset', await base).href, {
@@ -76,6 +78,8 @@ test.serial('the reset form sets a new password', async (t) => {
 
   // A reset also confirms the address: whoever opened the link reads that mailbox.
   t.true(stored.verified)
+  // And signs the user out everywhere, the old password may be known to someone else
+  t.is(await tokens.get(session.id), null)
 })
 
 test.serial('the reset form refuses a short password', async (t) => {
