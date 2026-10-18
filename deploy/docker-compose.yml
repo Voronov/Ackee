@@ -77,6 +77,8 @@ services:
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_URL: https://ackee2.varlex.app
       <<: *smtp-live
+      # Prometheus reads /metrics with this token. Each stand has its own.
+      ACKEE_METRICS_TOKEN: ${ACKEE_METRICS_TOKEN:-}
     depends_on:
       mongo:
         condition: service_healthy
@@ -98,6 +100,8 @@ services:
       # Open on dev so registration can be tried. Live stays closed until decided.
       ACKEE_ALLOW_SIGNUP: 'true'
       <<: *smtp-dev
+      # Prometheus reads /metrics with this token. Each stand has its own.
+      ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
     depends_on:
       mongo:
         condition: service_healthy

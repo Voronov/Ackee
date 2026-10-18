@@ -6,6 +6,7 @@ import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Domain from '../../src/models/Domain.js'
 import Membership from '../../src/models/Membership.js'
+import Record from '../../src/models/Record.js'
 import Role from '../../src/models/Role.js'
 import Token from '../../src/models/Token.js'
 import User from '../../src/models/User.js'
@@ -26,6 +27,7 @@ test.beforeEach(async () => {
     Role.deleteMany({}),
     AuditLog.deleteMany({}),
     Domain.deleteMany({}),
+    Record.deleteMany({}),
   ])
 })
 
@@ -171,6 +173,38 @@ test.serial('an unknown role grants nothing', async (t) => {
 
   t.deepEqual((await stranger.call(listDomains)).json.data.domains, [])
   t.true(denied((await stranger.call(createDomain, { input: { title: 'Nope' } })).json))
+})
+
+const readFacts = gql`
+  query {
+    facts {
+      viewsToday
+    }
+  }
+`
+const readStatistics = gql`
+  query {
+    statistics {
+      pages(sorting: TOP) {
+        value
+        count
+      }
+    }
+  }
+`
+
+test.serial('reports over all domains count only the workspaces of the viewer', async (t) => {
+  const stranger = await as('OWNER', 'personal-workspace')
+  const secret = await Domain.create({ title: 'secret.example.com' })
+  await Record.create({ domainId: secret.id, siteLocation: 'https://secret.example.com/private-page' })
+
+  const facts = (await stranger.call(readFacts)).json
+  const statistics = (await stranger.call(readStatistics)).json
+
+  t.is(facts.errors, undefined)
+  t.is(facts.data.facts.viewsToday, 0)
+  t.is(statistics.errors, undefined)
+  t.deepEqual(statistics.data.statistics.pages, [])
 })
 
 test.serial('a role in another workspace does not count here', async (t) => {

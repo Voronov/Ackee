@@ -54,6 +54,19 @@ export default {
         success: true,
       }
     }),
+    rotateIngestKey: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
+      const entry = await domains.rotateIngestKey(id, workspacesWith(viewer, DOMAINS_MANAGE))
+
+      // The same answer for a domain that does not exist and one the viewer may not change.
+      if (entry == null) throw new KnownError('Unknown domain')
+
+      await auditLog.record(viewer, entry.workspaceId, 'domain.rotateIngestKey', entry.id)
+
+      return {
+        payload: entry,
+        success: true,
+      }
+    }),
     deleteDomain: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
       // Delete the domain first, and wipe its records only if it really was the viewer's to
       // delete. Otherwise knowing an id would be enough to destroy someone else's data.
