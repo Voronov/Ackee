@@ -60,4 +60,13 @@ test.serial('stops answering one address after too many requests', async (t) => 
 
   t.is(statuses.filter((status) => status === 400).length, 30)
   t.is(statuses.at(-1), 429)
+
+  // The limit belongs to the links, not to the rest of the app
+  const api = await fetch(new URL('/api', await base).href, {
+    method: 'POST',
+    headers: { ...from, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: '{ __typename }' }),
+  })
+  t.is(api.status, 200)
+  t.is((await fetch(new URL('/tracker.js', await base).href, { headers: from })).status, 200)
 })
