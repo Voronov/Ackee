@@ -1,6 +1,8 @@
 import { mergeResolvers } from '@graphql-tools/merge'
 
 import actions from './actions.js'
+import auditLog from './auditLog.js'
+import build from './build.js'
 import domains from './domains.js'
 import domainStatistics from './domainStatistics.js'
 import events from './events.js'
@@ -22,4 +24,6 @@ export default mergeResolvers([
   facts,
   domainStatistics,
   eventStatistics,
+  build,
+  auditLog,
 ])

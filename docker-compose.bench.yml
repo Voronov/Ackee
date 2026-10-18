@@ -1,0 +1,123 @@
+# Benchmark stand: Ackee built from this tree, its own MongoDB and an optional ClickHouse.
+# Everything is named `ackee-bench*` and published on other ports than the development setup,
+# so the stand never touches local `ackee-mongo`, `ackee-clickhouse` or their volumes.
+#
+#   docker compose -f docker-compose.bench.yml up -d --build            # MongoDB + Ackee on :3100
+#   docker compose -f docker-compose.bench.yml --profile seed run --rm seed
+#   docker compose -f docker-compose.bench.yml --profile clickhouse up -d clickhouse
+#   docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse down -v
+#
+# The image uses the committed UI bundle in dist/. Reports are measured through the API, so a
+# fresh `npm run build:pre` is optional; it rewrites tracked dist/ files, which are not committed.
+
+name: ackee-bench
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: ackee-bench-mongo
+    # An explicit cache keeps measurements comparable between machines with different RAM
+    command: ['--wiredTigerCacheSizeGB', '${BENCH_MONGO_CACHE_GB:-1.5}']
+    ports:
+      # 27017 belongs to the development MongoDB
+      - '127.0.0.1:${BENCH_MONGO_PORT:-27018}:27017'
+    volumes:
+      - mongo-data:/data/db
+    deploy:
+      resources:
+        limits:
+          memory: ${BENCH_MONGO_MEMORY:-3g}
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  ackee:
+    build: .
+    image: ackee-bench-ackee:local
+    container_name: ackee-bench-ackee
+    ports:
+      # 3000 belongs to the development server
+      - '127.0.0.1:${BENCH_ACKEE_PORT:-3100}:3000'
+    environment:
+      - ACKEE_MONGODB=mongodb://mongo:27017/ackee
+      - ACKEE_USERNAME=${BENCH_ACKEE_USERNAME:-bench}
+      - ACKEE_PASSWORD=${BENCH_ACKEE_PASSWORD:-bench}
+    deploy:
+      resources:
+        limits:
+          memory: ${BENCH_ACKEE_MEMORY:-1g}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # One-off, `--profile seed`: fills the stand's MongoDB with generated records.
+  # Extra arguments are passed on, e.g. `run --rm seed --dry-run`.
+  seed:
+    build: .
+    image: ackee-bench-ackee:local
+    container_name: ackee-bench-seed
+    profiles: [seed]
+    # The image ships without scripts/, the generator comes from this tree
+    volumes:
+      - ./scripts:/srv/app/scripts:ro
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        exec node scripts/seed-records.js
+        --records "$$SEED_RECORDS" --days "$$SEED_DAYS" --seed "$$SEED_SEED" --batch "$$SEED_BATCH"
+        $${SEED_DOMAIN:+--domain "$$SEED_DOMAIN"} $${SEED_NOW:+--now "$$SEED_NOW"} "$$@"
+      - seed
+    environment:
+      - ACKEE_MONGODB=mongodb://mongo:27017/ackee
+      - SEED_RECORDS=${SEED_RECORDS:-10000000}
+      - SEED_DAYS=${SEED_DAYS:-60}
+      - SEED_SEED=${SEED_SEED:-42}
+      - SEED_BATCH=${SEED_BATCH:-5000}
+      - SEED_DOMAIN=${SEED_DOMAIN:-}
+      - SEED_NOW=${SEED_NOW:-}
+    deploy:
+      resources:
+        limits:
+          memory: ${BENCH_SEED_MEMORY:-1g}
+    # The image's healthcheck probes the HTTP server, which the seed job does not run
+    healthcheck:
+      disable: true
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # Optional, `--profile clickhouse`: only to check that it fits next to the stand (ACKEE-15).
+  # Ackee itself does not talk to it.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: ackee-bench-clickhouse
+    profiles: [clickhouse]
+    ports:
+      # 8123 belongs to the development ClickHouse
+      - '127.0.0.1:${BENCH_CLICKHOUSE_PORT:-8124}:8123'
+    environment:
+      - CLICKHOUSE_PASSWORD=${BENCH_CLICKHOUSE_PASSWORD:-bench}
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    deploy:
+      resources:
+        limits:
+          memory: ${BENCH_CLICKHOUSE_MEMORY:-2g}
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8123/ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  mongo-data:
+    name: ackee-bench-mongo-data
+  clickhouse-data:
+    name: ackee-bench-clickhouse-data

@@ -8,6 +8,8 @@ Ackee uses the IP, user-agent and domainId to identify a user. All information w
 
 The daily salt is never stored anywhere. It avoids that database backups can be used to stick data together to reconstruct the browsing history of a user.
 
+With [`ACKEE_REDIS`](Options.md#redis) the processes share the salt through Redis. It stays in Redis for 25 hours at most and, with persistence turned off, only in memory.
+
 Ackee also removes personal data from previous records when a new record with an existing identification gets added. This way the user identifier and other identifiable data is only stored once in the database. Or with other words: Ackee forgets who you are as soon as it sees you, again. It's not possible to reconstruct a browsing history, even on a daily basis.
 
 ## Personal data

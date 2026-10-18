@@ -8,7 +8,7 @@ test.after.always(() => {
   job.cancel()
 })
 
-test('return different identifiers', (t) => {
+test('return different identifiers', async (t) => {
   const domainId = uuid()
 
   const request = () => ({
@@ -23,13 +23,13 @@ test('return different identifiers', (t) => {
   const requestA = request()
   const requestB = request()
 
-  const a = identifier(requestA, requestA.headers['user-agent'], domainId)
-  const b = identifier(requestB, requestB.headers['user-agent'], domainId)
+  const a = await identifier(requestA, requestA.headers['user-agent'], domainId)
+  const b = await identifier(requestB, requestB.headers['user-agent'], domainId)
 
   t.not(a, b)
 })
 
-test('return same identifiers', (t) => {
+test('return same identifiers', async (t) => {
   const domainId = uuid()
 
   const request = {
@@ -41,8 +41,8 @@ test('return same identifiers', (t) => {
     },
   }
 
-  const a = identifier(request, request.headers['user-agent'], domainId)
-  const b = identifier(request, request.headers['user-agent'], domainId)
+  const a = await identifier(request, request.headers['user-agent'], domainId)
+  const b = await identifier(request, request.headers['user-agent'], domainId)
 
   t.is(a, b)
 })

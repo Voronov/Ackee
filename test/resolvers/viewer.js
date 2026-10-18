@@ -2,7 +2,7 @@ import test from 'ava'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
-import { ROLE_OWNER } from '../../src/constants/roles.js'
+import { BUILT_IN_ROLES, ROLE_OWNER } from '../../src/constants/roles.js'
 import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
 import * as users from '../../src/database/users.js'
 import Domain from '../../src/models/Domain.js'
@@ -58,7 +58,9 @@ test('a session token tells who the viewer is and where they belong', async (t) 
 
   t.is(viewer.userId, t.context.user.id)
   t.is(viewer.email, t.context.user.email)
-  t.deepEqual(viewer.memberships, [{ workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER }])
+  t.deepEqual(viewer.memberships, [
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, permissions: BUILT_IN_ROLES[ROLE_OWNER] },
+  ])
 })
 
 test('a permanent token tells who the viewer is', async (t) => {
@@ -76,7 +78,9 @@ test.serial('a token from before accounts belongs to the env admin', async (t) =
   restore()
 
   t.is(viewer.email, 'legacy@example.com')
-  t.deepEqual(viewer.memberships, [{ workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER }])
+  t.deepEqual(viewer.memberships, [
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, permissions: BUILT_IN_ROLES[ROLE_OWNER] },
+  ])
 
   await Membership.deleteMany({ userId: viewer.userId })
   await User.deleteOne({ id: viewer.userId })
