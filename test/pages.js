@@ -119,3 +119,22 @@ test.serial('the reset form refuses a short password', async (t) => {
   // The token survives a rejected attempt, so the user can try again with a longer one.
   t.false((await User.findOne({ id: user.id }).lean()).verified)
 })
+
+test.serial('the reset page and form share the limit of the links', async (t) => {
+  const from = { 'X-Forwarded-For': '203.0.113.8' }
+  const statuses = []
+
+  for (let index = 0; index < 30; index++) {
+    const response = await fetch(new URL('/reset?token=nothing', await base).href, { headers: from })
+    statuses.push(response.status)
+  }
+
+  const form = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { ...from, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token: 'nothing', password: 'a-brand-new-password' }),
+  })
+
+  t.false(statuses.includes(429))
+  t.is(form.status, 429)
+})

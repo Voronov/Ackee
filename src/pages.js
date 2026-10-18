@@ -83,7 +83,7 @@ router.get('/verify', linkLimiter, async (request, response) => {
   response.send(message('Address confirmed', 'Your account is ready. You can sign in now.'))
 })
 
-router.get('/reset', (request, response) => {
+router.get('/reset', linkLimiter, (request, response) => {
   const token = String(request.query.token ?? '')
 
   response.send(
@@ -101,7 +101,7 @@ router.get('/reset', (request, response) => {
   )
 })
 
-router.post('/reset', express.urlencoded({ extended: false }), async (request, response) => {
+router.post('/reset', linkLimiter, express.urlencoded({ extended: false }), async (request, response) => {
   const password = String(request.body.password ?? '')
 
   if (password.length < MINIMUM_PASSWORD_LENGTH) {
