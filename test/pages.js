@@ -138,3 +138,11 @@ test.serial('the reset page and form share the limit of the links', async (t) =>
   t.false(statuses.includes(429))
   t.is(form.status, 429)
 })
+
+test.serial('the reset page puts nothing on the page that is not a token', async (t) => {
+  const { status, body } = await get(`/reset?token=${encodeURIComponent('"><script>alert(1)</script>')}`)
+
+  t.is(status, 400)
+  t.false(body.includes('<script>'))
+  t.regex(body, /not valid/i)
+})

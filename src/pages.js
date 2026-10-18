@@ -86,13 +86,20 @@ router.get('/verify', linkLimiter, async (request, response) => {
 router.get('/reset', linkLimiter, (request, response) => {
   const token = String(request.query.token ?? '')
 
+  // Tokens are base64url. Anything else is not a link we sent, and is never put on the page.
+  if (/^[\w-]+$/.test(token) === false) {
+    const [title, text] = explain('INVALID')
+
+    return response.status(400).send(message(title, text))
+  }
+
   response.send(
     page(
       'Choose a new password',
       `<h1>Choose a new password</h1>
        <p>At least ${MINIMUM_PASSWORD_LENGTH} characters. Length matters more than symbols.</p>
        <form method="post" action="/reset">
-         <input type="hidden" name="token" value="${token.replaceAll('"', '&quot;')}">
+         <input type="hidden" name="token" value="${token}">
          <label for="password">New password</label>
          <input id="password" name="password" type="password" minlength="${MINIMUM_PASSWORD_LENGTH}" required autofocus>
          <button type="submit">Save</button>
