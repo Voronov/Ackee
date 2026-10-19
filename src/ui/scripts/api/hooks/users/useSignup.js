@@ -8,6 +8,7 @@ const QUERY = gql`
     }
     signInOptions {
       google
+      passkey
     }
   }
 `
@@ -20,6 +21,7 @@ export default () => {
   return {
     allowed: data?.signup?.allowed === true,
     google: data?.signInOptions?.google === true,
+    passkey: data?.signInOptions?.passkey === true,
     loading,
     error,
   }
