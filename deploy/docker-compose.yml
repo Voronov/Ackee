@@ -29,6 +29,12 @@ x-smtp-dev: &smtp-dev
   ACKEE_SMTP_PASSWORD: ${ACKEE_DEV_SMTP_PASSWORD}
   ACKEE_SMTP_FROM: ${ACKEE_DEV_SMTP_FROM}
 
+# Sign in with Google (ACKEE-79). One OAuth client serves both stands: its redirect URIs list
+# both addresses. Empty values leave the button off.
+x-google: &google
+  ACKEE_GOOGLE_CLIENT_ID: ${ACKEE_GOOGLE_CLIENT_ID:-}
+  ACKEE_GOOGLE_CLIENT_SECRET: ${ACKEE_GOOGLE_CLIENT_SECRET:-}
+
 services:
   mongo:
     image: mongo:7
@@ -76,7 +82,7 @@ services:
       ACKEE_ALLOW_ORIGIN: https://ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_URL: https://ackee2.varlex.app
-      <<: *smtp-live
+      <<: [*smtp-live, *google]
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_METRICS_TOKEN:-}
     depends_on:
@@ -99,7 +105,7 @@ services:
       ACKEE_URL: https://dev.ackee2.varlex.app
       # Open on dev so registration can be tried. Live stays closed until decided.
       ACKEE_ALLOW_SIGNUP: 'true'
-      <<: *smtp-dev
+      <<: [*smtp-dev, *google]
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
     depends_on:
