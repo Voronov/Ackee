@@ -108,3 +108,42 @@ export const memberships = async (userId) => {
 
   return entries.map((entry) => ({ workspaceId: entry.workspaceId, role: entry.role }))
 }
+
+export const byGoogleId = async (googleId) => {
+  const entry = await User.findOne({ googleId })
+
+  return entry == null ? entry : { ...response(entry), googleId: entry.googleId }
+}
+
+// The account behind an address, with its Google link. For signing in with Google only.
+export const withGoogleId = async (email) => {
+  const entry = await User.findOne({ email: String(email).trim().toLowerCase() })
+
+  return entry == null ? entry : { ...response(entry), googleId: entry.googleId }
+}
+
+// Links a Google account. Google has confirmed the address, so the account counts as confirmed too.
+export const linkGoogle = async (id, googleId) => {
+  const entry = await User.findOneAndUpdate(
+    { id },
+    { $set: { googleId, verified: true, updated: Date.now() } },
+    { returnDocument: 'after' },
+  )
+
+  return entry == null ? entry : response(entry)
+}
+
+/*
+ * Registers a user who signed in with Google, with a personal workspace like `add`.
+ *
+ * No password: the account signs in through Google until the owner sets one with "Forgot
+ * password". The address is confirmed, because Google says so (email_verified).
+ */
+export const addFromGoogle = async ({ email, googleId }) => {
+  const user = await User.create({ email, googleId, verified: true })
+  const workspace = await Workspace.create({ title: 'Personal' })
+
+  await Membership.create({ userId: user.id, workspaceId: workspace.id, role: ROLE_OWNER })
+
+  return { user: response(user), workspace: { id: workspace.id, title: workspace.title } }
+}
