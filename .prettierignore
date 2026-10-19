@@ -6,3 +6,6 @@ dist
 
 # Vercel
 .vercel
+
+# Raw measurements of ACKEE-15, kept as the tools wrote them
+tools/spike-15/results

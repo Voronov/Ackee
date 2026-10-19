@@ -1,0 +1,17 @@
+{
+  "query": "\n      WITH\n        toUnixTimestamp64Milli(updated) - toUnixTimestamp64Milli(created) AS elapsed,\n        if(elapsed < {interval:Int64}, {minimum:Int64}, elapsed) AS duration\n      SELECT\n        toYear(created, {timeZone:String}) AS year,\n      toMonth(created, {timeZone:String}) AS month,\n      toDayOfMonth(created, {timeZone:String}) AS day,\n        sum(duration) / count() AS count\n      FROM {database:Identifier}.records FINAL\n      WHERE domainId IN {ids:Array(String)}\n        AND created >= {from:DateTime64(3)}\n        AND duration < {maximum:Int64}\n      GROUP BY year, month, day\n    ",
+  "params": {
+    "database": "ackee",
+    "ids": "['7f759f5d-3478-4eea-841f-516b760bd58a']",
+    "from": "1789725600.000",
+    "timeZone": "Europe/Kiev",
+    "interval": "15000",
+    "minimum": "7500",
+    "maximum": "1800000"
+  },
+  "settings": {
+    "output_format_json_quote_64bit_integers": 0,
+    "do_not_merge_across_partitions_select_final": 1,
+    "default_format": "JSONEachRow"
+  }
+}

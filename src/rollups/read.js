@@ -8,9 +8,12 @@ import {
 import Record from '../models/Record.js'
 import Rollup from '../models/Rollup.js'
 import RollupState from '../models/RollupState.js'
+import matchLimit from '../stages/matchLimit.js'
+import projectDuration from '../stages/projectDuration.js'
+import projectMinInterval from '../stages/projectMinInterval.js'
 import config from '../utils/config.js'
 import { ceilHour, compareEntries, dimensionName, floorHour, hashKey, keyOf } from './dimension.js'
-import { VIEWS } from './registry.js'
+import { DURATIONS, UNIQUE_VIEWS, VIEWS } from './registry.js'
 
 const rangeStart = (range, dateDetails) => {
   if (range === RANGES_LAST_24_HOURS) return dateDetails.lastHours(24)
@@ -128,52 +131,138 @@ const viewsGroupId = (field, interval, timeZone) => {
   return id
 }
 
-/*
- * Total views from rollups. `null` means the caller should read raw records.
- *
- * Unique views are deliberately excluded: a count of distinct clients cannot be summed
- * across buckets, so rollups cannot reproduce it exactly (ADR-001).
- */
-export const views = async (ids, interval, limit, dateDetails) => {
-  if (config.rollups !== true) return null
+// Raw records of an edge around the whole hours, grouped as the original aggregation
+// groups them. `to` is open for the tail: the original aggregation has no upper bound.
+const rawIntervals = (ids, interval, timeZone, from, to, { match = {}, durations = false }) => {
+  if (to != null && from >= to) return []
 
+  return Record.aggregate([
+    { $match: { domainId: { $in: ids }, ...match, created: to == null ? { $gte: from } : { $gte: from, $lt: to } } },
+    ...(durations === true ? [projectDuration(), projectMinInterval(), matchLimit()] : []),
+    {
+      $group: {
+        _id: viewsGroupId('$created', interval, timeZone),
+        count: { $sum: 1 },
+        ...(durations === true ? { sum: { $sum: '$duration' } } : {}),
+      },
+    },
+  ])
+}
+
+const bucketIntervals = (ids, name, interval, timeZone, from, to, durations) =>
+  Rollup.aggregate([
+    { $match: { domainId: { $in: ids }, dimension: name, bucket: { $gte: from, $lt: to } } },
+    {
+      $group: {
+        _id: viewsGroupId('$bucket', interval, timeZone),
+        count: { $sum: '$count' },
+        ...(durations === true ? { sum: { $sum: '$sum' } } : {}),
+      },
+    },
+  ])
+
+// Whole hours up to `hotTo` from the rollups, the edges from raw records. `null` means
+// the caller should read raw records.
+const readIntervals = async ({ ids, name, interval, limit, dateDetails, hotTo, match, durations = false }) => {
   const from = dateDetails.includeFnByInterval(interval)(limit)
-  const now = new Date()
   const hotFrom = ceilHour(from)
-  const hotTo = floorHour(now)
 
   if (hotFrom >= hotTo) return null
   if ((await isCovered(ids, from, hotTo)) === false) return null
 
   const timeZone = dateDetails.userTimeZone
+  const options = { match, durations }
 
-  // The original aggregation has no upper bound, so the tail is everything from the last
-  // whole hour onwards.
-  const [buckets, head, tail] = await Promise.all([
-    Rollup.aggregate([
-      { $match: { domainId: { $in: ids }, dimension: VIEWS, bucket: { $gte: hotFrom, $lt: hotTo } } },
-      { $group: { _id: viewsGroupId('$bucket', interval, timeZone), count: { $sum: '$count' } } },
-    ]),
-    from < hotFrom
-      ? Record.aggregate([
-          { $match: { domainId: { $in: ids }, created: { $gte: from, $lt: hotFrom } } },
-          { $group: { _id: viewsGroupId('$created', interval, timeZone), count: { $sum: 1 } } },
-        ])
-      : [],
-    Record.aggregate([
-      { $match: { domainId: { $in: ids }, created: { $gte: hotTo } } },
-      { $group: { _id: viewsGroupId('$created', interval, timeZone), count: { $sum: 1 } } },
-    ]),
+  const parts = await Promise.all([
+    bucketIntervals(ids, name, interval, timeZone, hotFrom, hotTo, durations),
+    rawIntervals(ids, interval, timeZone, from, hotFrom, options),
+    rawIntervals(ids, interval, timeZone, hotTo, undefined, options),
   ])
 
   const totals = new Map()
 
-  for (const entry of [...buckets, ...head, ...tail]) {
+  for (const entry of parts.flat()) {
     const key = JSON.stringify(entry._id)
     const current = totals.get(key)
 
-    totals.set(key, { _id: entry._id, count: (current?.count ?? 0) + entry.count })
+    totals.set(key, {
+      _id: entry._id,
+      count: (current?.count ?? 0) + entry.count,
+      sum: (current?.sum ?? 0) + (entry.sum ?? 0),
+    })
   }
 
   return [...totals.values()]
+}
+
+// Total views from rollups. `null` means the caller should read raw records.
+export const views = async (ids, interval, limit, dateDetails) => {
+  if (config.rollups !== true) return null
+
+  const entries = await readIntervals({ ids, name: VIEWS, interval, limit, dateDetails, hotTo: floorHour(new Date()) })
+
+  return entries?.map(({ _id, count }) => ({ _id, count })) ?? null
+}
+
+// The earliest `sealed` over the requested domains, or `null` when one of them has none.
+const sealedUntil = async (ids) => {
+  if (ids == null || ids.length === 0) return null
+
+  const states = await RollupState.find({ domainId: { $in: ids } }).lean()
+  if (states.length !== ids.length || states.some((state) => state.sealed == null)) return null
+
+  return new Date(Math.min(...states.map((state) => state.sealed.getTime())))
+}
+
+/*
+ * Spike ACKEE-15. Unique views from rollups for days that are over, raw records for the
+ * rest. `null` means the caller should read raw records.
+ *
+ * A unique view is a record that still carries a clientId. The count sums across buckets,
+ * but it shrinks after the fact: the next visit of the same visitor on the same day
+ * anonymizes their earlier records. Only once the salt has changed is a day final.
+ */
+export const uniqueViews = async (ids, interval, limit, dateDetails) => {
+  if (config.rollups !== true || config.rollupsUnique !== true) return null
+
+  const sealed = await sealedUntil(ids)
+  if (sealed == null) return null
+
+  const hotTo = new Date(Math.min(floorHour(new Date()).getTime(), sealed.getTime()))
+
+  const entries = await readIntervals({
+    ids,
+    name: UNIQUE_VIEWS,
+    interval,
+    limit,
+    dateDetails,
+    hotTo,
+    match: { clientId: { $exists: true, $ne: null } },
+  })
+
+  return entries?.map(({ _id, count }) => ({ _id, count })) ?? null
+}
+
+/*
+ * Spike ACKEE-15. Average durations from rollups. `null` means the caller should read raw
+ * records.
+ *
+ * A duration grows while the visitor stays, and a record past DURATIONS_LIMIT drops out
+ * of the average. Both happen within half an hour of `created`, inside the two hours the
+ * worker rebuilds on every pass, so the closed buckets do not change any more.
+ */
+export const durations = async (ids, interval, limit, dateDetails) => {
+  if (config.rollups !== true || config.rollupsDurations !== true) return null
+
+  const entries = await readIntervals({
+    ids,
+    name: DURATIONS,
+    interval,
+    limit,
+    dateDetails,
+    hotTo: floorHour(new Date()),
+    durations: true,
+  })
+
+  return entries?.map(({ _id, count, sum }) => ({ _id, count: sum / count })) ?? null
 }

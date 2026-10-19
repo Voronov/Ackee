@@ -4,7 +4,7 @@ import aggregateViews from '../aggregations/aggregateViews.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import { VIEWS_TYPE_TOTAL, VIEWS_TYPE_UNIQUE } from '../constants/views.js'
 import Record from '../models/Record.js'
-import { views as fromRollups } from '../rollups/read.js'
+import { uniqueViews as uniqueFromRollups, views as fromRollups } from '../rollups/read.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
@@ -52,9 +52,11 @@ const get = async (ids, type, interval, limit, dateDetails) => {
     })
   }
 
-  // Rollups only cover total views. Unique views count distinct clients, which cannot be
-  // summed across buckets, so they stay on raw records.
-  const fast = type === VIEWS_TYPE_TOTAL ? await fromRollups(ids, interval, limit, dateDetails) : null
+  // Unique views come from rollups only in spike ACKEE-15, see uniqueViews in rollups/read.js
+  const fast =
+    type === VIEWS_TYPE_TOTAL
+      ? await fromRollups(ids, interval, limit, dateDetails)
+      : await uniqueFromRollups(ids, interval, limit, dateDetails)
 
   return enhance(fast ?? (await Record.aggregate(aggregation)))
 }

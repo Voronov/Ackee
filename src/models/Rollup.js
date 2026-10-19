@@ -39,6 +39,11 @@ const schema = new mongoose.Schema({
     required: true,
     default: 0,
   },
+  // Durations only: the sum of the bucket's durations in milliseconds, so that an average
+  // over any set of buckets is the exact `sum / count` that `$avg` computes on raw records.
+  sum: {
+    type: Number,
+  },
 })
 
 // Reads: every bucket of one dimension over a time range.

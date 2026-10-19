@@ -1,0 +1,35 @@
+== sql b-views-unique 21:48:51
+    checks_failed......: 0.57%  6 out of 1038
+    http_req_duration..............: avg=579.8ms  min=253.21ms med=557.78ms max=1.35s p(90)=747.59ms p(95)=865.44ms
+    http_req_failed................: 0.57%  3 out of 519
+    http_reqs......................: 519    17.185894/s
+== sql b-views-total 21:49:22
+    checks_failed......: 0.00%   0 out of 1592
+    http_req_duration..............: avg=377.85ms min=169.26ms med=365.61ms max=1.21s p(90)=485.93ms p(95)=536.98ms
+    http_req_failed................: 0.00%  0 out of 796
+    http_reqs......................: 796    26.35197/s
+== sql b-referrers 21:49:53
+    checks_failed......: 0.00%   0 out of 790
+    http_req_duration..............: avg=767.96ms min=365.26ms med=734.85ms max=1.71s p(90)=980.33ms p(95)=1.11s
+    http_req_failed................: 0.00%  0 out of 395
+    http_reqs......................: 395    12.97611/s
+== sql b-durations 21:50:24
+    checks_failed......: 1.27%  16 out of 1256
+    http_req_duration..............: avg=480.55ms min=173.85ms med=459.23ms max=1.49s p(90)=599.87ms p(95)=661.08ms
+    http_req_failed................: 1.27%  8 out of 628
+    http_reqs......................: 628    20.776339/s
+== sql c-views-unique 21:50:56
+    checks_failed......: 0.01%  6 out of 43554
+    http_req_duration..............: avg=13.66ms min=5.29ms med=11.59ms max=155.48ms p(90)=19.84ms p(95)=24.81ms
+    http_req_failed................: 0.01% 3 out of 21777
+    http_reqs......................: 21777 724.816346/s
+== sql c-views-total 21:51:26
+    checks_failed......: 0.00%  2 out of 44548
+    http_req_duration..............: avg=13.34ms min=5.16ms med=11.14ms max=162.22ms p(90)=19.82ms p(95)=25.3ms 
+    http_req_failed................: 0.00% 1 out of 22274
+    http_reqs......................: 22274 742.154463/s
+== sql c-referrers 21:51:57
+    checks_failed......: 0.00%   0 out of 8086
+    http_req_duration..............: avg=73.99ms min=22.43ms med=68.06ms max=489.95ms p(90)=102.11ms p(95)=116.45ms
+    http_req_failed................: 0.00%  0 out of 4043
+    http_reqs......................: 4043   134.618661/s

@@ -1,0 +1,15 @@
+{
+  "query": "\n      SELECT\n        toYear(created, {timeZone:String}) AS year,\n      toMonth(created, {timeZone:String}) AS month,\n      toDayOfMonth(created, {timeZone:String}) AS day,\n        sum(part) AS count\n      FROM (\n        SELECT toDateTime64(hour, 3, 'UTC') AS created, countMerge(total) AS part\n        FROM {database:Identifier}.views_hourly\n        WHERE domainId IN {ids:Array(String)}\n          AND hour >= {hot:DateTime64(3)}\n        GROUP BY hour\n        UNION ALL\n        SELECT created, count() AS part\n        FROM {database:Identifier}.records FINAL\n        WHERE domainId IN {ids:Array(String)}\n          AND created >= {from:DateTime64(3)}\n          AND created < {hot:DateTime64(3)}\n          \n        GROUP BY created\n      )\n      GROUP BY year, month, day\n    ",
+  "params": {
+    "database": "ackee",
+    "ids": "['7f759f5d-3478-4eea-841f-516b760bd58a']",
+    "from": "1789725600.000",
+    "hot": "1789725600.000",
+    "timeZone": "Europe/Kiev"
+  },
+  "settings": {
+    "output_format_json_quote_64bit_integers": 0,
+    "do_not_merge_across_partitions_select_final": 1,
+    "default_format": "JSONEachRow"
+  }
+}

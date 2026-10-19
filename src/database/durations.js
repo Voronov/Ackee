@@ -3,6 +3,7 @@ import { toZonedTime } from 'date-fns-tz'
 import aggregateDurations from '../aggregations/aggregateDurations.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import Record from '../models/Record.js'
+import { durations as fromRollups } from '../rollups/read.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
@@ -49,9 +50,10 @@ const get = async (ids, interval, limit, dateDetails) => {
     })
   }
 
-  // This report has no rollups: an average cannot be summed across buckets without a
-  // separate total.
-  return enhance(await Record.aggregate(aggregation))
+  // Rollups keep a sum next to the count only in spike ACKEE-15, see durations in rollups/read.js
+  const fast = await fromRollups(ids, interval, limit, dateDetails)
+
+  return enhance(fast ?? (await Record.aggregate(aggregation)))
 }
 
 export default get

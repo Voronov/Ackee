@@ -26,6 +26,13 @@ const config = new Proxy(
         secret: process.env.ACKEE_SECRET,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
         rollups: process.env.ACKEE_ROLLUPS === 'true',
+        // Spike ACKEE-15: unique views and durations from rollups are an experiment, so they
+        // stay off unless asked for, and the branch keeps reading them from raw records.
+        rollupsUnique: process.env.ACKEE_ROLLUPS_UNIQUE === 'true',
+        rollupsDurations: process.env.ACKEE_ROLLUPS_DURATIONS === 'true',
+        // Spike ACKEE-15: the benchmark stand shares its MongoDB with v1.0, and an index
+        // Mongoose builds on its own would change what v1.0 is measured on.
+        autoIndex: process.env.ACKEE_AUTO_INDEX !== 'false',
         geo: process.env.ACKEE_GEO === 'true',
         // Which store answers reads and takes writes: mongo keeps v1.0 behaviour,
         // dual writes to both while reports stay on Mongo, clickhouse moves reads over.

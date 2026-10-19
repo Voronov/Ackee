@@ -1,0 +1,71 @@
+# Spike ACKEE-15: Ackee of this branch next to the benchmark stand of ACKEE-2 (develop's
+# docker-compose.bench.yml), on the stand's MongoDB and ClickHouse. Never merged.
+#
+#   docker compose -f docker-compose.spike.yml build
+#   docker compose -f docker-compose.spike.yml run --rm tools tools/spike-15/setup-stand.js
+#   docker compose -f docker-compose.spike.yml up -d ackee-a ackee-b
+#
+# Same limits as the stand's own Ackee, and the same network, so the three variants reach
+# MongoDB the same way. tools/spike-15/README.md has the whole run book.
+
+name: ackee-bench-spike
+
+x-ackee: &ackee
+  build: .
+  image: ackee-bench-spike:local
+  networks: [bench]
+  deploy:
+    resources:
+      limits:
+        memory: ${BENCH_ACKEE_MEMORY:-1g}
+
+x-environment: &environment
+  ACKEE_MONGODB: mongodb://mongo:27017/ackee
+  ACKEE_CLICKHOUSE: http://clickhouse:8123
+  ACKEE_CLICKHOUSE_PASSWORD: ${BENCH_CLICKHOUSE_PASSWORD:-bench}
+  # The stand's MongoDB also serves v1.0: no index on `records` may appear behind its back
+  ACKEE_AUTO_INDEX: 'false'
+  ACKEE_ALLOW_SIGNUP: 'false'
+
+services:
+  # Variant A: MongoDB with hourly rollups, kept up to date by the in-process worker
+  ackee-a:
+    <<: *ackee
+    container_name: ackee-bench-ackee-a
+    ports:
+      - '127.0.0.1:${BENCH_SPIKE_A_PORT:-3200}:3000'
+    environment:
+      <<: *environment
+      ACKEE_ROLLUPS: 'true'
+      ACKEE_ROLLUPS_UNIQUE: ${BENCH_ROLLUPS_UNIQUE:-true}
+      ACKEE_ROLLUPS_DURATIONS: ${BENCH_ROLLUPS_DURATIONS:-true}
+
+  # Variant B: reports from ClickHouse, raw tables with FINAL
+  ackee-b:
+    <<: *ackee
+    container_name: ackee-bench-ackee-b
+    ports:
+      - '127.0.0.1:${BENCH_SPIKE_B_PORT:-3300}:3000'
+    environment:
+      <<: *environment
+      ACKEE_EVENT_STORE: clickhouse
+
+  # One-off scripts inside the stand's network, in UTC like the stand's Ackee:
+  # `run --rm tools <script> [args]`. The image ships without scripts/ and tools/.
+  tools:
+    <<: *ackee
+    profiles: [tools]
+    entrypoint: ['node']
+    volumes:
+      - ./scripts:/srv/app/scripts:ro
+      - ./tools:/srv/app/tools:ro
+    environment:
+      <<: *environment
+      TZ: UTC
+    healthcheck:
+      disable: true
+
+networks:
+  bench:
+    name: ackee-bench_default
+    external: true

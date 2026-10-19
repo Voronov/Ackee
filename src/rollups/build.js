@@ -1,5 +1,8 @@
 import Record from '../models/Record.js'
 import Rollup from '../models/Rollup.js'
+import matchLimit from '../stages/matchLimit.js'
+import projectDuration from '../stages/projectDuration.js'
+import projectMinInterval from '../stages/projectMinInterval.js'
 import { hashKey, keyOf, nameOf } from './dimension.js'
 import registry from './registry.js'
 
@@ -10,18 +13,33 @@ const presence = ({ properties, or = false }) =>
     ? { $or: properties.map((property) => ({ [property]: { $ne: null } })) }
     : Object.fromEntries(properties.map((property) => [property, { $ne: null }]))
 
-const facetFor = (dimension) => [
-  { $match: presence(dimension) },
-  {
-    $group: {
-      _id: {
-        bucket: { $dateTrunc: { date: '$created', unit: 'hour' } },
-        ...Object.fromEntries(dimension.properties.map((property) => [property, `$${property}`])),
-      },
-      count: { $sum: 1 },
-    },
-  },
+const bucketOf = { $dateTrunc: { date: '$created', unit: 'hour' } }
+
+// The same stages as aggregateDurations, so a bucket holds exactly the durations the raw
+// report would average.
+const durationsFacet = () => [
+  projectDuration(),
+  projectMinInterval(),
+  matchLimit(),
+  { $group: { _id: { bucket: bucketOf }, count: { $sum: 1 }, sum: { $sum: '$duration' } } },
 ]
+
+const facetFor = (dimension) => {
+  if (dimension.durations === true) return durationsFacet()
+
+  return [
+    { $match: dimension.match ?? presence(dimension) },
+    {
+      $group: {
+        _id: {
+          bucket: bucketOf,
+          ...Object.fromEntries(dimension.properties.map((property) => [property, `$${property}`])),
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]
+}
 
 // Rebuilds one domain's rollups for the range [from, to).
 //
@@ -52,6 +70,7 @@ export const buildRange = async (domainId, from, to) => {
         key,
         bucket: entry._id.bucket,
         count: entry.count,
+        ...(entry.sum == null ? {} : { sum: entry.sum }),
       })
     }
   }

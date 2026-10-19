@@ -1,0 +1,32 @@
+== a views-unique 21:40:31
+    checks_failed......: 0.00%   0 out of 40
+    http_req_duration..............: avg=19.13s min=17.93s med=18.95s max=20.97s p(90)=20.74s p(95)=20.97s
+    http_req_failed................: 0.00%  0 out of 20
+    http_reqs......................: 20     0.509946/s
+    iterations.....................: 20     0.509946/s
+end 21:41:12
+killed 0
+== a views-total 21:41:12
+    checks_failed......: 0.00%   0 out of 33152
+    http_req_duration..............: avg=17.98ms min=9.27ms med=16.42ms max=185.02ms p(90)=23.13ms p(95)=27.4ms 
+    http_req_failed................: 0.00%  0 out of 16576
+    http_reqs......................: 16576  552.291036/s
+    iterations.....................: 16576  552.291036/s
+end 21:41:43
+killed 0
+== a referrers 21:41:44
+    checks_failed......: 0.00%   0 out of 520
+    http_req_duration..............: avg=1.17s min=809.32ms med=1.12s max=2.15s p(90)=1.28s p(95)=1.37s
+    http_req_failed................: 0.00%  0 out of 260
+    http_reqs......................: 260    8.456169/s
+    iterations.....................: 260    8.456169/s
+end 21:42:15
+killed 0
+== a durations 21:42:16
+    checks_failed......: 0.00%   0 out of 40
+    http_req_duration..............: avg=24.79s min=24.29s med=24.61s max=27.29s p(90)=24.98s p(95)=27.27s
+    http_req_failed................: 0.00%  0 out of 20
+    http_reqs......................: 20     0.384509/s
+    iterations.....................: 20     0.384509/s
+end 21:43:08
+killed 0

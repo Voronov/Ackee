@@ -1,0 +1,14 @@
+{
+  "query": "\n      SELECT\n        source, siteReferrer,\n        count() AS count\n      FROM {database:Identifier}.records FINAL\n      WHERE domainId IN {ids:Array(String)}\n        AND (source IS NOT NULL OR siteReferrer IS NOT NULL)\n        AND created >= {from:DateTime64(3)}\n      GROUP BY source, siteReferrer\n      ORDER BY count DESC\n      LIMIT {limit:UInt64}\n    ",
+  "params": {
+    "database": "ackee",
+    "ids": "['7f759f5d-3478-4eea-841f-516b760bd58a']",
+    "limit": "30",
+    "from": "1789768123.668"
+  },
+  "settings": {
+    "output_format_json_quote_64bit_integers": 0,
+    "do_not_merge_across_partitions_select_final": 1,
+    "default_format": "JSONEachRow"
+  }
+}

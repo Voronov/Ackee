@@ -1,3 +1,4 @@
+import { startOfDay } from 'date-fns'
 import schedule from 'node-schedule'
 
 import Domain from '../models/Domain.js'
@@ -58,6 +59,21 @@ const buildChunked = async (domainId, from, to, onProgress, mode = 'refresh') =>
   return { chunks, documents }
 }
 
+// Spike ACKEE-15: unique-views buckets of a day are final only when they were built after
+// the day ended, see uniqueViews in read.js. The day ends with the salt, at midnight in the
+// server's time zone (utils/salt.js), hence startOfDay without a zone.
+const seal = async (domainId, to) => {
+  const dayStart = startOfDay(to)
+  const state = await RollupState.findOne({ domainId }).lean()
+
+  // Without a seal nobody knows which days were rebuilt; unique views stay on raw records
+  // until the next backfill.
+  if (state?.sealed == null || state.sealed >= dayStart) return
+
+  await buildChunked(domainId, state.sealed, dayStart, undefined, 'seal')
+  await RollupState.updateOne({ domainId }, { $set: { sealed: dayStart } })
+}
+
 // Builds everything a domain has.
 export const backfill = async (domainId, onProgress) => {
   const oldest = await Record.findOne({ domainId }).sort({ created: 1 }).select('created').lean()
@@ -67,7 +83,12 @@ export const backfill = async (domainId, onProgress) => {
   const to = floorHour(new Date())
   const from = new Date(Math.floor(oldest.created.getTime() / DAY) * DAY)
 
-  return buildChunked(domainId, from, to, onProgress, 'backfill')
+  const result = await buildChunked(domainId, from, to, onProgress, 'backfill')
+
+  // Every day before today was built after it had ended.
+  await RollupState.updateOne({ domainId }, { $set: { sealed: startOfDay(to) } })
+
+  return result
 }
 
 // Incremental update.
@@ -90,7 +111,10 @@ export const refresh = async (domainId) => {
   const gapHours = Math.round((to.getTime() - from.getTime()) / HOUR)
   if (gapHours > 24) signale.warn(`Rollup gap of ${gapHours}h for domain ${domainId}, rebuilding`)
 
-  return buildChunked(domainId, from, to)
+  const result = await buildChunked(domainId, from, to)
+  await seal(domainId, to)
+
+  return result
 }
 
 export const refreshAll = async () => {
