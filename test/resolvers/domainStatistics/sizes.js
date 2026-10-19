@@ -134,7 +134,9 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px')
+    t.is(sizes[1].value, '414px')
   },
 )
 
@@ -147,7 +149,9 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '719px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px')
+    t.is(sizes[1].value, '719px')
   },
 )
 
@@ -160,7 +164,9 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px x 719px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px x 0px')
+    t.is(sizes[1].value, '414px x 719px')
   },
 )
 
@@ -265,7 +271,9 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px')
+    t.is(sizes[1].value, '414px')
   },
 )
 
@@ -278,7 +286,9 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '896px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px')
+    t.is(sizes[1].value, '896px')
   },
 )
 
@@ -291,6 +301,8 @@ test(
   },
   (t, sizes) => {
     t.is(sizes.length, 2)
-    t.is(sizes[0].value, '414px x 896px')
+    // Seen first one day ago, the other sizes 13 days ago
+    t.is(sizes[0].value, '0px x 0px')
+    t.is(sizes[1].value, '414px x 896px')
   },
 )
