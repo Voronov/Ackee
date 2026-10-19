@@ -5,6 +5,7 @@ import {
   RANGES_LAST_7_DAYS,
 } from '../constants/ranges.js'
 import matchEvents from '../stages/matchEvents.js'
+import sortStable from '../stages/sortStable.js'
 
 export default (ids, average, range, limit, dateDetails) => {
   const aggregation = [
@@ -16,11 +17,7 @@ export default (ids, average, range, limit, dateDetails) => {
         },
       },
     },
-    {
-      $sort: {
-        count: -1,
-      },
-    },
+    sortStable({ count: -1 }),
     {
       $limit: limit,
     },

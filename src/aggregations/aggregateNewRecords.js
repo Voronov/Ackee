@@ -1,4 +1,5 @@
 import matchDomains from '../stages/matchDomains.js'
+import sortStable from '../stages/sortStable.js'
 
 export default (ids, properties, limit, or) => {
   const aggregation = [
@@ -9,16 +10,13 @@ export default (ids, properties, limit, or) => {
         count: {
           $sum: 1,
         },
+        // When an entry was first seen. $first would take whichever document the plan reads first.
         created: {
-          $first: '$created',
+          $min: '$created',
         },
       },
     },
-    {
-      $sort: {
-        created: -1,
-      },
-    },
+    sortStable({ created: -1 }),
     {
       $limit: limit,
     },

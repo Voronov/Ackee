@@ -3,6 +3,7 @@ import matchEvents from '../stages/matchEvents.js'
 export default (ids, limit) => {
   const aggregation = [
     matchEvents(ids),
+    // Served by the index, so no tie-breaker: with _id in the sort the planner reads the whole domain.
     {
       $sort: {
         created: -1,
