@@ -1,13 +1,10 @@
 import matchEvents from '../stages/matchEvents.js'
+import sortStable from '../stages/sortStable.js'
 
 export default (ids, limit) => {
   const aggregation = [
     matchEvents(ids),
-    {
-      $sort: {
-        created: -1,
-      },
-    },
+    sortStable({ created: -1 }),
     {
       $project: {
         _id: {
