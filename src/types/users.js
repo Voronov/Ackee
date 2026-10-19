@@ -25,6 +25,10 @@ export default gql`
     Whether the sign-in screen offers "Sign in with Google".
     """
     google: Boolean!
+    """
+    Whether the sign-in screen offers "Sign in with a passkey".
+    """
+    passkey: Boolean!
   }
 
   type Signup {
