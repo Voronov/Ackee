@@ -74,7 +74,9 @@ const acquireLease = async () => {
   }
 }
 
-const releaseLease = () => RollupState.updateOne({ _id: STATE_ID }, { $set: { lockedUntil: null } })
+// Only the lease this run holds. One taken over after ours ran out belongs to another process.
+const releaseLease = (lease) =>
+  RollupState.updateOne({ _id: STATE_ID, lockedUntil: lease }, { $set: { lockedUntil: null } })
 
 // Rolls up every sealed hour that is not rolled up yet, one chunk at a time. The covered range
 // grows after each chunk, so an interrupted run keeps what it built and the next one goes on
@@ -82,6 +84,8 @@ const releaseLease = () => RollupState.updateOne({ _id: STATE_ID }, { $set: { lo
 export const rollUp = async (now = new Date()) => {
   const state = await acquireLease()
   if (state == null) return
+
+  let lease = state.lockedUntil
 
   try {
     const target = sealedUntil(now)
@@ -99,17 +103,21 @@ export const rollUp = async (now = new Date()) => {
       const next = new Date(Math.min(until.getTime() + ROLLUP_CHUNK_HOURS * hour, target.getTime()))
 
       await buildRange(until, next)
-      // A backfill takes longer than one lease, so every chunk renews it
-      await RollupState.updateOne(
-        { _id: STATE_ID },
-        { $set: { until: next, lockedUntil: new Date(Date.now() + ROLLUP_LEASE) } },
+      // A backfill takes longer than one lease, so every chunk renews it. A lease that ran out
+      // and went to another process is not ours to renew: that process goes on from here.
+      const renewed = new Date(Date.now() + ROLLUP_LEASE)
+      const { matchedCount } = await RollupState.updateOne(
+        { _id: STATE_ID, lockedUntil: lease },
+        { $set: { until: next, lockedUntil: renewed } },
       )
+      if (matchedCount === 0) return
+      lease = renewed
       until = next
     }
 
     return RollupState.findById(STATE_ID).select('from until').lean()
   } finally {
-    await releaseLease()
+    await releaseLease(lease)
   }
 }
 
