@@ -238,6 +238,8 @@ test.serial('reports take the covered hours from the rollups', async (t) => {
   t.is((await inflate(t.context.domain.id, 1000)).modifiedCount, 1)
 
   t.is(sum((await fetchReports(t, 'UTC')).r0), sum(raw.UTC.r0) + 1000)
+  // A half-hour zone cannot sum hours into days, so it reads records and misses the inflated hour
+  t.is(sum((await fetchReports(t, 'Asia/Kolkata')).r0), sum(raw['Asia/Kolkata'].r0))
 })
 
 test.serial('reports fall back to records without rollups', async (t) => {
