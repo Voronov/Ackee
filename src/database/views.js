@@ -1,15 +1,22 @@
 import { toZonedTime } from 'date-fns-tz'
 
+import aggregateRolledViews from '../aggregations/aggregateRolledViews.js'
 import aggregateViews from '../aggregations/aggregateViews.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import { VIEWS_TYPE_TOTAL, VIEWS_TYPE_UNIQUE } from '../constants/views.js'
 import Record from '../models/Record.js'
+import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
+import { coverage as rollupCoverage } from './rollups.js'
 
 const get = async (ids, type, interval, limit, dateDetails) => {
+  const unique = type === VIEWS_TYPE_UNIQUE
+  const coverage = await rollupCoverage(dateDetails.includeFnByInterval(interval)(limit), dateDetails.userTimeZone)
+
   const aggregation = (() => {
+    if (coverage != null) return aggregateRolledViews(ids, unique, interval, dateDetails, coverage)
     if (type === VIEWS_TYPE_UNIQUE) return aggregateViews(ids, true, interval, limit, dateDetails)
     if (type === VIEWS_TYPE_TOTAL) return aggregateViews(ids, false, interval, limit, dateDetails)
   })()
@@ -51,7 +58,9 @@ const get = async (ids, type, interval, limit, dateDetails) => {
     })
   }
 
-  return enhance(await Record.aggregate(aggregation))
+  const model = coverage == null ? Record : ViewRollup
+
+  return enhance(await model.aggregate(aggregation))
 }
 
 export default get
