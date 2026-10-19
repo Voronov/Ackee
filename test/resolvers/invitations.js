@@ -387,5 +387,5 @@ test.serial('a link that is not ours never reaches the page', async (t) => {
 
   t.is(status, 400)
   t.regex(body, /not valid/i)
-  t.notRegex(body, /<script>/)
+  t.false(body.toLowerCase().includes('<script'))
 })
