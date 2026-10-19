@@ -1,0 +1,17 @@
+// "Sign in with Google" under the sign-in form (ACKEE-79). Looks like an input, so it reads as
+// a second way in rather than as the main action.
+.button--google {
+  display: block;
+  margin-top: 1em;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 0.8em 1em;
+  color: inherit;
+  text-align: center;
+  text-decoration: none;
+
+  &:hover,
+  &:focus {
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+}
