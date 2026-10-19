@@ -1,4 +1,4 @@
-import { assignDefaultWorkspace } from './database/migrations.js'
+import { assignDefaultWorkspace, dropOldRecordIndexes } from './database/migrations.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -23,6 +23,10 @@ connect(config.dbUrl)
     const moved = await assignDefaultWorkspace()
     if (moved.domains + moved.events > 0) {
       signale.info(`Moved ${moved.domains} domains and ${moved.events} events into the default workspace`)
+    }
+
+    if (await dropOldRecordIndexes()) {
+      signale.info('Dropped the old domainId index of records')
     }
 
     signale.start(`Starting the server`)
