@@ -1,10 +1,14 @@
 import matchEvents from '../stages/matchEvents.js'
-import sortStable from '../stages/sortStable.js'
 
 export default (ids, limit) => {
   const aggregation = [
     matchEvents(ids),
-    sortStable({ created: -1 }),
+    // Served by the index, so no tie-breaker: with _id in the sort the planner reads the whole domain.
+    {
+      $sort: {
+        created: -1,
+      },
+    },
     {
       $project: {
         _id: {
