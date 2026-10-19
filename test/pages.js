@@ -1,6 +1,7 @@
 import test from 'ava'
 import listen from 'test-listen'
 
+import * as tokens from '../src/database/tokens.js'
 import * as userTokens from '../src/database/userTokens.js'
 import * as users from '../src/database/users.js'
 import User from '../src/models/User.js'
@@ -69,4 +70,79 @@ test.serial('stops answering one address after too many requests', async (t) => 
   })
   t.is(api.status, 200)
   t.is((await fetch(new URL('/tracker.js', await base).href, { headers: from })).status, 200)
+})
+
+test.serial('the reset page carries the token into the form', async (t) => {
+  const { user } = await account('reset-page@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const { status, body } = await get(`/reset?token=${token}`)
+
+  t.is(status, 200)
+  t.true(body.includes(token))
+})
+
+test.serial('the reset form sets a new password', async (t) => {
+  const { user } = await account('reset-form@example.com')
+  const session = await tokens.add(user.id)
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const response = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token, password: 'a-brand-new-password' }),
+  })
+
+  t.is(response.status, 200)
+  t.regex(await response.text(), /password changed/i)
+
+  const stored = await User.findOne({ id: user.id }).lean()
+
+  // A reset also confirms the address: whoever opened the link reads that mailbox.
+  t.true(stored.verified)
+  // And signs the user out everywhere, the old password may be known to someone else
+  t.is(await tokens.get(session.id), null)
+})
+
+test.serial('the reset form refuses a short password', async (t) => {
+  const { user } = await account('reset-short@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const response = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token, password: 'short' }),
+  })
+
+  t.is(response.status, 400)
+
+  // The token survives a rejected attempt, so the user can try again with a longer one.
+  t.false((await User.findOne({ id: user.id }).lean()).verified)
+})
+
+test.serial('the reset page and form share the limit of the links', async (t) => {
+  const from = { 'X-Forwarded-For': '203.0.113.8' }
+  const statuses = []
+
+  for (let index = 0; index < 30; index++) {
+    const response = await fetch(new URL('/reset?token=nothing', await base).href, { headers: from })
+    statuses.push(response.status)
+  }
+
+  const form = await fetch(new URL('/reset', await base).href, {
+    method: 'POST',
+    headers: { ...from, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token: 'nothing', password: 'a-brand-new-password' }),
+  })
+
+  t.false(statuses.includes(429))
+  t.is(form.status, 429)
+})
+
+test.serial('the reset page puts nothing on the page that is not a token', async (t) => {
+  const { status, body } = await get(`/reset?token=${encodeURIComponent('"><script>alert(1)</script>')}`)
+
+  t.is(status, 400)
+  t.false(body.includes('<script>'))
+  t.regex(body, /not valid/i)
 })

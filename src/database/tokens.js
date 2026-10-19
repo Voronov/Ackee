@@ -50,3 +50,10 @@ export const del = (id) => {
     id,
   })
 }
+
+// Signs a user out everywhere. Permanent API tokens are kept: they were created on purpose.
+export const delByUser = (userId) => {
+  return Token.deleteMany({
+    userId,
+  })
+}
