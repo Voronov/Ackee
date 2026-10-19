@@ -33,6 +33,7 @@ export default {
     canManageMembers: (parent, args, { viewer }) => manages(viewer, parent.id),
     members: (parent, args, { viewer }) => (manages(viewer, parent.id) ? users.members([parent.id]) : []),
     invitations: (parent, args, { viewer }) => (manages(viewer, parent.id) ? invitations.pending([parent.id]) : []),
+    domains: (parent, args, { viewer }) => (manages(viewer, parent.id) ? domains.all([parent.id]) : []),
   },
   Query: {
     workspaces: pipe(requireAuth, async (parent, args, { viewer }) => {

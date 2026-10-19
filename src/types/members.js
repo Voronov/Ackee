@@ -43,6 +43,10 @@ export default gql`
     Invitations that can still be accepted, for those who may manage members.
     """
     invitations: [Invitation!]!
+    """
+    The domains of the workspace an invitation can be limited to, for those who may manage members.
+    """
+    domains: [Domain!]!
   }
 
   input InviteMemberInput {
