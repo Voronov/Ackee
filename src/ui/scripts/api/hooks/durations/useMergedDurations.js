@@ -2,11 +2,12 @@ import { gql } from '@apollo/client'
 
 import enhanceDurations from '../../../enhancers/enhanceDurations.js'
 import durationsField from '../../fragments/durationsField.js'
+import useSelectedDomain from '../../../hooks/useSelectedDomain.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchMergedDurations($interval: Interval!, $limit: Int) {
-    statistics {
+  query fetchMergedDurations($interval: Interval!, $limit: Int, $domainId: ID) {
+    statistics(domainId: $domainId) {
       id
       ...durationsField
     }
@@ -16,10 +17,11 @@ const QUERY = gql`
 `
 
 export default (filters) => {
+  const domainId = useSelectedDomain()
   const selector = (data) => data?.statistics.durations
   const enhancer = (value) => enhanceDurations(value, filters.limit)
 
   return useQuery(QUERY, selector, enhancer, {
-    variables: filters,
+    variables: { ...filters, domainId },
   })
 }
