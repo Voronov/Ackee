@@ -1,14 +1,20 @@
 import { toZonedTime } from 'date-fns-tz'
 
 import aggregateDurations from '../aggregations/aggregateDurations.js'
+import aggregateRolledDurations from '../aggregations/aggregateRolledDurations.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import Record from '../models/Record.js'
+import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
+import { coverage as rollupCoverage } from './rollups.js'
 
 const get = async (ids, interval, limit, dateDetails) => {
+  const coverage = await rollupCoverage(dateDetails.includeFnByInterval(interval)(limit), dateDetails.userTimeZone)
+
   const aggregation = (() => {
+    if (coverage != null) return aggregateRolledDurations(ids, interval, dateDetails, coverage)
     return aggregateDurations(ids, interval, limit, dateDetails)
   })()
 
@@ -49,7 +55,9 @@ const get = async (ids, interval, limit, dateDetails) => {
     })
   }
 
-  return enhance(await Record.aggregate(aggregation))
+  const model = coverage == null ? Record : ViewRollup
+
+  return enhance(await model.aggregate(aggregation))
 }
 
 export default get
