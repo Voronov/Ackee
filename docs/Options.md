@@ -220,3 +220,15 @@ Create an OAuth client of type "Web application" in the Google Cloud console and
 - An address Google has not confirmed is refused.
 - An existing account with the same address is linked to the Google account on the first sign-in, and counts as confirmed from then on.
 - Someone without an account gets one only when `ACKEE_ALLOW_SIGNUP=true`, with a personal workspace like any registration. Such an account has no password until its owner sets one with "Forgot password".
+
+## Passkeys
+
+Signed-in users can add passkeys (Touch ID, Windows Hello, a security key) under Settings → Passkeys and then sign in without a password. Passkeys need only `ACKEE_URL`:
+
+```
+ACKEE_URL=https://ackee.example.com
+```
+
+The browser binds every passkey to the host name of `ACKEE_URL`, so a passkey made on one stand never signs anyone in on another, and changing the host name makes existing passkeys unusable. Browsers allow passkeys only over https, or on `localhost` and `*.localhost`.
+
+The password and "Forgot password" keep working as a way back in when a passkey is lost.
