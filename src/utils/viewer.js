@@ -26,11 +26,10 @@ const tokenOwner = async (token, ttl) => {
     return owner(tokenEntry)
   }
 
-  const permanentTokenEntry = await permanentTokens.get(token)
+  const permanentTokenEntry = await permanentTokens.getUnscoped(token)
 
   if (permanentTokenEntry != null) {
-    // Records the last time the token was used.
-    await permanentTokens.update(token, { title: permanentTokenEntry.title })
+    await permanentTokens.touchUnscoped(token)
 
     return owner(permanentTokenEntry)
   }

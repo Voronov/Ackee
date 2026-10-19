@@ -6,6 +6,7 @@ import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Domain from '../../src/models/Domain.js'
 import Membership from '../../src/models/Membership.js'
+import Record from '../../src/models/Record.js'
 import Role from '../../src/models/Role.js'
 import Token from '../../src/models/Token.js'
 import User from '../../src/models/User.js'
@@ -26,6 +27,7 @@ test.beforeEach(async () => {
     Role.deleteMany({}),
     AuditLog.deleteMany({}),
     Domain.deleteMany({}),
+    Record.deleteMany({}),
   ])
 })
 
@@ -165,9 +167,12 @@ test.serial('a stored role overrides the built-in one of the same name', async (
 })
 
 test.serial('an unknown role grants nothing', async (t) => {
+  const owner = await as('OWNER')
+  await owner.call(createDomain, { input: { title: 'Site' } })
   const stranger = await as('NOBODY')
 
-  t.true(denied((await stranger.call(listDomains)).json))
+  t.deepEqual((await stranger.call(listDomains)).json.data.domains, [])
+  t.true(denied((await stranger.call(createDomain, { input: { title: 'Nope' } })).json))
 })
 
 const readFacts = gql`
@@ -188,18 +193,31 @@ const readStatistics = gql`
   }
 `
 
-test.serial('reports over all domains stay closed to someone with only a workspace of their own', async (t) => {
+test.serial('reports over all domains count only the workspaces of the viewer', async (t) => {
   const stranger = await as('OWNER', 'personal-workspace')
-  await Domain.create({ title: 'secret.example.com' })
+  const secret = await Domain.create({ title: 'secret.example.com' })
+  await Record.create({ domainId: secret.id, siteLocation: 'https://secret.example.com/private-page' })
 
-  t.true(denied((await stranger.call(readFacts)).json))
-  t.true(denied((await stranger.call(readStatistics)).json))
+  const facts = (await stranger.call(readFacts)).json
+  const statistics = (await stranger.call(readStatistics)).json
+
+  t.is(facts.errors, undefined)
+  t.is(facts.data.facts.viewsToday, 0)
+  t.is(statistics.errors, undefined)
+  t.deepEqual(statistics.data.statistics.pages, [])
 })
 
 test.serial('a role in another workspace does not count here', async (t) => {
+  const owner = await as('OWNER')
+  const site = await owner.call(createDomain, { input: { title: 'Site' } })
   const elsewhere = await as('OWNER', 'other-workspace')
 
-  t.true(denied((await elsewhere.call(createDomain, { input: { title: 'Nope' } })).json))
+  // Owner over there, nobody here: the domain does not exist for them.
+  t.deepEqual((await elsewhere.call(listDomains)).json.data.domains, [])
+  t.regex(
+    (await elsewhere.call(deleteDomain, { id: site.json.data.createDomain.payload.id })).json.errors[0].message,
+    /unknown domain/i,
+  )
 })
 
 test('a role refuses a permission that does not exist', async (t) => {

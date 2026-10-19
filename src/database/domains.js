@@ -29,7 +29,12 @@ const response = (entry) => ({
   updated: entry.updated,
 })
 
-export const add = async (data) => {
+// The workspace filter belongs in the query, not in a check after reading. A forgotten
+// check returns someone else's data; a forgotten filter returns nothing, which shows up
+// at once.
+const within = (workspaceIds) => ({ workspaceId: { $in: workspaceIds } })
+
+export const add = async (data, workspaceId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -40,30 +45,31 @@ export const add = async (data) => {
       ingestKey: newIngestKey(),
       // A new domain's snippet carries the key from the start, so it can be strict at once.
       strictIngest: true,
+      workspaceId,
     }),
   )
 }
 
-export const all = async () => {
+export const all = async (workspaceIds) => {
   const enhance = (entries) => {
     return entries.map(response).toSorted(sortByProperty('title'))
   }
 
   // A domain deleted while the list was read comes back as null and is left out.
-  const entries = await Promise.all((await Domain.find({})).map(withIngestKey))
+  const entries = await Promise.all((await Domain.find(within(workspaceIds))).map(withIngestKey))
 
   return enhance(entries.filter((entry) => entry != null))
 }
 
-export const get = async (id) => {
+export const get = async (id, workspaceIds) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(await withIngestKey(await Domain.findOne({ id })))
+  return enhance(await withIngestKey(await Domain.findOne({ id, ...within(workspaceIds) })))
 }
 
-export const update = async (id, data) => {
+export const update = async (id, data, workspaceIds) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -72,6 +78,7 @@ export const update = async (id, data) => {
     await Domain.findOneAndUpdate(
       {
         id,
+        ...within(workspaceIds),
       },
       {
         $set: {
@@ -90,19 +97,40 @@ export const update = async (id, data) => {
   )
 }
 
-export const del = (id) => {
+export const del = (id, workspaceIds) => {
   return Domain.findOneAndDelete({
     id,
+    ...within(workspaceIds),
   })
 }
 
 // Issues a new key and invalidates the old one at once. Used when a key has been abused.
-export const rotateIngestKey = async (id) => {
+export const rotateIngestKey = async (id, workspaceIds) => {
   const entry = await Domain.findOneAndUpdate(
-    { id },
+    { id, ...within(workspaceIds) },
     { $set: { ingestKey: newIngestKey(), updated: Date.now() } },
     { returnDocument: 'after' },
   )
 
   return entry == null ? null : response(entry)
+}
+
+/*
+ * Lookups that run without a viewer.
+ *
+ * Two paths have no signed-in user by design: tracking, which any visitor triggers, and
+ * the CORS headers, which are built before the request is authenticated. They are kept
+ * apart from the scoped functions above so that skipping the workspace filter is always
+ * a deliberate choice.
+ */
+export const getUnscoped = async (id) => {
+  const entry = await withIngestKey(await Domain.findOne({ id }))
+
+  return entry == null ? null : response(entry)
+}
+
+export const allUnscoped = async () => {
+  const entries = await Domain.find({})
+
+  return entries.map(response)
 }

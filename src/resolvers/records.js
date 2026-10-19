@@ -67,8 +67,8 @@ export default {
       const [id, keyFromId] = String(domainId).split('.')
       const key = ingestKey ?? keyFromId
 
-      // Tracking is unauthenticated, so the domain is looked up without a viewer.
-      const domain = await domains.get(id)
+      // Tracking is unauthenticated, so the domain is looked up without a workspace filter.
+      const domain = await domains.getUnscoped(id)
 
       if (domain == null) throw new KnownError('Unknown domain')
 

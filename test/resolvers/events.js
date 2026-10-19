@@ -8,8 +8,6 @@ import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from '
 
 const base = listen(server)
 
-let validEvent
-
 const defaultTitle = uuid()
 const defaultType = 'TOTAL_CHART'
 const updatedTitle = uuid()
@@ -50,7 +48,6 @@ test.serial('create event', async (t) => {
   t.is(json.data.createEvent.payload.type, defaultType)
 
   // Save event for the next test
-  validEvent = json.data.createEvent.payload
 })
 
 test.serial('update event', async (t) => {
@@ -68,7 +65,7 @@ test.serial('update event', async (t) => {
       }
     `,
     variables: {
-      id: validEvent.id,
+      id: t.context.event.id,
       input: {
         title: updatedTitle,
         type: updatedType,
@@ -79,12 +76,11 @@ test.serial('update event', async (t) => {
   const { json } = await api(base, body, t.context.token.id)
 
   t.true(json.data.updateEvent.success)
-  t.is(json.data.updateEvent.payload.id, validEvent.id)
+  t.is(json.data.updateEvent.payload.id, t.context.event.id)
   t.is(json.data.updateEvent.payload.title, updatedTitle)
   t.is(json.data.updateEvent.payload.type, updatedType)
 
   // Save event for the next test
-  validEvent = json.data.updateEvent.payload
 })
 
 test.serial('fetch events', async (t) => {
@@ -103,10 +99,10 @@ test.serial('fetch events', async (t) => {
   const { json } = await api(base, body, t.context.token.id)
 
   const events = json.data.events
-  const event = events.find((event) => event.id === validEvent.id)
+  const event = events.find((event) => event.id === t.context.event.id)
 
-  t.is(event.title, validEvent.title)
-  t.is(event.type, validEvent.type)
+  t.is(event.title, t.context.event.title)
+  t.is(event.type, t.context.event.type)
 })
 
 test.serial('fetch event', async (t) => {
@@ -121,15 +117,15 @@ test.serial('fetch event', async (t) => {
       }
     `,
     variables: {
-      id: validEvent.id,
+      id: t.context.event.id,
     },
   }
 
   const { json } = await api(base, body, t.context.token.id)
 
-  t.is(json.data.event.id, validEvent.id)
-  t.is(json.data.event.title, validEvent.title)
-  t.is(json.data.event.type, validEvent.type)
+  t.is(json.data.event.id, t.context.event.id)
+  t.is(json.data.event.title, t.context.event.title)
+  t.is(json.data.event.type, t.context.event.type)
 })
 
 test.serial('delete event', async (t) => {
@@ -142,7 +138,7 @@ test.serial('delete event', async (t) => {
       }
     `,
     variables: {
-      id: validEvent.id,
+      id: t.context.event.id,
     },
   }
 

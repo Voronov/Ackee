@@ -34,7 +34,8 @@ const schema = new mongoose.Schema({
     required: true,
     default: false,
   },
-  // Until workspaces can be created (ACKEE-12), every domain is in the default one.
+  // A domain belongs to a workspace rather than to a user (ADR-002). Domains from before
+  // workspaces are in the default one.
   workspaceId: {
     type: String,
     required: true,

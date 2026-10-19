@@ -1,3 +1,4 @@
+import { assignDefaultWorkspace } from './database/migrations.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -16,8 +17,14 @@ server.on('error', (error) => signale.fatal(error))
 signale.await(`Connecting to ${stripUrlAuth(config.dbUrl)}`)
 
 connect(config.dbUrl)
-  .then(() => {
+  .then(async () => {
     signale.success(`Connected to ${stripUrlAuth(config.dbUrl)}`)
+
+    const moved = await assignDefaultWorkspace()
+    if (moved.domains + moved.events > 0) {
+      signale.info(`Moved ${moved.domains} domains and ${moved.events} events into the default workspace`)
+    }
+
     signale.start(`Starting the server`)
 
     server.listen(config.port)

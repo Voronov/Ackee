@@ -22,23 +22,31 @@ export const add = async (data) => {
   )
 }
 
-export const all = async () => {
+// API tokens are personal: everything but the sign-in lookup is limited to the owner.
+// Without an owner the filter would vanish and match every token of the instance, so a
+// missing one is an error. The sign-in lookup has its own functions below.
+const ownedBy = (userId) => {
+  if (userId == null) throw new Error('A token owner is required, use the Unscoped functions to sign in')
+  return { userId }
+}
+
+export const all = async (userId) => {
   const enhance = (entries) => {
     return entries.map(response).toSorted(sortByProperty('title'))
   }
 
-  return enhance(await PermanentToken.find({}))
+  return enhance(await PermanentToken.find(ownedBy(userId)))
 }
 
-export const get = async (id) => {
+export const get = async (id, userId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(await PermanentToken.findOne({ id }))
+  return enhance(await PermanentToken.findOne({ id, ...ownedBy(userId) }))
 }
 
-export const update = async (id, data) => {
+export const update = async (id, data, userId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -47,6 +55,7 @@ export const update = async (id, data) => {
     await PermanentToken.findOneAndUpdate(
       {
         id,
+        ...ownedBy(userId),
       },
       {
         $set: {
@@ -62,8 +71,26 @@ export const update = async (id, data) => {
   )
 }
 
-export const del = (id) => {
+export const del = (id, userId) => {
   return PermanentToken.findOneAndDelete({
     id,
+    ...ownedBy(userId),
   })
+}
+
+/*
+ * Lookups for signing in with a token, which runs before anyone is known.
+ *
+ * Kept apart from the scoped functions above so that skipping the owner filter is always
+ * a deliberate choice.
+ */
+export const getUnscoped = async (id) => {
+  const entry = await PermanentToken.findOne({ id })
+
+  return entry == null ? entry : response(entry)
+}
+
+// Records the last time the token was used.
+export const touchUnscoped = (id) => {
+  return PermanentToken.updateOne({ id }, { $set: { updated: Date.now() } })
 }

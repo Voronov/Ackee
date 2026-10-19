@@ -1,6 +1,7 @@
 import { ROLE_OWNER } from '../constants/roles.js'
 import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import Membership from '../models/Membership.js'
+import PermanentToken from '../models/PermanentToken.js'
 import User from '../models/User.js'
 import Workspace from '../models/Workspace.js'
 import { hash } from '../utils/password.js'
@@ -38,6 +39,9 @@ export const ensureAdmin = async (email) => {
 
   await upsert(Workspace, { id: DEFAULT_WORKSPACE_ID }, { title: 'Default' })
   await upsert(Membership, { userId: user.id, workspaceId: DEFAULT_WORKSPACE_ID }, { role: ROLE_OWNER })
+  // API tokens from before accounts have no owner. They already sign in as the admin, and
+  // now the admin can also see and revoke them.
+  await PermanentToken.updateMany({ userId: { $exists: false } }, { $set: { userId: user.id } })
 
   return response(user)
 }

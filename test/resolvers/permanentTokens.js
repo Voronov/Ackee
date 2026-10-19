@@ -2,6 +2,8 @@ import test from 'ava'
 import { randomUUID as uuid } from 'node:crypto'
 import listen from 'test-listen'
 
+import * as users from '../../src/database/users.js'
+import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
 import { api } from '../_utils.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from './_utils.js'
@@ -15,6 +17,16 @@ const updatedTitle = uuid()
 
 test.before(connectToDatabase)
 test.after.always(cleanup(server))
+
+// API tokens are personal, and these tests pass one token from test to test, so they all
+// act as the same owner rather than the fresh user of each fixture.
+let owner
+
+test.before(async () => {
+  owner = await users.ensureAdmin('token-owner@example.com')
+})
+
+const ownerSession = async () => (await Token.create({ userId: owner.id })).id
 test.beforeEach(fillDatabase)
 test.afterEach.always(cleanupDatabase)
 
@@ -38,7 +50,7 @@ test.serial('create permanent token', async (t) => {
     },
   }
 
-  const { json } = await api(base, body, t.context.token.id)
+  const { json } = await api(base, body, await ownerSession())
 
   t.true(json.data.createPermanentToken.success)
   t.is(typeof json.data.createPermanentToken.payload.id, 'string')
@@ -69,7 +81,7 @@ test.serial('update permanent token', async (t) => {
     },
   }
 
-  const { json } = await api(base, body, t.context.token.id)
+  const { json } = await api(base, body, await ownerSession())
 
   t.true(json.data.updatePermanentToken.success)
   t.is(json.data.updatePermanentToken.payload.id, validPermanentToken.id)
@@ -91,7 +103,7 @@ test.serial('fetch permanent tokens', async (t) => {
     `,
   }
 
-  const { json } = await api(base, body, t.context.token.id)
+  const { json } = await api(base, body, await ownerSession())
 
   const permanentTokens = json.data.permanentTokens
   const permanentToken = permanentTokens.find((permanentToken) => permanentToken.id === validPermanentToken.id)
@@ -114,7 +126,7 @@ test.serial('fetch permanent token', async (t) => {
     },
   }
 
-  const { json } = await api(base, body, t.context.token.id)
+  const { json } = await api(base, body, await ownerSession())
 
   t.is(json.data.permanentToken.id, validPermanentToken.id)
   t.is(json.data.permanentToken.title, validPermanentToken.title)
@@ -134,7 +146,7 @@ test.serial('delete permanent token', async (t) => {
     },
   }
 
-  const { json } = await api(base, body, t.context.token.id)
+  const { json } = await api(base, body, await ownerSession())
 
   t.true(json.data.deletePermanentToken.success)
 })

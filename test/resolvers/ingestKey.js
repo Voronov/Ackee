@@ -1,6 +1,7 @@
 import test from 'ava'
 import listen from 'test-listen'
 
+import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
 import * as domains from '../../src/database/domains.js'
 import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
@@ -33,7 +34,7 @@ const track = (domainId, headers) =>
   )
 
 // The key as the owner sees it: read through the data layer, which issues one if missing.
-const keyOf = async (id) => (await domains.get(id)).ingestKey
+const keyOf = async (id) => (await domains.getUnscoped(id)).ingestKey
 
 test.serial('a domain from before keys gets one on first read, and keeps it', async (t) => {
   // The fixture domain is created like one from an older version: without a key.
@@ -184,7 +185,7 @@ test.serial('a domain deleted while keys are handed out is left out of the list'
     return findOneAndUpdate(filter, ...rest)
   }
 
-  const listed = await domains.all().finally(() => {
+  const listed = await domains.all([DEFAULT_WORKSPACE_ID]).finally(() => {
     Domain.findOneAndUpdate = findOneAndUpdate
   })
 

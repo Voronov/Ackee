@@ -1,5 +1,6 @@
 import { HeaderMap } from '@apollo/server'
 
+import { assignDefaultWorkspace } from './database/migrations.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
 import createApolloServer from './utils/createApolloServer.js'
@@ -11,7 +12,7 @@ if (config.dbUrl == null) {
   throw new Error('MongoDB connection URI missing in environment')
 }
 
-connect(config.dbUrl)
+connect(config.dbUrl).then(assignDefaultWorkspace)
 
 const apolloServer = createApolloServer()
 await apolloServer.start()

@@ -1,71 +1,70 @@
+import { TOKENS_MANAGE } from '../constants/permissions.js'
 import * as auditLog from '../database/auditLog.js'
 import * as permanentTokens from '../database/permanentTokens.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import requirePermission from '../middlewares/requirePermission.js'
-import { TOKENS_MANAGE } from '../constants/permissions.js'
-import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import KnownError from '../utils/KnownError.js'
+import { workspacesWith } from '../utils/permissions.js'
 import pipe from '../utils/pipe.js'
 import validated from '../utils/validated.js'
 
+// An API token acts as its owner, so it belongs to a user, not a workspace. The right to
+// hold one comes from any workspace where the viewer may manage tokens.
+const tokenWorkspace = (parent, args, { viewer }) => workspacesWith(viewer, TOKENS_MANAGE)[0]
+
+const requireTokens = requirePermission(TOKENS_MANAGE, tokenWorkspace)
+
 export default {
   Query: {
-    permanentToken: pipe(requireAuth, requirePermission(TOKENS_MANAGE), (parent, { id }) => {
-      return permanentTokens.get(id)
+    // Only the viewer's own tokens: a token id is the secret itself.
+    permanentToken: pipe(requireAuth, requireTokens, (parent, { id }, { viewer }) => {
+      return permanentTokens.get(id, viewer.userId)
     }),
-    permanentTokens: pipe(requireAuth, requirePermission(TOKENS_MANAGE), () => {
-      return permanentTokens.all()
+    permanentTokens: pipe(requireAuth, requireTokens, (parent, args, { viewer }) => {
+      return permanentTokens.all(viewer.userId)
     }),
   },
   Mutation: {
-    createPermanentToken: pipe(
-      requireAuth,
-      requirePermission(TOKENS_MANAGE),
-      blockDemoMode,
-      async (parent, { input }, { viewer }) => {
-        // The owner comes from the viewer, so a token cannot be created in someone else's name.
-        const entry = await validated(permanentTokens.add({ title: input.title, userId: viewer.userId }))
+    createPermanentToken: pipe(requireAuth, requireTokens, blockDemoMode, async (parent, { input }, context) => {
+      const { viewer } = context
 
-        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'token.create', entry.id)
+      // The owner comes from the viewer, so a token cannot be created in someone else's name.
+      const entry = await validated(permanentTokens.add({ title: input.title, userId: viewer.userId }))
 
-        return {
-          payload: entry,
-          success: true,
-        }
-      },
-    ),
-    updatePermanentToken: pipe(
-      requireAuth,
-      requirePermission(TOKENS_MANAGE),
-      blockDemoMode,
-      async (parent, { id, input }, { viewer }) => {
-        const entry = await validated(permanentTokens.update(id, input))
+      await auditLog.record(viewer, tokenWorkspace(parent, {}, context), 'token.create', entry.id)
 
-        if (entry == null) {
-          throw new KnownError('Unknown domain')
-        }
+      return {
+        payload: entry,
+        success: true,
+      }
+    }),
+    updatePermanentToken: pipe(requireAuth, requireTokens, blockDemoMode, async (parent, { id, input }, context) => {
+      const { viewer } = context
+      const entry = await validated(permanentTokens.update(id, input, viewer.userId))
 
-        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'token.update', entry.id)
+      if (entry == null) {
+        throw new KnownError('Unknown token')
+      }
 
-        return {
-          payload: entry,
-          success: true,
-        }
-      },
-    ),
-    deletePermanentToken: pipe(
-      requireAuth,
-      requirePermission(TOKENS_MANAGE),
-      blockDemoMode,
-      async (parent, { id }, { viewer }) => {
-        await permanentTokens.del(id)
-        await auditLog.record(viewer, DEFAULT_WORKSPACE_ID, 'token.delete', id)
+      await auditLog.record(viewer, tokenWorkspace(parent, {}, context), 'token.update', entry.id)
 
-        return {
-          success: true,
-        }
-      },
-    ),
+      return {
+        payload: entry,
+        success: true,
+      }
+    }),
+    deletePermanentToken: pipe(requireAuth, requireTokens, blockDemoMode, async (parent, { id }, context) => {
+      const { viewer } = context
+      const entry = await permanentTokens.del(id, viewer.userId)
+
+      if (entry == null) throw new KnownError('Unknown token')
+
+      await auditLog.record(viewer, tokenWorkspace(parent, {}, context), 'token.delete', id)
+
+      return {
+        success: true,
+      }
+    }),
   },
 }
