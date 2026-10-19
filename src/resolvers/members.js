@@ -1,0 +1,106 @@
+import { MEMBERS_MANAGE } from '../constants/permissions.js'
+import { BUILT_IN_ROLES } from '../constants/roles.js'
+import * as auditLog from '../database/auditLog.js'
+import * as domains from '../database/domains.js'
+import * as invitations from '../database/invitations.js'
+import * as users from '../database/users.js'
+import * as workspaces from '../database/workspaces.js'
+import blockDemoMode from '../middlewares/blockDemoMode.js'
+import requireAuth from '../middlewares/requireAuth.js'
+import Role from '../models/Role.js'
+import config from '../utils/config.js'
+import { sendInvitation } from '../utils/emails.js'
+import KnownError from '../utils/KnownError.js'
+import { isEnabled as mailEnabled } from '../utils/mailer.js'
+import { workspacesWith } from '../utils/permissions.js'
+import pipe from '../utils/pipe.js'
+import { hour } from '../utils/times.js'
+
+// A shape check, as in users.js: only the email itself can confirm the address.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// At most three invitations per address and hour, so the form cannot flood a mailbox.
+const MAXIMUM_INVITATIONS_PER_HOUR = 3
+
+// Built-in or stored (ADR-003). An unknown role would grant nothing, which is a surprise
+// better caught when the invitation is written.
+const knownRole = async (name) => name in BUILT_IN_ROLES || (await Role.exists({ name })) != null
+
+const manages = (viewer, workspaceId) => workspacesWith(viewer, MEMBERS_MANAGE).includes(workspaceId)
+
+export default {
+  Workspace: {
+    canManageMembers: (parent, args, { viewer }) => manages(viewer, parent.id),
+    members: (parent, args, { viewer }) => (manages(viewer, parent.id) ? users.members([parent.id]) : []),
+    invitations: (parent, args, { viewer }) => (manages(viewer, parent.id) ? invitations.pending([parent.id]) : []),
+  },
+  Query: {
+    workspaces: pipe(requireAuth, async (parent, args, { viewer }) => {
+      const roles = Object.fromEntries(
+        viewer.memberships.map((membership) => [membership.workspaceId, membership.role]),
+      )
+      const entries = await workspaces.all(Object.keys(roles))
+
+      return entries.map((entry) => ({ ...entry, role: roles[entry.id] }))
+    }),
+  },
+  Mutation: {
+    inviteMember: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {
+      const email = String(input.email ?? '')
+        .trim()
+        .toLowerCase()
+      const domainIds = [...new Set(input.domainIds)]
+
+      // The same answer for a workspace that does not exist and one the viewer may not manage
+      if (manages(viewer, input.workspaceId) === false) throw new KnownError('Unknown workspace')
+      if (EMAIL.test(email) === false) throw new KnownError('Email address looks invalid')
+      if ((await knownRole(input.role)) === false) throw new KnownError('Unknown role')
+
+      // Without outgoing mail the link would never reach anyone, the same rule as registration
+      if (mailEnabled() === false && config.isDevelopmentMode !== true) {
+        throw new KnownError('Invitations need outgoing email, which is not configured')
+      }
+
+      // Only domains of this workspace: anything else would hand out someone else's data
+      if (domainIds.length > 0) {
+        const known = new Set((await domains.all([input.workspaceId])).map((domain) => domain.id))
+
+        if (domainIds.some((id) => known.has(id) === false)) throw new KnownError('Unknown domain')
+      }
+
+      if ((await invitations.recentCount(email, new Date(Date.now() - hour))) >= MAXIMUM_INVITATIONS_PER_HOUR) {
+        throw new KnownError('Too many invitations to this address, try again later')
+      }
+
+      const [workspace] = await workspaces.all([input.workspaceId])
+      const { invitation, token } = await invitations.issue(
+        { workspaceId: input.workspaceId, email, role: input.role, domainIds },
+        viewer.userId,
+      )
+
+      await sendInvitation(email, token, { workspaceTitle: workspace.title, invitedBy: viewer.email })
+      await auditLog.record(viewer, input.workspaceId, 'member.invite', invitation.id)
+
+      return { success: true, payload: invitation }
+    }),
+    revokeInvitation: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
+      const entry = await invitations.revoke(id, workspacesWith(viewer, MEMBERS_MANAGE))
+
+      if (entry == null) throw new KnownError('Unknown invitation')
+
+      await auditLog.record(viewer, entry.workspaceId, 'invitation.revoke', entry.id)
+
+      return { success: true }
+    }),
+    removeMember: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
+      const result = await users.leave(id, workspacesWith(viewer, MEMBERS_MANAGE))
+
+      if (result.status === 'LAST_OWNER') throw new KnownError('The last owner cannot be removed')
+      if (result.status !== 'OK') throw new KnownError('Unknown member')
+
+      await auditLog.record(viewer, result.member.workspaceId, 'member.remove', result.member.userId)
+
+      return { success: true }
+    }),
+  },
+}

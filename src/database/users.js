@@ -106,5 +106,57 @@ export const credentials = async (email) => {
 export const memberships = async (userId) => {
   const entries = await Membership.find({ userId }).lean()
 
-  return entries.map((entry) => ({ workspaceId: entry.workspaceId, role: entry.role }))
+  return entries.map((entry) => ({
+    workspaceId: entry.workspaceId,
+    role: entry.role,
+    domainIds: entry.domainIds ?? [],
+  }))
+}
+
+const member = (entry, user) => ({
+  id: entry.id,
+  userId: entry.userId,
+  email: user?.email ?? '',
+  role: entry.role,
+  domainIds: entry.domainIds ?? [],
+  workspaceId: entry.workspaceId,
+  created: entry.created,
+})
+
+// The members of the given workspaces, with their addresses.
+export const members = async (workspaceIds) => {
+  const entries = await Membership.find({ workspaceId: { $in: workspaceIds } }).lean()
+  const accounts = await User.find({ id: { $in: entries.map((entry) => entry.userId) } }).lean()
+  const byId = Object.fromEntries(accounts.map((account) => [account.id, account]))
+
+  return entries.map((entry) => member(entry, byId[entry.userId])).toSorted((a, b) => a.email.localeCompare(b.email))
+}
+
+// Adds a user to a workspace. A member who is there already gets the new role and domains:
+// the newest invitation is what the owner meant.
+export const join = async (userId, workspaceId, { role, domainIds }) => {
+  const entry = await Membership.findOneAndUpdate(
+    { userId, workspaceId },
+    { $set: { role, domainIds } },
+    { upsert: true, returnDocument: 'after' },
+  )
+
+  return member(entry, await User.findOne({ id: userId }).lean())
+}
+
+// Removes a member. The last owner stays: a workspace without one could never be managed again.
+export const leave = async (id, workspaceIds) => {
+  const entry = await Membership.findOne({ id, workspaceId: { $in: workspaceIds } }).lean()
+
+  if (entry == null) return { status: 'UNKNOWN' }
+
+  if (entry.role === ROLE_OWNER) {
+    const owners = await Membership.countDocuments({ workspaceId: entry.workspaceId, role: ROLE_OWNER })
+
+    if (owners <= 1) return { status: 'LAST_OWNER' }
+  }
+
+  await Membership.deleteOne({ id })
+
+  return { status: 'OK', member: member(entry, await User.findOne({ id: entry.userId }).lean()) }
 }
