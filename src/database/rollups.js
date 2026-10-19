@@ -99,7 +99,11 @@ export const rollUp = async (now = new Date()) => {
       const next = new Date(Math.min(until.getTime() + ROLLUP_CHUNK_HOURS * hour, target.getTime()))
 
       await buildRange(until, next)
-      await RollupState.updateOne({ _id: STATE_ID }, { $set: { until: next } })
+      // A backfill takes longer than one lease, so every chunk renews it
+      await RollupState.updateOne(
+        { _id: STATE_ID },
+        { $set: { until: next, lockedUntil: new Date(Date.now() + ROLLUP_LEASE) } },
+      )
       until = next
     }
 
