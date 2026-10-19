@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_URL ?? 'http://localhost:3000',
     trace: 'retain-on-failure',
+    // Maps a name like ackee.localhost to the container that serves Ackee, see e2e/docker-compose.yml
+    launchOptions: process.env.E2E_RESOLVE ? { args: [`--host-resolver-rules=MAP ${process.env.E2E_RESOLVE}`] } : {},
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 })
