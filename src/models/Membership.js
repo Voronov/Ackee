@@ -27,6 +27,12 @@ const schema = new mongoose.Schema({
     // Any role name: built-in or stored in the database (ACKEE-13). An unknown one grants nothing.
     default: ROLE_VIEWER,
   },
+  // Empty means every domain of the workspace. An invitation limited to some domains sets it,
+  // and such a member sees nothing else of the workspace: no other domains, no events.
+  domainIds: {
+    type: [String],
+    default: [],
+  },
   schemaVersion: {
     type: Number,
     required: true,
