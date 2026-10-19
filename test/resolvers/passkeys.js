@@ -8,7 +8,7 @@ import Passkey from '../../src/models/Passkey.js'
 import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
 import { api } from '../_utils.js'
-import SoftAuthenticator from '../softAuthenticator.js'
+import SoftAuthenticator from '../_softAuthenticator.js'
 import { cleanup, connectToDatabase, gql } from './_utils.js'
 
 const base = listen(server)
