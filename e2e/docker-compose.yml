@@ -23,6 +23,8 @@ services:
       # The address the browser in the tests container uses, so links in emails work there.
       ACKEE_URL: http://ackee:3000
       ACKEE_ALLOW_SIGNUP: 'true'
+      # Sites named after their domain may send events, like on the stands (tracking rules test)
+      ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_SMTP_HOST: mailpit
       ACKEE_SMTP_PORT: '1025'
       ACKEE_SMTP_FROM: ackee@localhost
