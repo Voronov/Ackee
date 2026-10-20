@@ -146,3 +146,7 @@ export const del = async (id, userId) => {
 
   return entry == null ? null : response(entry)
 }
+
+// A password reset often follows a takeover, and a passkey the intruder added would outlive the
+// new password. So a reset removes every passkey, like every session.
+export const delByUser = (userId) => Passkey.deleteMany({ userId })

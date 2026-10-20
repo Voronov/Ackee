@@ -1,3 +1,4 @@
+import * as passkeys from '../database/passkeys.js'
 import * as tokens from '../database/tokens.js'
 import * as userTokens from '../database/userTokens.js'
 import * as users from '../database/users.js'
@@ -134,6 +135,7 @@ export default {
 
       // A reset often follows a stolen password, so whoever used it is signed out too.
       await tokens.delByUser(result.userId)
+      await passkeys.delByUser(result.userId)
 
       return { success: true }
     },

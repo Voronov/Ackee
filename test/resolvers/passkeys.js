@@ -2,6 +2,7 @@ import test from 'ava'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
+import * as userTokens from '../../src/database/userTokens.js'
 import * as users from '../../src/database/users.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Passkey from '../../src/models/Passkey.js'
@@ -261,4 +262,25 @@ test.serial('without ACKEE_URL passkeys are off', async (t) => {
   t.regex(options.errors[0].message, /ACKEE_URL/)
 
   restore()
+})
+
+// Review of #32: an intruder who added a passkey must not keep it after the owner resets the password
+test('a password reset removes every passkey', async (t) => {
+  const { user, authenticator } = await withPasskey('passkey-9@example.com')
+  const token = await userTokens.issue(user.id, 'RESET')
+
+  const { json } = await anonymous(
+    gql`
+      mutation resetPassword($input: ResetPasswordInput!) {
+        resetPassword(input: $input) {
+          success
+        }
+      }
+    `,
+    { input: { token, password: 'a-new-long-password' } },
+  )
+  t.true(json.data.resetPassword.success)
+
+  t.is(await Passkey.countDocuments({ userId: user.id }), 0)
+  t.regex((await signIn(authenticator.authenticate(await signInOptions()))).json.errors[0].message, /not known/i)
 })

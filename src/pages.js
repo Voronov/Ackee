@@ -2,6 +2,7 @@ import express from 'express'
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { getClientIp } from 'request-ip'
 
+import * as passkeys from './database/passkeys.js'
 import * as tokens from './database/tokens.js'
 import * as userTokens from './database/userTokens.js'
 import * as users from './database/users.js'
@@ -129,6 +130,7 @@ router.post('/reset', linkLimiter, express.urlencoded({ extended: false }), asyn
     await users.setPassword(result.userId, password)
     // Whoever knew the old password must lose access too, the same as in `resetPassword`
     await tokens.delByUser(result.userId)
+    await passkeys.delByUser(result.userId)
   } catch (error) {
     signale.fatal(error)
 
