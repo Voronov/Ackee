@@ -132,16 +132,19 @@ export const members = async (workspaceIds) => {
   return entries.map((entry) => member(entry, byId[entry.userId])).toSorted((a, b) => a.email.localeCompare(b.email))
 }
 
-// Adds a user to a workspace. A member who is there already gets the new role and domains:
-// the newest invitation is what the owner meant.
+// Adds a user to a workspace. Someone who is a member already keeps their role and domains: an
+// invitation never changes a membership, so it cannot demote the last owner either.
 export const join = async (userId, workspaceId, { role, domainIds }) => {
   const entry = await Membership.findOneAndUpdate(
     { userId, workspaceId },
-    { $set: { role, domainIds } },
-    { upsert: true, returnDocument: 'after' },
+    { $setOnInsert: { userId, workspaceId, role, domainIds } },
+    { upsert: true, returnDocument: 'after', includeResultMetadata: true },
   )
 
-  return member(entry, await User.findOne({ id: userId }).lean())
+  return {
+    member: member(entry.value, await User.findOne({ id: userId }).lean()),
+    existing: entry.lastErrorObject?.updatedExisting === true,
+  }
 }
 
 // Removes a member. The last owner stays: a workspace without one could never be managed again.

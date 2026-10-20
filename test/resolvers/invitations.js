@@ -8,6 +8,7 @@ import Domain from '../../src/models/Domain.js'
 import Event from '../../src/models/Event.js'
 import Invitation from '../../src/models/Invitation.js'
 import Membership from '../../src/models/Membership.js'
+import Role from '../../src/models/Role.js'
 import Token from '../../src/models/Token.js'
 import User from '../../src/models/User.js'
 import server from '../../src/server.js'
@@ -388,4 +389,75 @@ test.serial('a link that is not ours never reaches the page', async (t) => {
   t.is(status, 400)
   t.regex(body, /not valid/i)
   t.false(body.toLowerCase().includes('<script'))
+})
+
+// Review of #33: someone who may only manage members must not hand out more than they have
+test.serial('an invitation cannot grant more than the inviter has', async (t) => {
+  const owner = await account('owner-11@example.com')
+  await Role.create({ name: 'MANAGER', permissions: ['MEMBERS_MANAGE'] })
+  const manager = await account('manager-11@example.com')
+  await Membership.create({ userId: manager.user.id, workspaceId: owner.workspace.id, role: 'MANAGER' })
+
+  for (const role of ['OWNER', 'VIEWER', 'EDITOR']) {
+    const { json } = await invite(manager.call, {
+      workspaceId: owner.workspace.id,
+      email: `friend-11-${role}@example.com`,
+      role,
+    })
+    t.regex(json.errors[0].message, /unknown role/i, role)
+  }
+
+  const { json } = await invite(manager.call, {
+    workspaceId: owner.workspace.id,
+    email: 'peer-11@example.com',
+    role: 'MANAGER',
+  })
+  t.true(json.data.inviteMember.success)
+  t.is(await Invitation.countDocuments({ workspaceId: owner.workspace.id, role: 'OWNER' }), 0)
+})
+
+test.serial('members, the inviter included, are not invited again', async (t) => {
+  const owner = await account('owner-12@example.com')
+  const member = await account('member-12@example.com')
+  await Membership.create({ userId: member.user.id, workspaceId: owner.workspace.id, role: 'VIEWER' })
+
+  const self = await invite(owner.call, {
+    workspaceId: owner.workspace.id,
+    email: 'owner-12@example.com',
+    role: 'VIEWER',
+  })
+  t.regex(self.json.errors[0].message, /already a member/i)
+  const other = await invite(owner.call, {
+    workspaceId: owner.workspace.id,
+    email: 'member-12@example.com',
+    role: 'OWNER',
+  })
+  t.regex(other.json.errors[0].message, /already a member/i)
+})
+
+test.serial('accepting never changes a membership, so the last owner stays an owner', async (t) => {
+  const owner = await account('owner-13@example.com')
+  // An invitation from before, to the owner's own address, as a viewer
+  const { token } = await invitations.issue(
+    { workspaceId: owner.workspace.id, email: 'owner-13@example.com', role: 'VIEWER', domainIds: [] },
+    owner.user.id,
+  )
+
+  const { status, body } = await form('/invitation', { token, password: 'sufficiently-long' })
+  t.is(status, 200)
+  t.regex(body, /already a member/i)
+
+  const membership = await Membership.findOne({ userId: owner.user.id, workspaceId: owner.workspace.id }).lean()
+  t.is(membership.role, 'OWNER')
+})
+
+test.serial('the invitation limit counts per workspace', async (t) => {
+  const first = await account('owner-14a@example.com')
+  const second = await account('owner-14b@example.com')
+  const send = (owner) =>
+    invite(owner.call, { workspaceId: owner.workspace.id, email: 'popular-14@example.com', role: 'VIEWER' })
+
+  for (let index = 0; index < 3; index++) t.true((await send(first)).json.data.inviteMember.success)
+  t.regex((await send(first)).json.errors[0].message, /too many/i)
+  t.true((await send(second)).json.data.inviteMember.success)
 })

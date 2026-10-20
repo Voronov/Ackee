@@ -3,6 +3,7 @@ import { BUILT_IN_ROLES } from '../constants/roles.js'
 import * as auditLog from '../database/auditLog.js'
 import * as domains from '../database/domains.js'
 import * as invitations from '../database/invitations.js'
+import * as roles from '../database/roles.js'
 import * as users from '../database/users.js'
 import * as workspaces from '../database/workspaces.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
@@ -27,6 +28,17 @@ const MAXIMUM_INVITATIONS_PER_HOUR = 3
 const knownRole = async (name) => name in BUILT_IN_ROLES || (await Role.exists({ name })) != null
 
 const manages = (viewer, workspaceId) => workspacesWith(viewer, MEMBERS_MANAGE).includes(workspaceId)
+
+// Review of #33: an invitation can hand out at most what the inviter has in this workspace.
+// Otherwise someone allowed to manage members could invite themselves, or a friend, as owner.
+const grantable = async (viewer, workspaceId, role) => {
+  if ((await knownRole(role)) === false) return false
+
+  const own = viewer.memberships.find((membership) => membership.workspaceId === workspaceId)?.permissions ?? []
+  const { [role]: granted = [] } = await roles.permissionsFor([role])
+
+  return granted.every((permission) => own.includes(permission))
+}
 
 export default {
   Workspace: {
@@ -55,7 +67,18 @@ export default {
       // The same answer for a workspace that does not exist and one the viewer may not manage
       if (manages(viewer, input.workspaceId) === false) throw new KnownError('Unknown workspace')
       if (EMAIL.test(email) === false) throw new KnownError('Email address looks invalid')
-      if ((await knownRole(input.role)) === false) throw new KnownError('Unknown role')
+      // The same answer for a role that does not exist and one the viewer may not hand out
+      if ((await grantable(viewer, input.workspaceId, input.role)) === false) throw new KnownError('Unknown role')
+
+      // A member's role changes elsewhere, never through an invitation: that would also let the
+      // last owner invite themselves as a viewer and leave the workspace without one
+      const existing = await users.byEmail(email)
+      if (
+        existing != null &&
+        (await users.memberships(existing.id)).some((entry) => entry.workspaceId === input.workspaceId)
+      ) {
+        throw new KnownError('This address is already a member of the workspace')
+      }
 
       // Without outgoing mail the link would never reach anyone, the same rule as registration
       if (mailEnabled() === false && config.isDevelopmentMode !== true) {
@@ -69,7 +92,11 @@ export default {
         if (domainIds.some((id) => known.has(id) === false)) throw new KnownError('Unknown domain')
       }
 
-      if ((await invitations.recentCount(email, new Date(Date.now() - hour))) >= MAXIMUM_INVITATIONS_PER_HOUR) {
+      // Per workspace and address, so one workspace cannot use up the invitations of another
+      if (
+        (await invitations.recentCount(input.workspaceId, email, new Date(Date.now() - hour))) >=
+        MAXIMUM_INVITATIONS_PER_HOUR
+      ) {
         throw new KnownError('Too many invitations to this address, try again later')
       }
 

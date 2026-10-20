@@ -85,4 +85,5 @@ export const revoke = async (id, workspaceIds) => {
 }
 
 // How many invitations went to an address recently. Used to rate limit sending.
-export const recentCount = (email, since) => Invitation.countDocuments({ email, created: { $gte: since } })
+export const recentCount = (workspaceId, email, since) =>
+  Invitation.countDocuments({ workspaceId, email, created: { $gte: since } })

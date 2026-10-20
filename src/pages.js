@@ -233,6 +233,8 @@ router.post('/invitation', linkLimiter, express.urlencoded({ extended: false }),
     return response.status(400).send(message(title, text))
   }
 
+  let existing
+
   try {
     if (account == null) {
       // The link proves the mailbox, as a confirmation link would
@@ -240,23 +242,31 @@ router.post('/invitation', linkLimiter, express.urlencoded({ extended: false }),
       await users.verify(account.id)
     }
 
-    await users.join(account.id, invitation.workspaceId, { role: invitation.role, domainIds: invitation.domainIds })
-    await auditLog.record(
-      { userId: account.id, email: account.email },
-      invitation.workspaceId,
-      'member.join',
-      invitation.id,
-    )
+    const joined = await users.join(account.id, invitation.workspaceId, {
+      role: invitation.role,
+      domainIds: invitation.domainIds,
+    })
+    existing = joined.existing
+    if (existing === false) {
+      await auditLog.record(
+        { userId: account.id, email: account.email },
+        invitation.workspaceId,
+        'member.join',
+        invitation.id,
+      )
+    }
   } catch (error) {
     signale.fatal(error)
 
     return response.status(500).send(message('Something went wrong', 'Please try again in a moment.'))
   }
 
+  const title = escape(await invitationTitle(invitation))
+
+  // Someone who is a member already keeps their role: an invitation never changes it
   response.send(
-    message(
-      'Invitation accepted',
-      `You are now a member of ${escape(await invitationTitle(invitation))}. You can sign in now.`,
-    ),
+    existing
+      ? message('Already a member', `You are a member of ${title} already, with the role you had.`)
+      : message('Invitation accepted', `You are now a member of ${title}. You can sign in now.`),
   )
 })
