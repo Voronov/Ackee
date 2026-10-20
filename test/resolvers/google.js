@@ -168,8 +168,9 @@ test.serial('signing in again finds the same account by its Google id', async (t
   t.is(await User.countDocuments({ googleId: 'google-2' }), 1)
 })
 
-test.serial('an existing account is linked and confirmed by Google', async (t) => {
+test.serial('a confirmed account is linked and keeps its password', async (t) => {
   const { user } = await users.add({ email: 'existing@example.com', password: 'sufficiently-long' })
+  await users.verify(user.id)
 
   const { status } = await signIn({ sub: 'google-3', email: 'existing@example.com' })
 
@@ -177,6 +178,34 @@ test.serial('an existing account is linked and confirmed by Google', async (t) =
   const linked = await User.findOne({ id: user.id }).lean()
   t.is(linked.googleId, 'google-3')
   t.true(linked.verified)
+  t.truthy(linked.password)
+})
+
+// Review of #31: someone registers the victim's address with their own password and waits. Once
+// the owner signs in with Google, that password must not open the account.
+test.serial('a password set before the address was confirmed stops working once Google confirms it', async (t) => {
+  const { user } = await users.add({ email: 'victim@example.com', password: 'the-attackers-password' })
+  const stale = await Token.create({ userId: user.id })
+
+  const { status } = await signIn({ sub: 'google-victim', email: 'victim@example.com' })
+  t.is(status, 200)
+
+  const linked = await User.findOne({ id: user.id }).lean()
+  t.true(linked.verified)
+  t.is(linked.password, undefined)
+  t.is(await Token.findOne({ id: stale.id }), null)
+
+  const { json } = await api(base, {
+    query: gql`
+      mutation createToken($input: CreateTokenInput!) {
+        createToken(input: $input) {
+          success
+        }
+      }
+    `,
+    variables: { input: { username: 'victim@example.com', password: 'the-attackers-password' } },
+  })
+  t.regex(json.errors[0].message, /username or password incorrect/i)
 })
 
 test.serial('an address Google has not confirmed is refused', async (t) => {

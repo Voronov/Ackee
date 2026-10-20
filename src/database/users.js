@@ -2,6 +2,7 @@ import { ROLE_OWNER } from '../constants/roles.js'
 import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import Membership from '../models/Membership.js'
 import PermanentToken from '../models/PermanentToken.js'
+import Token from '../models/Token.js'
 import User from '../models/User.js'
 import Workspace from '../models/Workspace.js'
 import { hash } from '../utils/password.js'
@@ -124,11 +125,23 @@ export const withGoogleId = async (email) => {
 
 // Links a Google account. Google has confirmed the address, so the account counts as confirmed too.
 export const linkGoogle = async (id, googleId) => {
+  const current = await User.findOne({ id }).lean()
+  if (current == null) return null
+
+  // A password set before the address was confirmed proves nothing: anyone can register someone
+  // else's address and wait for its owner to confirm it with Google. So it goes, with every
+  // session, and the owner sets a password of their own with "Forgot password".
+  const unconfirmed = current.verified !== true
+
   const entry = await User.findOneAndUpdate(
     { id },
-    { $set: { googleId, verified: true, updated: Date.now() } },
+    {
+      $set: { googleId, verified: true, updated: Date.now() },
+      ...(unconfirmed ? { $unset: { password: 1 } } : {}),
+    },
     { returnDocument: 'after' },
   )
+  if (unconfirmed) await Token.deleteMany({ userId: id })
 
   return entry == null ? entry : response(entry)
 }
