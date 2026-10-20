@@ -28,6 +28,11 @@ export default new Proxy(
         smtpPassword: process.env.ACKEE_SMTP_PASSWORD,
         smtpFrom: process.env.ACKEE_SMTP_FROM || process.env.ACKEE_SMTP_USER,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
+        // Encrypts secrets kept in the database, like a Google service account key (ACKEE-21)
+        secretKey: process.env.ACKEE_SECRET_KEY,
+        // Google's endpoints for GA4. Only tests point them elsewhere, at a stand-in for Google.
+        ga4TokenUrl: process.env.ACKEE_GA4_TOKEN_URL || 'https://oauth2.googleapis.com/token',
+        ga4ApiUrl: process.env.ACKEE_GA4_API_URL || 'https://analyticsdata.googleapis.com',
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
