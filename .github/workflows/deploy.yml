@@ -40,9 +40,11 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # The commit that started the run, not the tip of the branch: two merges in a minute
+      # must not build the second one under the tag of the first (ACKEE-78).
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.sha }}
 
       - uses: actions/setup-node@v5
         with:
@@ -81,9 +83,11 @@ jobs:
       stage: ${{ steps.tag.outputs.stage }}
 
     steps:
+      # The commit that started the run, not the tip of the branch: two merges in a minute
+      # must not build the second one under the tag of the first (ACKEE-78).
       - uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.sha }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -117,6 +121,14 @@ jobs:
             echo "stage=dev" >> "$GITHUB_OUTPUT"
             echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
           fi
+
+      # The image says sha-<commit> and carries that commit as its revision label: both must be
+      # what was actually checked out.
+      - name: Built commit matches the tag
+        if: steps.tag.outputs.stage == 'dev'
+        env:
+          SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
 
       - uses: docker/build-push-action@v6
         with:
