@@ -1,0 +1,51 @@
+// Google Analytics next to Ackee (ACKEE-21): the source switch, both sources side by side, and
+// the steps in the connection dialog
+.sourceSelect {
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: flex-end;
+
+	.select {
+		width: auto;
+		min-width: 16em;
+	}
+}
+
+.sourceSplit {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: $gutter;
+
+	@media (max-width: 800px) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	&__half {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: $gutter;
+		align-content: start;
+
+		// The reports of one source are a single column here
+		> * {
+			grid-column: 1 / -1;
+		}
+	}
+
+	&__title {
+		margin: 0;
+		font-size: 1em;
+		opacity: 0.6;
+	}
+}
+
+.ga4Steps {
+	margin: 0 0 1em;
+	padding-left: 1.2em;
+	line-height: 1.5;
+
+	li {
+		margin-bottom: 0.4em;
+	}
+}

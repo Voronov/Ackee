@@ -2,11 +2,12 @@ import { gql } from '@apollo/client'
 
 import enhanceFacts from '../../../enhancers/enhanceFacts.js'
 import factsFields from '../../fragments/factsFields.js'
+import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchMergedFacts {
-    facts {
+  query fetchMergedFacts($source: StatisticsSource) {
+    facts(source: $source) {
       ...factsFields
     }
   }
@@ -15,8 +16,9 @@ const QUERY = gql`
 `
 
 export default () => {
+  const source = useSource()
   const selector = (data) => data?.facts
   const enhancer = enhanceFacts
 
-  return useQuery(QUERY, selector, enhancer)
+  return useQuery(QUERY, selector, enhancer, { variables: { source } })
 }

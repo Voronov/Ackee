@@ -44,7 +44,8 @@ export default {
       // Provide a static fallback id when there're no domains to create a recursive id from
       if (ids.length === 0) return 'eaf55ae8-29b8-448f-b45c-85e17fbfc8ba'
 
-      return recursiveId(ids)
+      // The interface caches by id, so Ackee's and GA4's numbers of the same domains must not share one
+      return recursiveId(domain.source === SOURCE_GA4 ? ['GA4', ...ids] : ids)
     }),
     views: pipe(requireAuth, async (domain, { type, interval, limit }, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)

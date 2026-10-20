@@ -9,6 +9,7 @@ import Textarea from '../Textarea.js'
 
 import useDeleteDomain from '../../api/hooks/domains/useDeleteDomain.js'
 import useUpdateDomain from '../../api/hooks/domains/useUpdateDomain.js'
+import { MODALS_DOMAIN_GA4 } from '../../constants/modals.js'
 import useInputs from '../../hooks/useInputs.js'
 import commonModalProps from '../../utils/commonModalProps.js'
 import shortId from '../../utils/shortId.js'
@@ -98,6 +99,16 @@ const ModalDomainEdit = (props) => {
         copyOnFocus: true,
       }),
 
+      h(
+        'button',
+        {
+          type: 'button',
+          className: 'link',
+          onClick: () => props.addModal(MODALS_DOMAIN_GA4, { id: props.id, title: props.title }),
+        },
+        'Google Analytics →',
+      ),
+
       h(Spacer, { size: 0.5 }),
 
       h(
@@ -152,6 +163,7 @@ const ModalDomainEdit = (props) => {
 }
 
 ModalDomainEdit.propTypes = {
+  addModal: PropTypes.func,
   ingestKey: PropTypes.string,
   ...commonModalProps,
   id: PropTypes.string.isRequired,
