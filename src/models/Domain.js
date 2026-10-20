@@ -34,6 +34,32 @@ const schema = new mongoose.Schema({
     required: true,
     default: false,
   },
+  // What the site collects besides page views, set up here rather than in its code (ACKEE-25).
+  // Served to the site by /t/<id>.js, see autotrack/loader.js.
+  tracking: {
+    gtmId: { type: String, default: '' },
+    outbound: { type: Boolean, default: false },
+    downloads: { type: Boolean, default: false },
+    downloadExtensions: { type: [String], default: undefined },
+    scroll: { type: Boolean, default: false },
+    vitals: { type: Boolean, default: false },
+    rules: {
+      type: [
+        {
+          _id: false,
+          id: { type: String, required: true },
+          type: { type: String, required: true },
+          selector: { type: String, required: true },
+          label: { type: String, required: true },
+          // Pages the rule works on, like /product/*. Empty for every page.
+          path: { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
+    // The id of the Ackee event that holds each kind, see constants/tracking.js
+    events: { type: Map, of: String, default: {} },
+  },
   // A domain belongs to a workspace rather than to a user (ADR-002). Domains from before
   // workspaces are in the default one.
   workspaceId: {
