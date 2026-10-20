@@ -65,6 +65,24 @@ const days = (startDate, endDate) => {
   return out
 }
 
+// Google's token endpoint: a token only for an assertion signed with the test key
+const issueToken = (body, send) => {
+  const assertion = new URLSearchParams(body).get('assertion') ?? ''
+  const [header, claims, signature] = assertion.split('.')
+  const valid = crypto.verify(
+    'RSA-SHA256',
+    Buffer.from(`${header}.${claims}`),
+    publicKey,
+    Buffer.from(signature ?? '', 'base64url'),
+  )
+  const claimed = JSON.parse(Buffer.from(claims ?? '', 'base64url').toString() || '{}')
+  if (valid === false || claimed.scope !== 'https://www.googleapis.com/auth/analytics.readonly')
+    return send(401, { error: 'invalid_grant' })
+  return send(200, { access_token: 'token-of-the-test', expires_in: 3600 })
+}
+
+const TOKEN_PATHS = new Set(['/token'])
+
 const fakeGoogle = http.createServer((request, response) => {
   let body = ''
   request.on('data', (chunk) => (body += chunk))
@@ -74,20 +92,7 @@ const fakeGoogle = http.createServer((request, response) => {
       response.end(JSON.stringify(json))
     }
 
-    if (request.url === '/token') {
-      const assertion = new URLSearchParams(body).get('assertion') ?? ''
-      const [header, claims, signature] = assertion.split('.')
-      const valid = crypto.verify(
-        'RSA-SHA256',
-        Buffer.from(`${header}.${claims}`),
-        publicKey,
-        Buffer.from(signature ?? '', 'base64url'),
-      )
-      const claimed = JSON.parse(Buffer.from(claims ?? '', 'base64url').toString() || '{}')
-      if (valid === false || claimed.scope !== 'https://www.googleapis.com/auth/analytics.readonly')
-        return send(401, { error: 'invalid_grant' })
-      return send(200, { access_token: 'token-of-the-test', expires_in: 3600 })
-    }
+    if (TOKEN_PATHS.has(request.url)) return issueToken(body, send)
 
     const property = /properties\/(\d+):runReport/.exec(request.url)?.[1]
     if (request.headers.authorization !== 'Bearer token-of-the-test')
