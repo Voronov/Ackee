@@ -1,0 +1,8 @@
+// A checkbox with its label on one row
+.checkbox {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 0.35em 0;
+	cursor: pointer;
+}

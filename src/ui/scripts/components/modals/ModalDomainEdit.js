@@ -9,6 +9,7 @@ import Textarea from '../Textarea.js'
 
 import useDeleteDomain from '../../api/hooks/domains/useDeleteDomain.js'
 import useUpdateDomain from '../../api/hooks/domains/useUpdateDomain.js'
+import { MODALS_DOMAIN_TRACKING } from '../../constants/modals.js'
 import useInputs from '../../hooks/useInputs.js'
 import commonModalProps from '../../utils/commonModalProps.js'
 import shortId from '../../utils/shortId.js'
@@ -44,6 +45,7 @@ const ModalDomainEdit = (props) => {
   const titleId = shortId()
   const idId = shortId()
   const embedId = shortId()
+  const autotrackId = shortId()
 
   // Without a key the snippet is exactly what it was before, so an existing installation
   // keeps working and nothing has to be updated at once.
@@ -97,6 +99,27 @@ const ModalDomainEdit = (props) => {
         value: `<script async src="${srcUrl}" data-ackee-server="${serverUrl}" data-ackee-domain-id="${trackingId}"></script>`,
         copyOnFocus: true,
       }),
+
+      h(Label, { htmlFor: autotrackId }, 'Embed code with tracking rules'),
+
+      // One snippet for page views and everything set up under Tracking rules (ACKEE-25)
+      h(Textarea, {
+        id: autotrackId,
+        readOnly: true,
+        rows: 2,
+        value: `<script async src="${serverUrl}/t/${trackingId}.js"></script>`,
+        copyOnFocus: true,
+      }),
+
+      h(
+        'button',
+        {
+          type: 'button',
+          className: 'link',
+          onClick: () => props.addModal(MODALS_DOMAIN_TRACKING, { id: props.id, title: props.title }),
+        },
+        'Tracking rules →',
+      ),
 
       h(Spacer, { size: 0.5 }),
 
@@ -152,6 +175,7 @@ const ModalDomainEdit = (props) => {
 }
 
 ModalDomainEdit.propTypes = {
+  addModal: PropTypes.func,
   ingestKey: PropTypes.string,
   ...commonModalProps,
   id: PropTypes.string.isRequired,

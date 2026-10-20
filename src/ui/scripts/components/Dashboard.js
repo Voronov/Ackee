@@ -96,6 +96,7 @@ const Dashboard = (props) => {
     h(Modals, {
       modals: props.modals,
       removeModal: props.removeModal,
+      addModal: props.addModal,
     }),
     h(Header, {
       loading: props.loading,
