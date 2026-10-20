@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import express from 'express'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import { getClientIp } from 'request-ip'
 
 import * as tracking from '../database/tracking.js'
 import Domain from '../models/Domain.js'
@@ -15,10 +17,16 @@ import autotrack from './client.js'
  */
 const tracker = readFile(path.resolve(import.meta.dirname, '../../dist/tracker.js'), 'utf8')
 
-// The page loads the script from Ackee, so Ackee's own address is where the tracker reports to
-const serverOf = (request) =>
-  config.publicUrl?.replace(/\/$/, '') ??
-  `${request.headers['x-forwarded-proto'] ?? request.protocol}://${request.get('host')}`
+// The page loads the script from Ackee, so Ackee's own address is where the tracker reports to.
+// Without ACKEE_URL it comes from the request, so only a plain host name gets into the script.
+const serverOf = (request) => {
+  if (config.publicUrl) return config.publicUrl.replace(/\/$/, '')
+
+  const protocol = request.headers['x-forwarded-proto'] === 'https' || request.protocol === 'https' ? 'https' : 'http'
+  const host = String(request.get('host') ?? '')
+
+  return /^[\w.-]+(:\d{1,5})?$/.test(host) ? `${protocol}://${host}` : ''
+}
 
 // JSON inside a script: a "</script>" in a selector or label must not end the script early
 const inline = (value) => JSON.stringify(value).replaceAll('<', String.raw`\u003c`)
@@ -44,7 +52,16 @@ export const build = async (domain, trackingId, server) => {
 
 const router = express.Router()
 
-router.get('/t/:file', async (request, response) => {
+// Every page view of a site loads the script, and a whole office can share one address, so the
+// limit is generous: it only stops someone hammering the database through this route.
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 1000,
+  keyGenerator: (request) => ipKeyGenerator(getClientIp(request) ?? ''),
+  handler: (request, response) => response.status(429).type('text/javascript').send('/* Too many requests */\n'),
+})
+
+router.get('/t/:file', limiter, async (request, response) => {
   response.type('text/javascript; charset=utf-8')
 
   // <id>.js or <id>.<ingest key>.js, the same id the plain snippet carries
@@ -59,7 +76,9 @@ router.get('/t/:file', async (request, response) => {
 
   // Short, so a change of the rules reaches the site soon. Express adds an ETag on its own.
   response.setHeader('Cache-Control', 'public, max-age=60')
-  response.send(await build(domain, key == null ? domain.id : `${domain.id}.${key}`, serverOf(request)))
+  // The key from the database, not the one from the address: they are equal by now, and nothing
+  // from the request goes into the script
+  response.send(await build(domain, key == null ? domain.id : `${domain.id}.${domain.ingestKey}`, serverOf(request)))
 })
 
 export default router

@@ -205,3 +205,26 @@ test('a label cannot end the script it is served in', async (t) => {
   t.false(body.toLowerCase().includes('</script'))
   t.true(body.includes(String.raw`\u003c/script>`))
 })
+
+test.serial('one address cannot load the snippet without end', async (t) => {
+  const { domain } = await account('tracking-8@example.com')
+  const from = { 'X-Forwarded-For': '203.0.113.25' }
+  const statuses = []
+
+  for (let index = 0; index < 1001; index++) {
+    statuses.push((await fetch(new URL(`/t/${domain.id}.the-key.js`, await base).href, { headers: from })).status)
+  }
+
+  t.is(statuses.filter((status) => status === 200).length, 1000)
+  t.is(statuses.at(-1), 429)
+})
+
+test('a forged Host header does not reach the script', async (t) => {
+  const { domain } = await account('tracking-9@example.com')
+  const response = await fetch(new URL(`/t/${domain.id}.the-key.js`, await base).href, {
+    headers: { 'X-Forwarded-Host': 'evil.example.com"</script>' },
+  })
+  const body = await response.text()
+
+  t.false(body.includes('evil.example.com'))
+})
