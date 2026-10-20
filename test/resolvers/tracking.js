@@ -226,5 +226,6 @@ test('a forged Host header does not reach the script', async (t) => {
   })
   const body = await response.text()
 
-  t.false(body.includes('evil.example.com'))
+  // The script reports to the server's own address, whatever the request claims
+  t.is(JSON.parse(/"server":("[^"]*")/.exec(body)[1]), new URL(await base).origin)
 })
