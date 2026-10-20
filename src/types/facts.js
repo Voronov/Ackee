@@ -63,6 +63,6 @@ export default gql`
     """
     Facts of all domains combined. Usually simple data that can be represented in one value.
     """
-    facts: Facts!
+    facts(source: StatisticsSource = ACKEE): Facts!
   }
 `

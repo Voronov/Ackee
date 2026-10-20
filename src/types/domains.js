@@ -26,11 +26,11 @@ export default gql`
     """
     Facts about a domain. Usually simple data that can be represented in one value.
     """
-    facts: Facts!
+    facts(source: StatisticsSource = ACKEE): Facts!
     """
     Statistics of a domain. Usually data that needs to be represented in a list or chart.
     """
-    statistics: DomainStatistics!
+    statistics(source: StatisticsSource = ACKEE): DomainStatistics!
     """
     Identifies the date and time when the object was created.
     """

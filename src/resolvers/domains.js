@@ -12,8 +12,9 @@ import validated from '../utils/validated.js'
 
 export default {
   Domain: {
-    facts: (parent) => parent,
-    statistics: (parent) => parent,
+    // The source travels with the domain to every report below (ACKEE-21)
+    facts: (parent, { source }) => ({ ...parent, source }),
+    statistics: (parent, { source }) => ({ ...parent, source }),
   },
   Query: {
     // The limit is in the query, not a check afterwards: another workspace's domain is not

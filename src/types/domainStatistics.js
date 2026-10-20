@@ -369,6 +369,6 @@ export default gql`
     """
     Statistics of all domains combined. Usually data that needs to be represented in a list or chart.
     """
-    statistics: DomainStatistics!
+    statistics(source: StatisticsSource = ACKEE): DomainStatistics!
   }
 `
