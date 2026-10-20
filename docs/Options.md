@@ -204,3 +204,11 @@ As opposed to manually configuring CORS domains, you can also automatically add 
 ```
 ACKEE_AUTO_ORIGIN=true
 ```
+
+## Secret key
+
+```
+ACKEE_SECRET_KEY=a-long-random-string
+```
+
+Encrypts secrets Ackee keeps in the database, like the key of a Google service account ([Google Analytics](Google%20Analytics.md)). Generate one with `openssl rand -base64 32` and keep it with the other secrets of the server. Changing it makes the stored keys unreadable.

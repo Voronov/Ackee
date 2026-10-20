@@ -77,6 +77,8 @@ services:
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_URL: https://ackee2.varlex.app
       <<: *smtp-live
+      # Encrypts the Google Analytics keys kept in the database (ACKEE-21). Each stand has its own.
+      ACKEE_SECRET_KEY: ${ACKEE_SECRET_KEY:-}
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_METRICS_TOKEN:-}
     depends_on:
@@ -100,6 +102,8 @@ services:
       # Open on dev so registration can be tried. Live stays closed until decided.
       ACKEE_ALLOW_SIGNUP: 'true'
       <<: *smtp-dev
+      # Encrypts the Google Analytics keys kept in the database (ACKEE-21). Each stand has its own.
+      ACKEE_SECRET_KEY: ${ACKEE_DEV_SECRET_KEY:-}
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
     depends_on:
