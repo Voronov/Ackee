@@ -10,31 +10,48 @@
 `ackee-bench`, порти – інші, ніж у розробки, тож стенд не зачіпає локальні `ackee-mongo`,
 `ackee-clickhouse` і їхні томи.
 
-| Сервіс       | Профіль      | Порт на хості | Ліміт пам'яті | Що це                                                                    |
-| ------------ | ------------ | ------------- | ------------- | ------------------------------------------------------------------------ |
-| `mongo`      | –            | 27018         | 3 GiB         | `mongo:7`, кеш WiredTiger 1.5 GB, том `ackee-bench-mongo-data`           |
-| `ackee`      | –            | 3100          | 1 GiB         | образ `ackee-bench-ackee:local` з поточного коду, вхід `bench` / `bench` |
-| `seed`       | `seed`       | –             | 1 GiB         | одноразовий засів `scripts/seed-records.js`                              |
-| `clickhouse` | `clickhouse` | 8124          | 2 GiB         | `clickhouse/clickhouse-server:24.8`, лише для перевірки пам'яті          |
+| Сервіс        | Профіль      | Порт на хості | Ліміт пам'яті | Що це                                                                                                                    |
+| ------------- | ------------ | ------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `mongo`       | –            | 27018         | 3 GiB         | `mongo:7`, кеш WiredTiger 1.5 GB, том `ackee-bench-mongo-data`                                                           |
+| `ackee`       | –            | 3100          | 1 GiB         | образ `ackee-bench-ackee:local` з поточного коду, вхід `bench` / `bench`                                                 |
+| `seed`        | `seed`       | –             | 1 GiB         | одноразовий засів `scripts/seed-records.js`                                                                              |
+| `clickhouse`  | `clickhouse` | 8124          | 2 GiB         | `clickhouse/clickhouse-server:24.8`, лише для перевірки пам'яті                                                          |
+| `redis-queue` | `queue`      | 6391          | 256 MiB       | `redis:7.4-alpine` для черги прийому (ADR-006): AOF, `maxmemory` 96 MB, `noeviction`, том `ackee-bench-redis-queue-data` |
 
 Ліміти, порти, кеш і паролі змінюються змінними `BENCH_*` (див. значення `${BENCH_*:-…}` у
 файлі):
 
-| Змінна                      | За замовчуванням | Що це                         |
-| --------------------------- | ---------------- | ----------------------------- |
-| `BENCH_MONGO_PORT`          | 27018            | порт MongoDB на хості         |
-| `BENCH_MONGO_MEMORY`        | 3g               | ліміт пам'яті `mongo`         |
-| `BENCH_MONGO_CACHE_GB`      | 1.5              | кеш WiredTiger, GB            |
-| `BENCH_ACKEE_PORT`          | 3100             | порт Ackee на хості           |
-| `BENCH_ACKEE_MEMORY`        | 1g               | ліміт пам'яті `ackee`         |
-| `BENCH_ACKEE_USERNAME`      | bench            | `ACKEE_USERNAME` стенда       |
-| `BENCH_ACKEE_PASSWORD`      | bench            | `ACKEE_PASSWORD` стенда       |
-| `BENCH_SEED_MEMORY`         | 1g               | ліміт пам'яті `seed`          |
-| `BENCH_CLICKHOUSE_PORT`     | 8124             | HTTP-порт ClickHouse на хості |
-| `BENCH_CLICKHOUSE_MEMORY`   | 2g               | ліміт пам'яті `clickhouse`    |
-| `BENCH_CLICKHOUSE_PASSWORD` | bench            | пароль користувача `default`  |
+| Змінна                      | За замовчуванням | Що це                                                        |
+| --------------------------- | ---------------- | ------------------------------------------------------------ |
+| `BENCH_MONGO_PORT`          | 27018            | порт MongoDB на хості                                        |
+| `BENCH_MONGO_MEMORY`        | 3g               | ліміт пам'яті `mongo`                                        |
+| `BENCH_MONGO_CACHE_GB`      | 1.5              | кеш WiredTiger, GB                                           |
+| `BENCH_ACKEE_PORT`          | 3100             | порт Ackee на хості                                          |
+| `BENCH_ACKEE_MEMORY`        | 1g               | ліміт пам'яті `ackee`                                        |
+| `BENCH_ACKEE_USERNAME`      | bench            | `ACKEE_USERNAME` стенда                                      |
+| `BENCH_ACKEE_PASSWORD`      | bench            | `ACKEE_PASSWORD` стенда                                      |
+| `BENCH_SEED_MEMORY`         | 1g               | ліміт пам'яті `seed`                                         |
+| `BENCH_CLICKHOUSE_PORT`     | 8124             | HTTP-порт ClickHouse на хості                                |
+| `BENCH_CLICKHOUSE_MEMORY`   | 2g               | ліміт пам'яті `clickhouse`                                   |
+| `BENCH_CLICKHOUSE_PASSWORD` | bench            | пароль користувача `default`                                 |
+| `BENCH_INGEST_QUEUE`        | –                | `ACKEE_INGEST_QUEUE` стенда; порожньо – черга вимкнена       |
+| `BENCH_QUEUE_PORT`          | 6391             | порт Redis черги на хості                                    |
+| `BENCH_QUEUE_MEMORY`        | 256m             | ліміт пам'яті `redis-queue`                                  |
+| `BENCH_QUEUE_MAXMEMORY`     | 96mb             | `maxmemory` Redis черги                                      |
+| `BENCH_METRICS_TOKEN`       | –                | `ACKEE_METRICS_TOKEN` стенда; порожньо – `/metrics` вимкнено |
 
 Кеш WiredTiger задано явно, щоб результат не залежав від обсягу пам'яті машини.
+
+За замовчуванням стенд пише події напряму, як без черги. Серія «з чергою» – з профілем `queue`
+і змінною, яка вмикає її в Ackee:
+
+```sh
+BENCH_INGEST_QUEUE=redis://redis-queue:6379 docker compose -f docker-compose.bench.yml --profile queue up -d --build
+```
+
+Відставання черги видно в `ackee_ingest_queue_length` і `ackee_ingest_queue_oldest_age_seconds`
+на `/metrics`, якщо задано `BENCH_METRICS_TOKEN`. Перед поверненням до прямого запису черга має
+спорожніти.
 
 ## Підняти
 
@@ -379,8 +396,8 @@ v1.0. Тому порівнюємо не секунди, а план і кіль
 ## Прибрати
 
 ```sh
-docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse down     # зберегти дані
-docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse down -v  # видалити й дані
+docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse --profile queue down     # зберегти дані
+docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse --profile queue down -v  # видалити й дані
 ```
 
 Без `-v` томи `ackee-bench-*` лишаються, і наступний `up -d` піднімає той самий засіяний стенд.
