@@ -11,6 +11,11 @@ export default new Proxy(
         port: process.env.ACKEE_PORT || process.env.PORT || 3000,
         dbUrl: process.env.ACKEE_MONGODB || process.env.MONGODB_URI,
         redisUrl: process.env.ACKEE_REDIS,
+        // Redis of the ingest queue (ADR-006). Empty counts as unset, so a blank line in an
+        // env file keeps the queue off.
+        ingestQueue: process.env.ACKEE_INGEST_QUEUE || undefined,
+        // Name of this process in the consumer group of the queue, the host name when unset
+        ingestConsumer: process.env.ACKEE_INGEST_CONSUMER || undefined,
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,
