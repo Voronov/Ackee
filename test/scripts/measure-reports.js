@@ -79,6 +79,7 @@ test('parses options with defaults', (t) => {
   t.is(parsed.runs, 3)
   t.is(parsed.timeout, 60 * minute)
   t.is(parsed.timeZone, 'UTC')
+  t.is(parsed.unit, 's')
 })
 
 test('parses options from arguments', (t) => {
@@ -103,6 +104,8 @@ test('parses options from arguments', (t) => {
     '30',
     '--time-zone',
     'Europe/Kyiv',
+    '--unit',
+    'ms',
   ])
 
   t.is(parsed.url, 'http://localhost:4000')
@@ -116,11 +119,13 @@ test('parses options from arguments', (t) => {
   t.is(parsed.runs, 5)
   t.is(parsed.timeout, 30 * minute)
   t.is(parsed.timeZone, 'Europe/Kyiv')
+  t.is(parsed.unit, 'ms')
 })
 
 test('rejects invalid options', (t) => {
   t.throws(() => parseOptions(['--runs', '0']), { message: 'Option --runs must be a positive integer' })
   t.throws(() => parseOptions(['--timeout', '1.5']), { message: 'Option --timeout must be a positive integer' })
+  t.throws(() => parseOptions(['--unit', 'min']), { message: 'Unknown unit min, use one of: s, ms' })
   t.throws(() => parseOptions(['--report', 'pages']), {
     message: 'Unknown report pages, use one of: views-unique, views-total, referrers, durations',
   })
@@ -163,6 +168,24 @@ test('formats the summary as a markdown table', (t) => {
       '| ------ | ---- | ------ | --------- | ------ | ------ | ------ |',
       '| views | 3 | 0 | 187.9 | 180.0 | 190.1 | 5 views |',
       '| referrers | 1 | 1 | – | – | – | socket hang up |',
+      '',
+    ].join('\n'),
+  )
+})
+
+// Rollups and ClickHouse answer below the 0.1 s a table in seconds can show
+test('formats the summary in milliseconds', (t) => {
+  const table = formatTable(
+    [{ name: 'views', summary: { runs: 3, failed: 0, median: 0.0194, min: 0.0126, max: 0.31, result: '5 views' } }],
+    'ms',
+  )
+
+  t.is(
+    table,
+    [
+      '| Report | Runs | Failed | Median, ms | Min, ms | Max, ms | Result |',
+      '| ------ | ---- | ------ | ---------- | ------- | ------- | ------ |',
+      '| views | 3 | 0 | 19 | 13 | 310 | 5 views |',
       '',
     ].join('\n'),
   )

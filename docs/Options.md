@@ -232,3 +232,19 @@ As opposed to manually configuring CORS domains, you can also automatically add 
 ```
 ACKEE_AUTO_ORIGIN=true
 ```
+
+## Sign in with Google
+
+Ackee can offer "Sign in with Google" next to the password form. It uses OpenID Connect with PKCE and asks Google only for the address (`openid email`).
+
+```
+ACKEE_GOOGLE_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+ACKEE_GOOGLE_CLIENT_SECRET=GOCSPX-...
+ACKEE_URL=https://ackee.example.com
+```
+
+Create an OAuth client of type "Web application" in the Google Cloud console and add `<ACKEE_URL>/auth/google/callback` as an authorized redirect URI. Without all three variables the button is hidden and `/auth/google` answers 404.
+
+- An address Google has not confirmed is refused.
+- An existing account with the same address is linked to the Google account on the first sign-in, and counts as confirmed from then on.
+- Someone without an account gets one only when `ACKEE_ALLOW_SIGNUP=true`, with a personal workspace like any registration. Such an account has no password until its owner sets one with "Forgot password".

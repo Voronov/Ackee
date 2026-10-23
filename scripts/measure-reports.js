@@ -43,6 +43,14 @@ export const defaults = {
   runs: 3,
   timeout: 60,
   timeZone: 'UTC',
+  unit: 's',
+}
+
+// Seconds suit v1.0, whose reports take seconds. Rollups and ClickHouse answer in tens of
+// milliseconds, which a tenth of a second would round to zero.
+const units = {
+  s: { label: 's', format: (seconds) => seconds.toFixed(1) },
+  ms: { label: 'ms', format: (seconds) => (seconds * 1000).toFixed(0) },
 }
 
 const sum = (entries) => entries.reduce((total, entry) => total + entry.count, 0)
@@ -71,6 +79,7 @@ export const parseOptions = (args) => {
       'runs': { type: 'string', default: String(defaults.runs) },
       'timeout': { type: 'string', default: String(defaults.timeout) },
       'time-zone': { type: 'string', default: defaults.timeZone },
+      'unit': { type: 'string', default: defaults.unit },
     },
   })
 
@@ -80,6 +89,10 @@ export const parseOptions = (args) => {
       throw new Error(`Option --${name} must be a positive integer`)
     }
     return Number(value)
+  }
+
+  if (Object.hasOwn(units, values.unit) === false) {
+    throw new Error(`Unknown unit ${values.unit}, use one of: ${Object.keys(units).join(', ')}`)
   }
 
   const keys = values.report ?? reports.map((report) => report.key)
@@ -97,6 +110,7 @@ export const parseOptions = (args) => {
     runs: toInteger('runs'),
     timeout: toInteger('timeout') * minute,
     timeZone: values['time-zone'],
+    unit: values.unit,
   }
 }
 
@@ -210,16 +224,18 @@ export const summarizeRuns = (runs) => {
   }
 }
 
-const seconds = (value) => (value == null ? '–' : value.toFixed(1))
-
 // Markdown, so the output goes straight into docs/engineering/benchmark-stand.md
-export const formatTable = (rows) => {
+export const formatTable = (rows, unit = defaults.unit) => {
+  const { label, format } = units[unit]
+  const time = (value) => (value == null ? '–' : format(value))
+  const columns = ['Report', 'Runs', 'Failed', `Median, ${label}`, `Min, ${label}`, `Max, ${label}`, 'Result']
+
   const lines = [
-    '| Report | Runs | Failed | Median, s | Min, s | Max, s | Result |',
-    '| ------ | ---- | ------ | --------- | ------ | ------ | ------ |',
+    `| ${columns.join(' | ')} |`,
+    `| ${columns.map((column) => '-'.repeat(column.length)).join(' | ')} |`,
     ...rows.map(
       ({ name, summary }) =>
-        `| ${name} | ${summary.runs} | ${summary.failed} | ${seconds(summary.median)} | ${seconds(summary.min)} | ${seconds(summary.max)} | ${summary.result} |`,
+        `| ${name} | ${summary.runs} | ${summary.failed} | ${time(summary.median)} | ${time(summary.min)} | ${time(summary.max)} | ${summary.result} |`,
     ),
   ]
   return `${lines.join('\n')}\n`
@@ -228,6 +244,7 @@ export const formatTable = (rows) => {
 export const run = async (options) => {
   const token = await login(options)
   const authorized = { ...options, token }
+  const unit = units[options.unit ?? defaults.unit]
 
   try {
     const domainId = await resolveDomainId(authorized)
@@ -240,7 +257,7 @@ export const run = async (options) => {
         const result = await measureReport({ ...authorized, domainId }, report)
         runs.push(result)
 
-        const label = `${report.name} #${index + 1}: ${seconds(result.seconds)} s`
+        const label = `${report.name} #${index + 1}: ${unit.format(result.seconds)} ${unit.label}`
         if (result.error == null) signale.success(`${label}, ${result.result}`)
         else signale.error(`${label}, ${result.error}`)
 
@@ -265,7 +282,7 @@ export const run = async (options) => {
 const main = async () => {
   const options = parseOptions(process.argv.slice(2))
   const rows = await run(options)
-  process.stdout.write(formatTable(rows))
+  process.stdout.write(formatTable(rows, options.unit))
 }
 
 const isMain = process.argv[1] != null && path.resolve(process.argv[1]) === import.meta.filename

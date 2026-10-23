@@ -33,6 +33,12 @@ export default new Proxy(
         smtpPassword: process.env.ACKEE_SMTP_PASSWORD,
         smtpFrom: process.env.ACKEE_SMTP_FROM || process.env.ACKEE_SMTP_USER,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
+        // Sign-in with Google (ACKEE-79). Off unless both are set, and ACKEE_URL too.
+        googleClientId: process.env.ACKEE_GOOGLE_CLIENT_ID,
+        googleClientSecret: process.env.ACKEE_GOOGLE_CLIENT_SECRET,
+        // Google's endpoints. Only tests point them elsewhere, at a stand-in for Google.
+        googleAuthUrl: process.env.ACKEE_GOOGLE_AUTH_URL || 'https://accounts.google.com/o/oauth2/v2/auth',
+        googleTokenUrl: process.env.ACKEE_GOOGLE_TOKEN_URL || 'https://oauth2.googleapis.com/token',
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
