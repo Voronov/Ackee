@@ -10,7 +10,12 @@ export default function autotrack(config) {
   const tracker = globalThis.ackeeTracker
   if (tracker == null) return
 
-  const instance = tracker.create(config.server, { detailed: false, ignoreLocalhost: config.ignoreLocalhost })
+  // Where to report: the address the owner set, or the one this script was loaded from
+  const script = document.currentScript
+  const server = config.server || (script?.src ? new URL(script.src).origin : null)
+  if (server == null) return
+
+  const instance = tracker.create(server, { detailed: false, ignoreLocalhost: config.ignoreLocalhost })
   const send = (kind, key, value = 1) => {
     const eventId = config.events[kind]
     if (eventId != null) instance.action(eventId, { key: String(key).slice(0, 500), value })

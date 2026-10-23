@@ -17,16 +17,10 @@ import autotrack from './client.js'
  */
 const tracker = readFile(path.resolve(import.meta.dirname, '../../dist/tracker.js'), 'utf8')
 
-// The page loads the script from Ackee, so Ackee's own address is where the tracker reports to.
-// Without ACKEE_URL it comes from the request, so only a plain host name gets into the script.
-const serverOf = (request) => {
-  if (config.publicUrl) return config.publicUrl.replace(/\/$/, '')
-
-  const protocol = request.headers['x-forwarded-proto'] === 'https' || request.protocol === 'https' ? 'https' : 'http'
-  const host = String(request.get('host') ?? '')
-
-  return /^[\w.-]+(:\d{1,5})?$/.test(host) ? `${protocol}://${host}` : ''
-}
+// The address the owner set, if any. Nothing from the request goes into a script that is cached
+// publicly (review of #36): a forged Host would poison a cache in front of Ackee. Without
+// ACKEE_URL the site takes the address the script came from, see client.js.
+const server = () => config.publicUrl?.replace(/\/$/, '') ?? ''
 
 // JSON inside a script: a "</script>" in a selector or label must not end the script early
 const inline = (value) => JSON.stringify(value).replaceAll('<', String.raw`\u003c`)
@@ -78,7 +72,7 @@ router.get('/t/:file', limiter, async (request, response) => {
   response.setHeader('Cache-Control', 'public, max-age=60')
   // The key from the database, not the one from the address: they are equal by now, and nothing
   // from the request goes into the script
-  response.send(await build(domain, key == null ? domain.id : `${domain.id}.${domain.ingestKey}`, serverOf(request)))
+  response.send(await build(domain, key == null ? domain.id : `${domain.id}.${domain.ingestKey}`, server()))
 })
 
 export default router

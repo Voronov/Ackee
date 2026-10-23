@@ -26,6 +26,7 @@ export default gql`
     Identifier of what was changed.
     """
     targetId: ID
+    details: String
     """
     When the change was made.
     """

@@ -1,10 +1,14 @@
+import http from 'node:http'
+
 import test from 'ava'
+import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
 import * as users from '../../src/database/users.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Domain from '../../src/models/Domain.js'
 import Event from '../../src/models/Event.js'
+import Membership from '../../src/models/Membership.js'
 import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
 import { api } from '../_utils.js'
@@ -219,13 +223,50 @@ test.serial('one address cannot load the snippet without end', async (t) => {
   t.is(statuses.at(-1), 429)
 })
 
-test('a forged Host header does not reach the script', async (t) => {
+// Review of #36: the snippet is cached publicly, so a request must not be able to shape it
+test.serial('a forged Host header does not reach the script', async (t) => {
   const { domain } = await account('tracking-9@example.com')
-  const response = await fetch(new URL(`/t/${domain.id}.the-key.js`, await base).href, {
-    headers: { 'X-Forwarded-Host': 'evil.example.com"</script>' },
+  const { port } = new URL(await base)
+  const headers = { 'Host': 'evil.example.com:443', 'X-Forwarded-Host': 'evil.example.com"</script>' }
+  const body = await new Promise((resolve, reject) => {
+    http
+      .get({ port, path: `/t/${domain.id}.the-key.js`, headers }, (response) => {
+        let text = ''
+        response.on('data', (chunk) => (text += chunk))
+        response.on('end', () => resolve(text))
+      })
+      .on('error', reject)
   })
-  const body = await response.text()
 
-  // The script reports to the server's own address, whatever the request claims
-  t.is(JSON.parse(/"server":("[^"]*")/.exec(body)[1]), new URL(await base).origin)
+  t.false(body.includes('evil'))
+  // Without ACKEE_URL the site reports to the address the script came from
+  t.true(body.includes('"server":""'))
+  t.true(body.includes('document.currentScript'))
+
+  const restore = mockedEnv({ ACKEE_URL: 'https://ackee.example.com/' })
+  t.true((await get(`/t/${domain.id}.the-key.js`)).body.includes('"server":"https://ackee.example.com"'))
+  restore()
+})
+
+test('only an owner sets the Tag Manager container, and the change is logged', async (t) => {
+  const { domain, workspace, call } = await account('tracking-10@example.com')
+  const editor = await account('tracking-10b@example.com')
+  await Membership.create({ userId: editor.user.id, workspaceId: workspace.id, role: 'EDITOR' })
+  const payload = async (call, input) => (await save(call, domain.id, input)).json.data.updateDomainTracking.payload
+
+  t.true((await payload(editor.call, { outbound: true })).outbound)
+  const refused = await save(editor.call, domain.id, { gtmId: 'GTM-ABC1234' })
+  t.regex(refused.json.errors[0].message, /owner/i)
+  t.is((await read(call, domain.id)).gtmId, '')
+
+  t.is((await payload(call, { gtmId: 'GTM-ABC1234' })).gtmId, 'GTM-ABC1234')
+  // The same container again is no change, so an editor still saves the rest
+  t.true((await payload(editor.call, { gtmId: 'GTM-ABC1234', scroll: true })).scroll)
+  t.regex((await save(editor.call, domain.id, { gtmId: '' })).json.errors[0].message, /owner/i)
+
+  const entries = await AuditLog.find({ workspaceId: workspace.id, action: 'domain.gtm' }).lean()
+  t.deepEqual(
+    entries.map((entry) => `${entry.targetId} ${entry.details}`),
+    [`${domain.id} none → GTM-ABC1234`],
+  )
 })

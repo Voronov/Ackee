@@ -32,7 +32,7 @@ Every kind is an Ackee event of the domain's workspace, named after the domain, 
 
 ## Google Tag Manager
 
-Enter the container id, like `GTM-ABC1234`, and the snippet loads Tag Manager with Google's own code. Ackee itself stays without cookies; the tags in your container may not, and that is up to you. Ackee does not run any other code of yours on the site.
+Enter the container id, like `GTM-ABC1234`, and the snippet loads Tag Manager with Google's own code. Ackee itself stays without cookies; the tags in your container may not, and that is up to you. Ackee does not run any other code of yours on the site. A container can run any code on the site, so only an owner of the workspace sets or changes it, and the audit log keeps the old and the new id.
 
 ## Privacy
 
