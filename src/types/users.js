@@ -20,6 +20,13 @@ export default gql`
     created: DateTime!
   }
 
+  type SignInOptions {
+    """
+    Whether the sign-in screen offers "Sign in with Google".
+    """
+    google: Boolean!
+  }
+
   type Signup {
     """
     Whether anyone can create an account on this instance right now.
@@ -47,6 +54,10 @@ export default gql`
     the sign-in screen needs it before anyone has signed in.
     """
     signup: Signup!
+    """
+    Ways to sign in besides a password. Readable without a token, like signup.
+    """
+    signInOptions: SignInOptions!
   }
 
   type Success {

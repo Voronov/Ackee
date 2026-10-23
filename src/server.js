@@ -11,6 +11,7 @@ import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
+import google from './google.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
 import * as metrics from './utils/metrics.js'
@@ -109,6 +110,8 @@ app.options('/{*path}', (request, response) => {
 app.get('/metrics', metrics.handler)
 // Pages that links in emails point at: confirming an address and resetting a password.
 app.use(pages)
+// Sign-in with Google. Answers 404 until ACKEE_GOOGLE_CLIENT_ID and ACKEE_GOOGLE_CLIENT_SECRET are set.
+app.use(google)
 
 // Serve static files
 for (const [route, filename, type] of staticFiles) {

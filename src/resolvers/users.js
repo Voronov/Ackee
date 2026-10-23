@@ -1,6 +1,7 @@
 import * as tokens from '../database/tokens.js'
 import * as userTokens from '../database/userTokens.js'
 import * as users from '../database/users.js'
+import { isEnabled as isGoogleEnabled } from '../google.js'
 import config from '../utils/config.js'
 import { sendPasswordReset, sendVerification } from '../utils/emails.js'
 import { isEnabled as mailEnabled } from '../utils/mailer.js'
@@ -32,6 +33,7 @@ export default {
   Query: {
     // No requireAuth: the sign-in screen asks this before anyone has signed in.
     signup: () => ({ allowed: config.allowSignup === true }),
+    signInOptions: () => ({ google: isGoogleEnabled() }),
     viewer: pipe(requireAuth, (parent, args, { viewer }) => {
       return users.get(viewer.userId)
     }),
