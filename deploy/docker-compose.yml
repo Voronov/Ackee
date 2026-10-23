@@ -5,6 +5,9 @@
 #   dev.ackee2.varlex.app  dev: the last merge into develop
 #
 # One MongoDB, one database per stand.
+#
+# ClickHouse (ACKEE-17) and Redis (ACKEE-18) run next to it for the stands that turn them on.
+# Like MongoDB they are reachable only inside the compose network.
 
 # Without limits the json logs grow until the disk is full. That is how mongo went down.
 x-logging: &logging
@@ -49,6 +52,48 @@ services:
     logging: *logging
     healthcheck:
       test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    container_name: ackee-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ackee
+      CLICKHOUSE_USER: ackee
+      CLICKHOUSE_PASSWORD: ${ACKEE_CLICKHOUSE_PASSWORD:?set in .env}
+    volumes:
+      - clickhouse-store:/var/lib/clickhouse
+      - ./clickhouse/memory.xml:/etc/clickhouse-server/config.d/memory.xml:ro
+      - ./clickhouse/limits.xml:/etc/clickhouse-server/users.d/limits.xml:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    mem_limit: 1200m
+    networks: [ackee]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8123/ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: ackee-redis
+    restart: unless-stopped
+    # The queue of events must survive a restart, and an event must never be evicted to make room
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '96mb', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redis-data:/data
+    mem_limit: 128m
+    networks: [ackee]
+    logging: *logging
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -140,3 +185,6 @@ volumes:
   caddy-config:
   # Left from 4.0.1. Not mounted any more, kept until someone decides to drop it.
   clickhouse-data:
+  # A fresh one: the tables of 4.0.1 are not what ACKEE-17 will write
+  clickhouse-store:
+  redis-data:
