@@ -1,3 +1,4 @@
+import { PERMISSIONS } from '../constants/permissions.js'
 import { ROLE_OWNER } from '../constants/roles.js'
 import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import Membership from '../models/Membership.js'
@@ -5,6 +6,8 @@ import PermanentToken from '../models/PermanentToken.js'
 import User from '../models/User.js'
 import Workspace from '../models/Workspace.js'
 import { hash } from '../utils/password.js'
+import { minute } from '../utils/times.js'
+import { permissionsFor } from './roles.js'
 
 const response = (entry) => ({
   id: entry.id,
@@ -147,19 +150,43 @@ export const join = async (userId, workspaceId, { role, domainIds }) => {
   }
 }
 
+// One membership of the given workspaces, with the fields `leave` and the resolver need.
+export const membership = (id, workspaceIds) => Membership.findOne({ id, workspaceId: { $in: workspaceIds } }).lean()
+
+// A mark older than a minute is from a removal that died halfway and does not count
+const notLeaving = () => ({ leaving: { $not: { $gt: new Date(Date.now() - minute) } } })
+
+// Owners by what their roles grant, not by the name OWNER (review of #33): every permission,
+// workspace-wide. Nobody can hand out more than they hold, so without such a member the
+// workspace could never be fully managed again.
+const ownersAmong = async (entries) => {
+  const granted = await permissionsFor([...new Set(entries.map((entry) => entry.role))])
+
+  return entries.filter(
+    (entry) =>
+      (entry.domainIds ?? []).length === 0 &&
+      PERMISSIONS.every((permission) => granted[entry.role].includes(permission)),
+  )
+}
+
 // Removes a member. The last owner stays: a workspace without one could never be managed again.
-export const leave = async (id, workspaceIds) => {
-  const entry = await Membership.findOne({ id, workspaceId: { $in: workspaceIds } }).lean()
+// The one leaving is marked first and the marked are not counted, so two removals at the same
+// time cannot both pass the count and leave no owner behind.
+export const leave = async (entry) => {
+  const marked = await Membership.findOneAndUpdate({ id: entry.id, ...notLeaving() }, { $set: { leaving: new Date() } })
 
-  if (entry == null) return { status: 'UNKNOWN' }
+  if (marked == null) return { status: 'UNKNOWN' }
 
-  if (entry.role === ROLE_OWNER) {
-    const owners = await Membership.countDocuments({ workspaceId: entry.workspaceId, role: ROLE_OWNER })
+  const [leavingOwner] = await ownersAmong([entry])
+  const others = await Membership.find({ workspaceId: entry.workspaceId, ...notLeaving() }).lean()
 
-    if (owners <= 1) return { status: 'LAST_OWNER' }
+  if (leavingOwner != null && (await ownersAmong(others)).length === 0) {
+    await Membership.updateOne({ id: entry.id }, { $unset: { leaving: 1 } })
+
+    return { status: 'LAST_OWNER' }
   }
 
-  await Membership.deleteOne({ id })
+  await Membership.deleteOne({ id: entry.id })
 
   return { status: 'OK', member: member(entry, await User.findOne({ id: entry.userId }).lean()) }
 }
