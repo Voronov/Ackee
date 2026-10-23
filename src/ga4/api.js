@@ -11,11 +11,17 @@ const base64url = (value) =>
   Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url')
 
 // Tokens live an hour. Kept per service account, so a sync does not ask for one per report.
+// Keyed by the key itself, not the address alone (review of #37): an address is public, and a
+// token bought with someone's key must not serve a connection that only claims that address.
 const tokens = new Map()
 
-const accessToken = async ({ clientEmail, privateKey }) => {
-  const cached = tokens.get(clientEmail)
-  if (cached != null && cached.expires > Date.now() + 60_000) return cached.token
+const keyOf = ({ clientEmail, privateKey }) =>
+  crypto.createHash('sha256').update(`${clientEmail}\n${privateKey}`).digest('hex')
+
+const accessToken = async ({ clientEmail, privateKey }, fresh = false) => {
+  const id = keyOf({ clientEmail, privateKey })
+  const cached = tokens.get(id)
+  if (fresh === false && cached != null && cached.expires > Date.now() + 60_000) return cached.token
 
   const now = Math.floor(Date.now() / 1000)
   const unsigned = `${base64url({ alg: 'RS256', typ: 'JWT' })}.${base64url({
@@ -39,14 +45,15 @@ const accessToken = async ({ clientEmail, privateKey }) => {
   if (response.ok === false)
     throw new Error(`Google refused the service account: ${json.error_description ?? json.error ?? response.status}`)
 
-  tokens.set(clientEmail, { token: json.access_token, expires: Date.now() + json.expires_in * 1000 })
+  tokens.set(id, { token: json.access_token, expires: Date.now() + json.expires_in * 1000 })
 
   return json.access_token
 }
 
-// Every row of a report, page by page. GA4 caps one answer at 100 000 rows.
-export const runReport = async (account, propertyId, request) => {
-  const token = await accessToken(account)
+// Every row of a report, page by page. GA4 caps one answer at 100 000 rows. `fresh` buys a new
+// token with the given key, whatever the cache holds.
+export const runReport = async (account, propertyId, request, { fresh = false } = {}) => {
+  const token = await accessToken(account, fresh)
   const rows = []
   const limit = 100_000
 

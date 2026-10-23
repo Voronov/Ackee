@@ -50,12 +50,15 @@ export const parseKey = (text) => {
   return { clientEmail: key.client_email, privateKey: key.private_key }
 }
 
-// Reads a week of views once, so a wrong id or a missing permission shows before anything is stored
+// Reads a week of views once, so a wrong id or a missing permission shows before anything is
+// stored. Always with a token bought by this very key: the check is what proves the key.
 export const check = (account, propertyId) =>
-  runReport(account, propertyId, {
-    dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
-    metrics: [{ name: 'screenPageViews' }],
-  })
+  runReport(
+    account,
+    propertyId,
+    { dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }], metrics: [{ name: 'screenPageViews' }] },
+    { fresh: true },
+  )
 
 export const connect = async (domainId, propertyId, account) => {
   await Ga4Daily.deleteMany({ domainId })

@@ -331,6 +331,45 @@ test.serial('only someone who manages the domain can connect, sync or disconnect
   t.is(await Ga4Connection.countDocuments({ domainId: domain.id }), 1)
 })
 
+// Review of #37: a cached token of someone else's service account must not vouch for a forged key
+test.serial('connecting with the address of a service account needs its key, not just a token', async (t) => {
+  const victim = await connected('ga4-cache@example.com')
+  const attacker = await account('ga4-cache-b@example.com')
+  const forged = JSON.stringify({
+    ...JSON.parse(KEY),
+    private_key: crypto
+      .generateKeyPairSync('rsa', { modulusLength: 2048 })
+      .privateKey.export({ type: 'pkcs8', format: 'pem' }),
+  })
+
+  const { json } = await connect(attacker.call, attacker.domain.id, { propertyId: '111111', key: forged })
+
+  t.regex(json.errors[0].message, /refused/i)
+  t.is(await Ga4Connection.countDocuments({ domainId: attacker.domain.id }), 0)
+  t.is(await Ga4Daily.countDocuments({ domainId: attacker.domain.id }), 0)
+  t.is(await Ga4Connection.countDocuments({ domainId: victim.domain.id }), 1)
+})
+
+test.serial('deleting a domain forgets its Google Analytics connection and days', async (t) => {
+  const { call, domain } = await connected('ga4-delete@example.com')
+  t.true((await Ga4Daily.countDocuments({ domainId: domain.id })) > 0)
+
+  const { json } = await call(
+    gql`
+      mutation deleteDomain($id: ID!) {
+        deleteDomain(id: $id) {
+          success
+        }
+      }
+    `,
+    { id: domain.id },
+  )
+
+  t.true(json.data.deleteDomain.success)
+  t.is(await Ga4Connection.countDocuments({ domainId: domain.id }), 0)
+  t.is(await Ga4Daily.countDocuments({ domainId: domain.id }), 0)
+})
+
 test.serial('disconnecting forgets the property and its days', async (t) => {
   const { call, domain } = await connected('ga4-6@example.com')
 
