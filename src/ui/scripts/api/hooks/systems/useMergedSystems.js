@@ -2,7 +2,7 @@ import { gql } from '@apollo/client'
 
 import enhanceSystems from '../../../enhancers/enhanceSystems.js'
 import systemsField from '../../fragments/systemsField.js'
-import useSelectedDomain from '../../../hooks/useSelectedDomain.js'
+import useReportDomain from '../domains/useReportDomain.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
@@ -17,7 +17,7 @@ const QUERY = gql`
 `
 
 export default (filters) => {
-  const domainId = useSelectedDomain()
+  const domainId = useReportDomain()
   const selector = (data) => data?.statistics.systems
   const enhancer = enhanceSystems
 

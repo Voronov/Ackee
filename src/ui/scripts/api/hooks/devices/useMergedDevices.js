@@ -2,7 +2,7 @@ import { gql } from '@apollo/client'
 
 import enhanceDevices from '../../../enhancers/enhanceDevices.js'
 import devicesField from '../../fragments/devicesField.js'
-import useSelectedDomain from '../../../hooks/useSelectedDomain.js'
+import useReportDomain from '../domains/useReportDomain.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
@@ -17,7 +17,7 @@ const QUERY = gql`
 `
 
 export default (filters) => {
-  const domainId = useSelectedDomain()
+  const domainId = useReportDomain()
   const selector = (data) => data?.statistics.devices
   const enhancer = enhanceDevices
 

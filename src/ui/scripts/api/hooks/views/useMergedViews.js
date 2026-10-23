@@ -2,7 +2,7 @@ import { gql } from '@apollo/client'
 
 import enhanceViews from '../../../enhancers/enhanceViews.js'
 import viewsField from '../../fragments/viewsField.js'
-import useSelectedDomain from '../../../hooks/useSelectedDomain.js'
+import useReportDomain from '../domains/useReportDomain.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
@@ -17,7 +17,7 @@ const QUERY = gql`
 `
 
 export default (filters, options) => {
-  const domainId = useSelectedDomain()
+  const domainId = useReportDomain()
   const selector = (data) => data?.statistics.views
   const enhancer = (value) => enhanceViews(value, filters.limit)
 
