@@ -512,8 +512,11 @@ test.serial('two removals at the same time never leave a workspace without an ow
     const results = await Promise.all([removeAs(first.call, added.id), removeAs(second.call, own.id)])
 
     t.true((await owners()) >= 1, `round ${round}`)
+    // At most one goes through. The other hears "last owner", or "unknown member" when its
+    // sender was already removed before the request looked up their membership
+    t.true(results.filter(({ json }) => json.data?.removeMember?.success === true).length <= 1, `round ${round}`)
     t.true(
-      results.some(({ json }) => /last owner/i.test(json.errors?.[0]?.message ?? '')),
+      results.every(({ json }) => json.errors == null || /last owner|unknown member/i.test(json.errors[0].message)),
       `round ${round}`,
     )
 
