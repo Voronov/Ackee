@@ -1,5 +1,9 @@
+import { randomUUID as uuid } from 'node:crypto'
+
 import * as domains from '../database/domains.js'
 import * as records from '../database/records.js'
+import { recordCreate, recordTouch } from '../queue/messages.js'
+import * as ingestQueue from '../queue/redis.js'
 import matchesOrigin from '../utils/matchesOrigin.js'
 import identifier from '../utils/identifier.js'
 import KnownError from '../utils/KnownError.js'
@@ -44,6 +48,32 @@ const polish = (obj) => {
   }, {})
 }
 
+// With the queue the tracker must not wait for MongoDB, so domains come from a cache. Without
+// it every view reads the domain, as before.
+const findDomain = (id) => (ingestQueue.isEnabled() === true ? domains.getUnscopedCached(id) : domains.getUnscoped(id))
+
+const store = async (data) => {
+  const entry = await validated(records.add(data))
+
+  // Anonymize old entries with the same clientId to prevent that the browsing history
+  // of a user is reconstructible. Will be skipped when there're no previous entries.
+  await records.anonymize(data.clientId, entry.id)
+
+  return entry
+}
+
+// The tracker is answered with the id and the dates the worker will store (ADR-006). When the
+// queue cannot take the event, it is written at once, as without the queue.
+const enqueueRecord = async (data) => {
+  const now = new Date()
+  const record = { ...data, id: uuid(), created: now, updated: now }
+  const entry = await validated(records.validate(record))
+
+  if ((await ingestQueue.enqueue(recordCreate(record))) === false) await store(record)
+
+  return entry
+}
+
 export default {
   Mutation: {
     createRecord: async (parent, { domainId, input }, { ip, userAgent, isIgnored, ingestKey, origin }) => {
@@ -68,7 +98,7 @@ export default {
       const key = ingestKey ?? keyFromId
 
       // Tracking is unauthenticated, so the domain is looked up without a workspace filter.
-      const domain = await domains.getUnscoped(id)
+      const domain = await findDomain(id)
 
       if (domain == null) throw new KnownError('Unknown domain')
 
@@ -84,11 +114,7 @@ export default {
       const clientId = await identifier(ip, userAgent, domain.id)
       const data = polish({ ...input, clientId, domainId: domain.id })
 
-      const entry = await validated(records.add(data))
-
-      // Anonymize old entries with the same clientId to prevent that the browsing history
-      // of a user is reconstructible. Will be skipped when there're no previous entries.
-      await records.anonymize(clientId, entry.id)
+      const entry = ingestQueue.isEnabled() === true ? await enqueueRecord(data) : await store(data)
 
       return {
         success: true,
@@ -98,6 +124,18 @@ export default {
     updateRecord: async (parent, { id }, { isIgnored }) => {
       // Ignore your own records when logged in
       if (isIgnored === true) {
+        return {
+          success: true,
+        }
+      }
+
+      if (ingestQueue.isEnabled() === true) {
+        const now = new Date()
+
+        // Whether the record exists is up to the worker: its create may still wait in the
+        // queue. For the same reason a direct write that finds nothing is not an error here.
+        if ((await ingestQueue.enqueue(recordTouch(id, now))) === false) await validated(records.update(id, now))
+
         return {
           success: true,
         }
