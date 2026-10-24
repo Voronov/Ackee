@@ -1,4 +1,5 @@
-# What a laptop needs to run Ackee from source: MongoDB and a mail catcher.
+# What a laptop needs to run Ackee from source: MongoDB, a mail catcher, and the ClickHouse
+# (ACKEE-17) and Redis (ACKEE-18) that Ackee uses once they are configured.
 # Start with `docker compose -f docker-compose.dev.yml up -d`, then `npm run dev`.
 services:
   mongo:
@@ -15,5 +16,30 @@ services:
       - '1025:1025'
       - '8025:8025'
 
+  # http://localhost:8123, user default, password ackee
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    ports:
+      - '127.0.0.1:8123:8123'
+    environment:
+      CLICKHOUSE_DB: ackee
+      CLICKHOUSE_PASSWORD: ackee
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse-dev:/var/lib/clickhouse
+
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-dev:/data
+
 volumes:
   mongo-dev:
+  clickhouse-dev:
+  redis-dev:

@@ -1,6 +1,20 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import client from 'prom-client'
 
+import {
+  DROP_INVALID,
+  DROP_MALFORMED,
+  DROP_UNKNOWN_DOMAIN,
+  DROP_UNKNOWN_RECORD,
+  DROP_UNKNOWN_TYPE,
+  DROP_UNKNOWN_VERSION,
+  FALLBACK_FULL,
+  FALLBACK_UNAVAILABLE,
+  RECORD_CREATE,
+  RECORD_TOUCH,
+} from '../constants/ingest.js'
+import * as ingestQueue from '../queue/redis.js'
+import { stats as workerStats } from '../queue/worker.js'
 import config from './config.js'
 
 // Metrics stay off until ACKEE_METRICS_TOKEN is set. The endpoint exposes an operational
@@ -35,6 +49,74 @@ const mongoDuration = new client.Histogram({
   buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
   registers: [registry],
 })
+
+// Read from Redis on every scrape. While Redis is away the last value stays: the outage shows
+// in the log and in ackee_ingest_fallback_total. Without the queue nothing connects.
+const queueGauge = (name, help, read) =>
+  new client.Gauge({
+    name,
+    help,
+    registers: [registry],
+    async collect() {
+      if (ingestQueue.isEnabled() === false) return this.set(0)
+
+      try {
+        this.set(await read())
+      } catch {
+        // Keeps the last value, see above
+      }
+    },
+  })
+
+queueGauge('ackee_ingest_queue_length', 'Events in the ingest queue not written to MongoDB yet', ingestQueue.length)
+
+queueGauge(
+  'ackee_ingest_queue_oldest_age_seconds',
+  'How long the oldest event in the ingest queue has waited',
+  async () => {
+    const since = await ingestQueue.oldest()
+    return since == null ? 0 : Math.max(0, (Date.now() - since.getTime()) / 1000)
+  },
+)
+
+// The counts live with the code that counts them. Every known label is reported from zero,
+// so a rate is defined before the first event.
+const countedBy = (name, help, label, values, read) =>
+  new client.Counter({
+    name,
+    help,
+    labelNames: [label],
+    registers: [registry],
+    collect() {
+      this.reset()
+      for (const value of values) this.inc({ [label]: value }, 0)
+      for (const [value, count] of Object.entries(read())) this.inc({ [label]: value }, count)
+    },
+  })
+
+countedBy(
+  'ackee_ingest_queue_processed_total',
+  'Events the ingest worker wrote to MongoDB, by type',
+  'type',
+  [RECORD_CREATE, RECORD_TOUCH],
+  () => workerStats.processed,
+)
+
+countedBy(
+  'ackee_ingest_queue_dropped_total',
+  'Events the ingest worker gave up on, by reason',
+  'reason',
+  [DROP_MALFORMED, DROP_UNKNOWN_VERSION, DROP_UNKNOWN_TYPE, DROP_INVALID, DROP_UNKNOWN_DOMAIN, DROP_UNKNOWN_RECORD],
+  () => workerStats.dropped,
+)
+
+countedBy(
+  'ackee_ingest_fallback_total',
+  'Events written directly because the ingest queue could not take them, by reason',
+  'reason',
+  [FALLBACK_UNAVAILABLE, FALLBACK_FULL],
+  () => ingestQueue.stats.fallback,
+)
 
 // Routes are listed explicitly. A label taken from an arbitrary request path would blow
 // up cardinality and make the metrics store unusable.

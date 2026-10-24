@@ -2,13 +2,13 @@ import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
 import useBrowsers from '../../api/hooks/browsers/useBrowsers.js'
-import useDomains from '../../api/hooks/domains/useDomains.js'
+import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
 import RendererList from '../renderers/RendererList.js'
 
 const RouteBrowsers = (props) => {
-  const domains = useDomains()
+  const domains = useShownDomains()
 
   return domains.value.map((domain) => {
     return h(CardStatistics, {

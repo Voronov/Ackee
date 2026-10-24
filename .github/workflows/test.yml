@@ -50,10 +50,42 @@ jobs:
 
       - run: npm test
 
+  # A password or key that reaches a pull request is already public (ACKEE-57). The scan reads the
+  # whole history, which takes seconds, so a secret committed and removed later is found too.
+  secrets:
+    name: 'Secrets'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # The image instead of gitleaks-action, which needs a licence key for organisations
+      - name: Scan the history with gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 git /repo --redact --no-banner --verbose
+
   coverage:
     name: 'Coverage'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # The tests of the ingest queue and of the shared salt run against a real Redis only here:
+    # service containers exist on Linux runners alone. Elsewhere they are skipped.
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      ACKEE_TEST_REDIS: redis://127.0.0.1:6379
 
     steps:
       - uses: actions/checkout@v5

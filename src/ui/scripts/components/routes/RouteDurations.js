@@ -3,7 +3,7 @@ import { Fragment, createElement as h } from 'react'
 
 import { MODALS_DURATIONS } from '../../constants/modals.js'
 
-import useDomains from '../../api/hooks/domains/useDomains.js'
+import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 import useDurations from '../../api/hooks/durations/useDurations.js'
 import useMergedDurations from '../../api/hooks/durations/useMergedDurations.js'
 
@@ -11,7 +11,7 @@ import CardStatistics from '../cards/CardStatistics.js'
 import RendererDurations from '../renderers/RendererDurations.js'
 
 const RouteDurations = (props) => {
-  const domains = useDomains()
+  const domains = useShownDomains()
 
   return h(
     Fragment,

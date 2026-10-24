@@ -2,13 +2,14 @@ import { gql } from '@apollo/client'
 
 import enhancePages from '../../../enhancers/enhancePages.js'
 import pagesField from '../../fragments/pagesField.js'
+import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchPages($id: ID!, $sorting: Sorting!, $range: Range) {
+  query fetchPages($id: ID!, $sorting: Sorting!, $range: Range, $source: StatisticsSource) {
     domain(id: $id) {
       id
-      statistics {
+      statistics(source: $source) {
         id
         ...pagesField
       }
@@ -19,6 +20,7 @@ const QUERY = gql`
 `
 
 export default (id, filters) => {
+  const source = useSource()
   const selector = (data) => data?.domain.statistics.pages
   const enhancer = enhancePages
 
@@ -26,6 +28,7 @@ export default (id, filters) => {
     variables: {
       ...filters,
       id,
+      source,
     },
   })
 }

@@ -67,7 +67,9 @@ header, subdomains included). That check only works when the domain title is a h
 domain called "My blog" cannot be checked that way and is let through.
 
 Rotate a key that is being misused with `rotateIngestKey`. The old one stops working at once,
-so update the snippet on your site first.
+so update the snippet on your site first. With the [ingest queue](#ingest-queue) and more than
+one Ackee process, the other processes keep accepting the old key for up to a minute; the
+same goes for turning strict mode on.
 
 ## Username and password
 
@@ -149,6 +151,27 @@ ACKEE_REDIS=redis://redis:6379
 
 The salt is stored under `ackee:salt:<date>` and expires after 25 hours. Run Redis without persistence (`--save '' --appendonly no`), so the salt never reaches a disk or a backup. While Redis is unreachable, recording waits for it.
 
+## Ingest queue
+
+Set to let the tracker get its answer before the view is written. The API checks a view as before, puts it into a Redis Stream and answers at once; a worker in the same process writes it to MongoDB. A heavy report then no longer slows the tracker down. Without this variable, or with an empty value, Ackee writes every view directly and opens no connection to Redis. See [ADR-006](adr/ADR-006-ingest-queue.md) for the design.
+
+```
+ACKEE_INGEST_QUEUE=redis://redis-queue:6379
+```
+
+- Only views go through the queue (`createRecord`, `updateRecord`). Actions are written directly as before.
+- Domains on the tracking path are read from a cache, so the tracker does not wait for MongoDB. An entry is refreshed in the background once it is 30 seconds old and no longer used once it is a minute old. Changing a domain (its title, strict mode, a rotated key) or deleting it applies at once in the process that made the change; other Ackee processes pick it up within a minute.
+- Use a Redis of its own, not the one of [`ACKEE_REDIS`](#redis): the queue must survive a restart (`--appendonly yes`), the salt must never reach a disk. Ackee refuses to start when both variables point at the same host and port. Run it with `--maxmemory-policy noeviction`, so a full Redis refuses new events instead of dropping the waiting ones.
+- While Redis is unreachable or full, or does not answer within a second, Ackee writes views directly, as without the queue, and counts them in `ackee_ingest_fallback_total` (`reason="full"` for a full Redis, `reason="unavailable"` otherwise). Rollups are not built while the queue cannot be read.
+- With the queue `updateRecord` answers `success` for an id it does not know yet: the view may still wait in the queue. Other errors reach the tracker as before.
+- Each process is a consumer of the stream, named after its host. A restarted process with the same name writes what it held at once; what a process with another name left behind is taken over after a minute. Set the name when the host name changes on every start, as it does for a container without `hostname:`:
+
+```
+ACKEE_INGEST_CONSUMER=ackee-1
+```
+
+To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
+
 ## Demo mode
 
 Set to `true` to enable demo mode. In demo mode, all mutations (creating, updating, deleting) are blocked, and the GraphQL Playground is enabled.
@@ -178,6 +201,11 @@ Exposed series, next to the Node.js defaults:
 | `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
 | `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
 | `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
+| `ackee_ingest_queue_length`                | Views in the [ingest queue](#ingest-queue) not written to MongoDB yet, `0` without the queue        |
+| `ackee_ingest_queue_oldest_age_seconds`    | How long the oldest view in the ingest queue has waited                                             |
+| `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                            |
+| `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                    |
+| `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                |
 
 ## CORS headers
 
@@ -220,6 +248,14 @@ Create an OAuth client of type "Web application" in the Google Cloud console and
 - An address Google has not confirmed is refused.
 - An existing account with the same address is linked to the Google account on the first sign-in, and counts as confirmed from then on.
 - Someone without an account gets one only when `ACKEE_ALLOW_SIGNUP=true`, with a personal workspace like any registration. Such an account has no password until its owner sets one with "Forgot password".
+
+## Secret key
+
+```
+ACKEE_SECRET_KEY=a-long-random-string
+```
+
+Encrypts secrets Ackee keeps in the database, like the key of a Google service account ([Google Analytics](Google%20Analytics.md)). Generate one with `openssl rand -base64 32` and keep it with the other secrets of the server. Changing it makes the stored keys unreadable.
 
 ## Passkeys
 

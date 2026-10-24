@@ -1,0 +1,13 @@
+<clickhouse>
+    <!-- The server has 3.7 GB for everything. By default ClickHouse would take 90 % of it. -->
+    <max_server_memory_usage>1000000000</max_server_memory_usage>
+
+    <!-- A report reads a few columns, tens of megabytes, so small caches are enough -->
+    <mark_cache_size>134217728</mark_cache_size>
+    <uncompressed_cache_size>0</uncompressed_cache_size>
+
+    <!-- Not below 10: times background_merges_mutations_concurrency_ratio (2) it must reach
+         number_of_free_entries_in_pool_to_execute_mutation (20), or the server refuses to start -->
+    <background_pool_size>16</background_pool_size>
+    <background_schedule_pool_size>8</background_schedule_pool_size>
+</clickhouse>

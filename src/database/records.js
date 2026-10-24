@@ -21,35 +21,50 @@ const response = (entry) => ({
   updated: entry.updated,
 })
 
+// What a record is stored with. Without the queue the id and the dates are left to the model
+// defaults; through the queue they come from the message, so a redelivery stores the same record.
+const fields = (data) => ({
+  id: data.id,
+  clientId: data.clientId,
+  domainId: data.domainId,
+  siteLocation: data.siteLocation,
+  siteReferrer: data.siteReferrer,
+  siteLanguage: data.siteLanguage,
+  source: data.source,
+  screenWidth: data.screenWidth,
+  screenHeight: data.screenHeight,
+  screenColorDepth: data.screenColorDepth,
+  deviceName: data.deviceName,
+  deviceManufacturer: data.deviceManufacturer,
+  osName: data.osName,
+  osVersion: data.osVersion,
+  browserName: data.browserName,
+  browserVersion: data.browserVersion,
+  browserWidth: data.browserWidth,
+  browserHeight: data.browserHeight,
+  created: data.created,
+  updated: data.updated,
+})
+
 export const add = async (data) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(
-    await Record.create({
-      clientId: data.clientId,
-      domainId: data.domainId,
-      siteLocation: data.siteLocation,
-      siteReferrer: data.siteReferrer,
-      siteLanguage: data.siteLanguage,
-      source: data.source,
-      screenWidth: data.screenWidth,
-      screenHeight: data.screenHeight,
-      screenColorDepth: data.screenColorDepth,
-      deviceName: data.deviceName,
-      deviceManufacturer: data.deviceManufacturer,
-      osName: data.osName,
-      osVersion: data.osVersion,
-      browserName: data.browserName,
-      browserVersion: data.browserVersion,
-      browserWidth: data.browserWidth,
-      browserHeight: data.browserHeight,
-    }),
-  )
+  return enhance(await Record.create(fields(data)))
 }
 
-export const update = async (id) => {
+// Runs the checks of add() without MongoDB, so the API can answer the tracker before the
+// record is stored. Rejects with the same ValidationError add() would.
+export const validate = async (data) => {
+  const entry = new Record(fields(data))
+  await entry.validate()
+
+  return response(entry)
+}
+
+// $max, not $set: a redelivered or late touch must not move updated back in time
+export const update = async (id, updated = Date.now()) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -60,8 +75,8 @@ export const update = async (id) => {
         id,
       },
       {
-        $set: {
-          updated: Date.now(),
+        $max: {
+          updated: new Date(updated),
         },
       },
       {
@@ -71,7 +86,26 @@ export const update = async (id) => {
   )
 }
 
-export const anonymize = (clientId, ignoreId) => {
+const anonymized = {
+  clientId: null,
+  siteLanguage: null,
+  screenWidth: null,
+  screenHeight: null,
+  screenColorDepth: null,
+  deviceName: null,
+  deviceManufacturer: null,
+  osName: null,
+  osVersion: null,
+  browserName: null,
+  browserVersion: null,
+  browserWidth: null,
+  browserHeight: null,
+}
+
+// The queue passes the time of the event as `before`: a redelivered view may arrive after a
+// newer one of the same visitor, and only the records not newer than it are its to forget.
+// A view of the same millisecond counts as older, so one record keeps the visitor either way.
+export const anonymize = (clientId, ignoreId, before) => {
   // Don't return anything about the update
   return Record.updateMany(
     {
@@ -82,24 +116,20 @@ export const anonymize = (clientId, ignoreId) => {
             $ne: ignoreId,
           },
         },
+        ...(before == null ? [] : [{ created: { $lte: new Date(before) } }]),
       ],
     },
-    {
-      clientId: null,
-      siteLanguage: null,
-      screenWidth: null,
-      screenHeight: null,
-      screenColorDepth: null,
-      deviceName: null,
-      deviceManufacturer: null,
-      osName: null,
-      osVersion: null,
-      browserName: null,
-      browserVersion: null,
-      browserWidth: null,
-      browserHeight: null,
-    },
+    anonymized,
   )
+}
+
+// Whether the visitor has a record newer than the given one, so the given one is the one to forget
+export const hasNewer = async (clientId, id, created) => {
+  return (await Record.exists({ clientId, id: { $ne: id }, created: { $gt: new Date(created) } })) != null
+}
+
+export const anonymizeOne = (id) => {
+  return Record.updateOne({ id }, anonymized)
 }
 
 export const del = (domainId) => {

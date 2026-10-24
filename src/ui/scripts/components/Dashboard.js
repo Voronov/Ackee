@@ -7,7 +7,12 @@ import useRoute from '../hooks/useRoute.js'
 import whenBelow from '../utils/whenBelow.js'
 
 import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
+import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
+import SourceSelect from './SourceSelect.js'
+
+import { useGa4Connected } from '../api/hooks/ga4/useGa4.js'
+import { SOURCE_ACKEE, SOURCE_BOTH, SOURCE_GA4, SourceContext, useSourceMode } from '../hooks/useSource.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
 import RouteDevices from './routes/RouteDevices.js'
@@ -39,6 +44,24 @@ const routeComponents = {
   [routes.SETTINGS]: RouteSettings,
 }
 
+// Routes that read the combined statistics. The domain page has its own domain, events belong to
+// the workspace, and settings show no reports.
+const PICKS_DOMAIN = new Set([
+  routes.OVERVIEW,
+  routes.VIEWS,
+  routes.PAGES,
+  routes.REFERRERS,
+  routes.DURATIONS,
+  routes.SYSTEMS,
+  routes.DEVICES,
+  routes.BROWSERS,
+  routes.SIZES,
+  routes.LANGUAGES,
+])
+
+// Pages that show reports, so the source switch belongs on them (ACKEE-21). Events are Ackee's own.
+const READS_SOURCE = new Set([routes.DOMAIN, ...PICKS_DOMAIN])
+
 const gotoDomainWhenDefined = (domains, setRoute, index) => {
   const domain = domains[index]
   if (domain != null) setRoute(`/domains/${domain.id}`)
@@ -47,6 +70,8 @@ const gotoDomainWhenDefined = (domains, setRoute, index) => {
 const Dashboard = (props) => {
   const currentRoute = useRoute(props.route)
   const domains = useDomains()
+  const ga4Connected = useGa4Connected()
+  const sourceMode = useSourceMode()
 
   useHotkey('o', () => props.setRoute('/'))
   useHotkey('v', () => props.setRoute('/insights/views'))
@@ -90,12 +115,24 @@ const Dashboard = (props) => {
     createButton('Settings', '/settings', props.route, props.setRoute),
   ].filter(Boolean)
 
+  const route = h(routeComponents[currentRoute.key], {
+    reset: props.reset,
+    route: props.route,
+    setRoute: props.setRoute,
+    token: props.token,
+    addModal: props.addModal,
+    filters: props.filters,
+  })
+  // Without a GA4 connection everything reads Ackee, so there is nothing to switch
+  const showsSource = ga4Connected.value === true && READS_SOURCE.has(currentRoute.key)
+
   return h(
     'div',
     {},
     h(Modals, {
       modals: props.modals,
       removeModal: props.removeModal,
+      addModal: props.addModal,
     }),
     h(Header, {
       loading: props.loading,
@@ -104,14 +141,33 @@ const Dashboard = (props) => {
     h(
       'main',
       { className: 'content' },
-      h(routeComponents[currentRoute.key], {
-        reset: props.reset,
-        route: props.route,
-        setRoute: props.setRoute,
-        token: props.token,
-        addModal: props.addModal,
-        filters: props.filters,
-      }),
+      PICKS_DOMAIN.has(currentRoute.key) &&
+        h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
+      showsSource && h(SourceSelect),
+      ...(showsSource && sourceMode === SOURCE_BOTH
+        ? [
+            h(
+              'div',
+              { key: 'both', className: 'sourceSplit' },
+              ...[
+                [SOURCE_ACKEE, 'Ackee'],
+                [SOURCE_GA4, 'Google Analytics'],
+              ].map(([source, label]) =>
+                h(
+                  SourceContext.Provider,
+                  { key: source, value: source },
+                  h(
+                    'div',
+                    { className: 'sourceSplit__half' },
+                    h('h2', { className: 'sourceSplit__title' }, label),
+                    route,
+                  ),
+                ),
+              ),
+            ),
+          ]
+        : // Where the switch is not shown, a choice remembered from elsewhere must not empty the page
+          [showsSource ? route : h(SourceContext.Provider, { key: 'own', value: SOURCE_ACKEE }, route)]),
     ),
   )
 }
