@@ -34,7 +34,12 @@ const response = (entry) => ({
 // The workspace filter belongs in the query, not in a check after reading. A forgotten
 // check returns someone else's data; a forgotten filter returns nothing, which shows up
 // at once.
-const within = (workspaceIds) => ({ workspaceId: { $in: workspaceIds } })
+// The scope is a list of workspaces or, from domainScope in utils/permissions.js, whole workspaces
+// plus the single domains a member is limited to.
+const within = (scope) =>
+  Array.isArray(scope)
+    ? { workspaceId: { $in: scope } }
+    : { $or: [{ workspaceId: { $in: scope.workspaces } }, { id: { $in: scope.domains } }] }
 
 // The ingest path reads domains from here while the ingest queue is on (ADR-006), so the
 // tracker does not wait for MongoDB. Every change below forgets the domain, so in this

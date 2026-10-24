@@ -7,6 +7,7 @@ import useRoute from '../hooks/useRoute.js'
 import whenBelow from '../utils/whenBelow.js'
 
 import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
+import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
 import SourceSelect from './SourceSelect.js'
 
@@ -43,10 +44,10 @@ const routeComponents = {
   [routes.SETTINGS]: RouteSettings,
 }
 
-// Pages that show reports, so the source switch belongs on them (ACKEE-21). Events are Ackee's own.
-const READS_SOURCE = new Set([
+// Routes that read the combined statistics. The domain page has its own domain, events belong to
+// the workspace, and settings show no reports.
+const PICKS_DOMAIN = new Set([
   routes.OVERVIEW,
-  routes.DOMAIN,
   routes.VIEWS,
   routes.PAGES,
   routes.REFERRERS,
@@ -57,6 +58,9 @@ const READS_SOURCE = new Set([
   routes.SIZES,
   routes.LANGUAGES,
 ])
+
+// Pages that show reports, so the source switch belongs on them (ACKEE-21). Events are Ackee's own.
+const READS_SOURCE = new Set([routes.DOMAIN, ...PICKS_DOMAIN])
 
 const gotoDomainWhenDefined = (domains, setRoute, index) => {
   const domain = domains[index]
@@ -137,6 +141,8 @@ const Dashboard = (props) => {
     h(
       'main',
       { className: 'content' },
+      PICKS_DOMAIN.has(currentRoute.key) &&
+        h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
       showsSource && h(SourceSelect),
       ...(showsSource && sourceMode === SOURCE_BOTH
         ? [

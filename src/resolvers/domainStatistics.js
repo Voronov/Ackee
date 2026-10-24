@@ -11,6 +11,7 @@ import requireAuth from '../middlewares/requireAuth.js'
 import domainIds from '../utils/domainIds.js'
 import pipe from '../utils/pipe.js'
 import recursiveId from '../utils/recursiveId.js'
+import selectedDomain from '../utils/selectedDomain.js'
 import { DEVICES_TYPE_WITH_MODEL } from '../constants/devices.js'
 import { SOURCE_GA4 } from '../constants/ga4.js'
 import { SYSTEMS_TYPE_WITH_VERSION } from '../constants/systems.js'
@@ -85,6 +86,10 @@ export default {
     }),
   },
   Query: {
-    statistics: (parent, { source }) => ({ source }),
+    // The dashboard picks a domain (ACKEE-81) and a source (ACKEE-21) independently
+    statistics: async (parent, args, context) => ({
+      ...(await selectedDomain(parent, args, context)),
+      source: args.source,
+    }),
   },
 }

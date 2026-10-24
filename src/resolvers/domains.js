@@ -7,7 +7,7 @@ import * as rollups from '../database/rollups.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import KnownError from '../utils/KnownError.js'
-import { workspacesWith } from '../utils/permissions.js'
+import { domainScope, workspacesWith } from '../utils/permissions.js'
 import pipe from '../utils/pipe.js'
 import validated from '../utils/validated.js'
 
@@ -21,10 +21,10 @@ export default {
     // The limit is in the query, not a check afterwards: another workspace's domain is not
     // hidden, it simply does not exist for this viewer.
     domain: pipe(requireAuth, (parent, { id }, { viewer }) => {
-      return domains.get(id, workspacesWith(viewer, REPORTS_READ))
+      return domains.get(id, domainScope(viewer, REPORTS_READ))
     }),
     domains: pipe(requireAuth, (parent, args, { viewer }) => {
-      return domains.all(workspacesWith(viewer, REPORTS_READ))
+      return domains.all(domainScope(viewer, REPORTS_READ))
     }),
   },
   Mutation: {
@@ -45,7 +45,7 @@ export default {
       }
     }),
     updateDomain: pipe(requireAuth, blockDemoMode, async (parent, { id, input }, { viewer }) => {
-      const entry = await validated(domains.update(id, input, workspacesWith(viewer, DOMAINS_MANAGE)))
+      const entry = await validated(domains.update(id, input, domainScope(viewer, DOMAINS_MANAGE)))
 
       // The same answer for a domain that does not exist and one the viewer may not change.
       if (entry == null) throw new KnownError('Unknown domain')
@@ -58,7 +58,7 @@ export default {
       }
     }),
     rotateIngestKey: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
-      const entry = await domains.rotateIngestKey(id, workspacesWith(viewer, DOMAINS_MANAGE))
+      const entry = await domains.rotateIngestKey(id, domainScope(viewer, DOMAINS_MANAGE))
 
       // The same answer for a domain that does not exist and one the viewer may not change.
       if (entry == null) throw new KnownError('Unknown domain')
@@ -73,7 +73,7 @@ export default {
     deleteDomain: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
       // Delete the domain first, and wipe its records only if it really was the viewer's to
       // delete. Otherwise knowing an id would be enough to destroy someone else's data.
-      const entry = await domains.del(id, workspacesWith(viewer, DOMAINS_MANAGE))
+      const entry = await domains.del(id, domainScope(viewer, DOMAINS_MANAGE))
 
       if (entry == null) throw new KnownError('Unknown domain')
 

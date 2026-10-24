@@ -8,6 +8,7 @@ import domainStatistics from './domainStatistics.js'
 import events from './events.js'
 import eventStatistics from './eventStatistics.js'
 import facts from './facts.js'
+import members from './members.js'
 import ga4 from './ga4.js'
 import permanentTokens from './permanentTokens.js'
 import records from './records.js'
@@ -17,6 +18,7 @@ import users from './users.js'
 export default mergeResolvers([
   tokens,
   users,
+  members,
   permanentTokens,
   records,
   domains,

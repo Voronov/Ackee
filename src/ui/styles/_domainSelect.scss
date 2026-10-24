@@ -1,0 +1,12 @@
+// The domain picker above the overview and insights (ACKEE-81). A full row of the content
+// grid, so it never takes the place of a card.
+.domainSelect {
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: flex-end;
+
+	.select {
+		width: auto;
+		min-width: 14em;
+	}
+}

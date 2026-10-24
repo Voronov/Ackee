@@ -1,0 +1,9 @@
+// Domain limits in the invitation form: one row per domain
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+  padding: 0.35em 0;
+  color: var(--color-text, inherit);
+}
