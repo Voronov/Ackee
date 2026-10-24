@@ -367,8 +367,8 @@ export default gql`
 
   type Query {
     """
-    Statistics of all domains combined. Usually data that needs to be represented in a list or chart.
+    Statistics of all domains combined, or of the one given. Usually data that needs to be represented in a list or chart.
     """
-    statistics: DomainStatistics!
+    statistics(domainId: ID): DomainStatistics!
   }
 `

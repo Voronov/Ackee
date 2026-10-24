@@ -11,6 +11,7 @@ import requireAuth from '../middlewares/requireAuth.js'
 import domainIds from '../utils/domainIds.js'
 import pipe from '../utils/pipe.js'
 import recursiveId from '../utils/recursiveId.js'
+import selectedDomain from '../utils/selectedDomain.js'
 
 export default {
   DomainStatistics: {
@@ -60,6 +61,6 @@ export default {
     }),
   },
   Query: {
-    statistics: () => ({}),
+    statistics: selectedDomain,
   },
 }

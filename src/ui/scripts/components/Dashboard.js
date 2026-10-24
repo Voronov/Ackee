@@ -7,6 +7,7 @@ import useRoute from '../hooks/useRoute.js'
 import whenBelow from '../utils/whenBelow.js'
 
 import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
+import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
@@ -38,6 +39,21 @@ const routeComponents = {
   [routes.LANGUAGES]: RouteLanguages,
   [routes.SETTINGS]: RouteSettings,
 }
+
+// Routes that read the combined statistics. The domain page has its own domain, events belong to
+// the workspace, and settings show no reports.
+const PICKS_DOMAIN = new Set([
+  routes.OVERVIEW,
+  routes.VIEWS,
+  routes.PAGES,
+  routes.REFERRERS,
+  routes.DURATIONS,
+  routes.SYSTEMS,
+  routes.DEVICES,
+  routes.BROWSERS,
+  routes.SIZES,
+  routes.LANGUAGES,
+])
 
 const gotoDomainWhenDefined = (domains, setRoute, index) => {
   const domain = domains[index]
@@ -104,6 +120,8 @@ const Dashboard = (props) => {
     h(
       'main',
       { className: 'content' },
+      PICKS_DOMAIN.has(currentRoute.key) &&
+        h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
       h(routeComponents[currentRoute.key], {
         reset: props.reset,
         route: props.route,

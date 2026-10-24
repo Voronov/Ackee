@@ -5,7 +5,7 @@ import { VIEWS_TYPE_TOTAL, VIEWS_TYPE_UNIQUE } from '../../../../constants/views
 
 import { MODALS_VIEWS } from '../../constants/modals.js'
 
-import useDomains from '../../api/hooks/domains/useDomains.js'
+import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 import useMergedViews from '../../api/hooks/views/useMergedViews.js'
 import useViews from '../../api/hooks/views/useViews.js'
 
@@ -13,7 +13,7 @@ import CardStatistics from '../cards/CardStatistics.js'
 import RendererViews from '../renderers/RendererViews.js'
 
 const RouteViews = (props) => {
-  const domains = useDomains()
+  const domains = useShownDomains()
 
   return h(
     Fragment,

@@ -2,11 +2,12 @@ import { gql } from '@apollo/client'
 
 import enhanceSystems from '../../../enhancers/enhanceSystems.js'
 import systemsField from '../../fragments/systemsField.js'
+import useReportDomain from '../domains/useReportDomain.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchMergedSystems($sorting: Sorting!, $type: SystemType!, $range: Range) {
-    statistics {
+  query fetchMergedSystems($sorting: Sorting!, $type: SystemType!, $range: Range, $domainId: ID) {
+    statistics(domainId: $domainId) {
       id
       ...systemsField
     }
@@ -16,10 +17,11 @@ const QUERY = gql`
 `
 
 export default (filters) => {
+  const domainId = useReportDomain()
   const selector = (data) => data?.statistics.systems
   const enhancer = enhanceSystems
 
   return useQuery(QUERY, selector, enhancer, {
-    variables: filters,
+    variables: { ...filters, domainId },
   })
 }

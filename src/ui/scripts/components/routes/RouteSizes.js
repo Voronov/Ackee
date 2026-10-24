@@ -1,14 +1,14 @@
 import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
-import useDomains from '../../api/hooks/domains/useDomains.js'
+import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 import useSizes from '../../api/hooks/sizes/useSizes.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
 import RendererList from '../renderers/RendererList.js'
 
 const RouteSizes = (props) => {
-  const domains = useDomains()
+  const domains = useShownDomains()
 
   return domains.value.map((domain) => {
     return h(CardStatistics, {

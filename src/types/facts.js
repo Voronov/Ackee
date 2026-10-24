@@ -61,8 +61,8 @@ export default gql`
 
   type Query {
     """
-    Facts of all domains combined. Usually simple data that can be represented in one value.
+    Facts of all domains combined, or of the one given. Usually simple data that can be represented in one value.
     """
-    facts: Facts!
+    facts(domainId: ID): Facts!
   }
 `
