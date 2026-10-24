@@ -37,7 +37,9 @@ test.serial('the env admin is created once, as owner of the default workspace', 
 
   t.is(first.id, second.id)
   t.is(await User.countDocuments({ email }), 1)
-  t.deepEqual(await users.memberships(first.id), [{ workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER }])
+  t.deepEqual(await users.memberships(first.id), [
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, domainIds: [] },
+  ])
   t.not(await Workspace.findOne({ id: DEFAULT_WORKSPACE_ID }), null)
 
   await Membership.deleteMany({ userId: first.id })
@@ -59,7 +61,7 @@ test('a session token tells who the viewer is and where they belong', async (t) 
   t.is(viewer.userId, t.context.user.id)
   t.is(viewer.email, t.context.user.email)
   t.deepEqual(viewer.memberships, [
-    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, permissions: BUILT_IN_ROLES[ROLE_OWNER] },
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, domainIds: [], permissions: BUILT_IN_ROLES[ROLE_OWNER] },
   ])
 })
 
@@ -79,7 +81,7 @@ test.serial('a token from before accounts belongs to the env admin', async (t) =
 
   t.is(viewer.email, 'legacy@example.com')
   t.deepEqual(viewer.memberships, [
-    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, permissions: BUILT_IN_ROLES[ROLE_OWNER] },
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, domainIds: [], permissions: BUILT_IN_ROLES[ROLE_OWNER] },
   ])
 
   await Membership.deleteMany({ userId: viewer.userId })
@@ -133,7 +135,9 @@ test.serial('signing in with the env credentials gives a token of the admin', as
   const admin = await users.byEmail('signin@example.com')
 
   t.is(token.userId, admin.id)
-  t.deepEqual(await users.memberships(admin.id), [{ workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER }])
+  t.deepEqual(await users.memberships(admin.id), [
+    { workspaceId: DEFAULT_WORKSPACE_ID, role: ROLE_OWNER, domainIds: [] },
+  ])
 
   await Membership.deleteMany({ userId: admin.id })
   await User.deleteOne({ id: admin.id })
