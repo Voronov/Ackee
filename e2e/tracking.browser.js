@@ -9,12 +9,17 @@ const VISITOR =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 
 // The fake site counts as public and Ackee in the compose network as local, so Chromium's local
-// network checks would block the snippet. On a real site Ackee has a public address.
+// network checks would block the snippet. On a real site Ackee has a public address. The host
+// rules from playwright.config.js stay, or the browser would not find Ackee by name.
 test.use({
-  launchOptions: {
-    args: [
-      '--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights',
-    ],
+  launchOptions: async ({ launchOptions }, use) => {
+    await use({
+      ...launchOptions,
+      args: [
+        ...(launchOptions.args ?? []),
+        '--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights',
+      ],
+    })
   },
 })
 
