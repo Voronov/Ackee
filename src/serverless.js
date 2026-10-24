@@ -1,5 +1,6 @@
 import { HeaderMap } from '@apollo/server'
 
+import { LIVE_PATH } from './constants/live.js'
 import { assignDefaultWorkspace } from './database/migrations.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -61,6 +62,14 @@ export const handler = async (request) => {
   }
 
   const url = new URL(request.url)
+
+  // A function lives for one request and cannot hold a stream open or share a poller (ADR-007)
+  if (url.pathname === LIVE_PATH) {
+    return new Response('The live feed is not available in serverless deployments', {
+      status: 404,
+      headers: buildResponseHeaders({ ...corsHeaders, 'content-type': 'text/plain; charset=utf-8' }),
+    })
+  }
 
   const headers = new HeaderMap()
   for (const [key, value] of request.headers) {

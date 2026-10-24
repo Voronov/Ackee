@@ -7,5 +7,6 @@
 export { handler as default } from '../../src/serverless.js'
 
 export const config = {
-  path: '/api',
+  // /api/live only to answer that the live feed is not available here (ADR-007)
+  path: ['/api', '/api/live'],
 }

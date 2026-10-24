@@ -17,6 +17,7 @@ import server from '../../src/server.js'
 import { run as runRollups } from '../../src/utils/rollupJob.js'
 import { day } from '../../src/utils/times.js'
 import { api } from '../_utils.js'
+import { openStream } from '../live/_stream.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from './_utils.js'
 
 const base = listen(server)
@@ -295,6 +296,28 @@ withRedis('rollups stop at the oldest event still in the queue', async (t) => {
   const state = await RollupState.findOne({ _id: 'records' }).lean()
   t.deepEqual(state.until, sealedUntil(new Date(), since))
   t.true(state.until < sealedUntil(new Date()))
+})
+
+// The live feed reads MongoDB, so a queued view shows up once the worker wrote it (ADR-007)
+withRedis('a view through the queue reaches the live stream once the worker wrote it', async (t) => {
+  await inspect(t)
+
+  const stream = await openStream(base, { token: t.context.token.id, domainId: t.context.domain.id })
+  t.teardown(stream.close)
+
+  const { id } = (await createRecord(t.context.domain.id)).json.data.createRecord.payload
+
+  // Still in the queue: a tick of the feed comes and goes without it
+  await sleep(2500)
+  t.deepEqual(stream.visits(), [])
+
+  const started = Date.now()
+  await drain(adapter())
+  const entry = await stream.waitFor((item) => item.event === 'visit')
+
+  t.is(await Record.countDocuments({ id }), 1)
+  t.is(entry.data.siteLocation, input.siteLocation)
+  t.true(Date.now() - started <= 10_000)
 })
 
 const manage = (t, query, variables) => api(base, { query, variables }, t.context.token.id)
