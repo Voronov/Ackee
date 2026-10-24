@@ -29,16 +29,17 @@ const knownRole = async (name) => name in BUILT_IN_ROLES || (await Role.exists({
 
 const manages = (viewer, workspaceId) => workspacesWith(viewer, MEMBERS_MANAGE).includes(workspaceId)
 
-// Review of #33: an invitation can hand out at most what the inviter has in this workspace.
-// Otherwise someone allowed to manage members could invite themselves, or a friend, as owner.
-const grantable = async (viewer, workspaceId, role) => {
-  if ((await knownRole(role)) === false) return false
-
+// Whether the viewer holds, in this workspace, everything the role grants
+const covers = async (viewer, workspaceId, role) => {
   const own = viewer.memberships.find((membership) => membership.workspaceId === workspaceId)?.permissions ?? []
   const { [role]: granted = [] } = await roles.permissionsFor([role])
 
   return granted.every((permission) => own.includes(permission))
 }
+
+// Review of #33: an invitation can hand out at most what the inviter has in this workspace.
+// Otherwise someone allowed to manage members could invite themselves, or a friend, as owner.
+const grantable = async (viewer, workspaceId, role) => (await knownRole(role)) && covers(viewer, workspaceId, role)
 
 export default {
   Workspace: {
@@ -121,7 +122,15 @@ export default {
       return { success: true }
     }),
     removeMember: pipe(requireAuth, blockDemoMode, async (parent, { id }, { viewer }) => {
-      const result = await users.leave(id, workspacesWith(viewer, MEMBERS_MANAGE))
+      const entry = await users.membership(id, workspacesWith(viewer, MEMBERS_MANAGE))
+
+      // The rule of invitations the other way round: nobody removes a member holding more than
+      // they do. The same answer as for a member that does not exist.
+      if (entry == null || (await covers(viewer, entry.workspaceId, entry.role)) === false) {
+        throw new KnownError('Unknown member')
+      }
+
+      const result = await users.leave(entry)
 
       if (result.status === 'LAST_OWNER') throw new KnownError('The last owner cannot be removed')
       if (result.status !== 'OK') throw new KnownError('Unknown member')

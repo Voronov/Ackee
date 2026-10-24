@@ -12,6 +12,11 @@ if (config.dbUrl == null) {
   throw new Error('MongoDB connection URI missing in environment')
 }
 
+// A function lives for one request, nothing would be left running to write the queue
+if (config.ingestQueue != null) {
+  throw new Error('ACKEE_INGEST_QUEUE is not supported in serverless deployments')
+}
+
 connect(config.dbUrl).then(assignDefaultWorkspace)
 
 const apolloServer = createApolloServer()

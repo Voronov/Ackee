@@ -1,4 +1,5 @@
 import { assignDefaultWorkspace, dropOldRecordIndexes } from './database/migrations.js'
+import * as ingestQueue from './queue/redis.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -9,6 +10,13 @@ import stripUrlAuth from './utils/stripUrlAuth.js'
 
 if (config.dbUrl == null) {
   signale.fatal('MongoDB connection URI missing in environment')
+  process.exit(1)
+}
+
+try {
+  ingestQueue.checkConfig()
+} catch (error) {
+  signale.fatal(error.message)
   process.exit(1)
 }
 
@@ -37,6 +45,12 @@ connect(config.dbUrl)
     mailCheck()
 
     startRollups()
+
+    // In this process for now, ACKEE-19 moves it into one of its own
+    if (ingestQueue.isEnabled() === true) {
+      ingestQueue.start()
+      signale.info(`Ingest queue at ${ingestQueue.describe(config.ingestQueue)}`)
+    }
 
     if (config.isDevelopmentMode === true) {
       signale.info('Development mode enabled')

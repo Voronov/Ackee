@@ -33,6 +33,10 @@ const schema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  // Set while a removal checks the last-owner rule, see `leave` in database/users.js
+  leaving: {
+    type: Date,
+  },
   schemaVersion: {
     type: Number,
     required: true,

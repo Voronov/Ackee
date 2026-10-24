@@ -461,3 +461,71 @@ test.serial('the invitation limit counts per workspace', async (t) => {
   t.regex((await send(first)).json.errors[0].message, /too many/i)
   t.true((await send(second)).json.data.inviteMember.success)
 })
+
+const removeAs = (call, id) =>
+  call(
+    gql`
+      mutation removeMember($id: ID!) {
+        removeMember(id: $id) {
+          success
+        }
+      }
+    `,
+    { id },
+  )
+
+// Review of #33: the rule of invitations the other way round
+test.serial('a member is removed only by someone holding everything their role grants', async (t) => {
+  const owner = await account('owner-15@example.com')
+  await Role.create({ name: 'STAFF', permissions: ['MEMBERS_MANAGE'] })
+  const staff = await account('staff-15@example.com')
+  const other = await account('other-15@example.com')
+  const viewer = await account('viewer-15@example.com')
+  const peer = await account('peer-15@example.com')
+  const workspaceId = owner.workspace.id
+  await Membership.create({ userId: staff.user.id, workspaceId, role: 'STAFF' })
+  const second = await Membership.create({ userId: other.user.id, workspaceId, role: 'OWNER' })
+  const third = await Membership.create({ userId: viewer.user.id, workspaceId, role: 'VIEWER' })
+  const fourth = await Membership.create({ userId: peer.user.id, workspaceId, role: 'STAFF' })
+
+  // Not the last owner, still out of reach for someone who only manages members
+  t.regex((await removeAs(staff.call, second.id)).json.errors[0].message, /unknown member/i)
+  t.is(await Membership.countDocuments({ workspaceId, role: 'OWNER' }), 2)
+  // A viewer reads reports, which the staff role does not grant
+  t.regex((await removeAs(staff.call, third.id)).json.errors[0].message, /unknown member/i)
+
+  t.true((await removeAs(staff.call, fourth.id)).json.data.removeMember.success)
+  t.true((await removeAs(owner.call, second.id)).json.data.removeMember.success)
+  t.true((await removeAs(owner.call, third.id)).json.data.removeMember.success)
+  t.is(await Membership.countDocuments({ workspaceId }), 2)
+})
+
+test.serial('two removals at the same time never leave a workspace without an owner', async (t) => {
+  const first = await account('owner-16a@example.com')
+  const second = await account('owner-16b@example.com')
+  const workspaceId = first.workspace.id
+  const own = await Membership.findOne({ userId: first.user.id, workspaceId }).lean()
+  const owners = () => Membership.countDocuments({ workspaceId, role: 'OWNER' })
+
+  for (let round = 0; round < 20; round++) {
+    const added = await Membership.create({ userId: second.user.id, workspaceId, role: 'OWNER' })
+    const results = await Promise.all([removeAs(first.call, added.id), removeAs(second.call, own.id)])
+
+    t.true((await owners()) >= 1, `round ${round}`)
+    // At most one goes through. The other hears "last owner", or "unknown member" when its
+    // sender was already removed before the request looked up their membership
+    t.true(results.filter(({ json }) => json.data?.removeMember?.success === true).length <= 1, `round ${round}`)
+    t.true(
+      results.every(({ json }) => json.errors == null || /last owner|unknown member/i.test(json.errors[0].message)),
+      `round ${round}`,
+    )
+
+    // Back to the two owners for the next round: the one left may be either of them
+    await Membership.deleteMany({ workspaceId, userId: second.user.id })
+    await Membership.updateOne({ userId: first.user.id, workspaceId }, { $setOnInsert: own }, { upsert: true })
+  }
+
+  const [remaining] = await Membership.find({ workspaceId }).lean()
+  t.is(remaining.userId, first.user.id)
+  t.is(remaining.leaving, undefined)
+})

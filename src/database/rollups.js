@@ -20,9 +20,13 @@ export const ceilHour = (date) => new Date(Math.ceil(date.getTime() / hour) * ho
 // grows, and until the salt changes at midnight (utils/salt.js, server time) a new visit can
 // anonymize the earlier records of the same visitor. Rolled up any earlier, an hour would keep
 // numbers that the records no longer have.
-export const sealedUntil = (now) => {
-  const visitsOver = now.getTime() - DURATIONS_LIMIT
-  return floorHour(new Date(Math.min(visitsOver, startOfDay(now).getTime())))
+//
+// An event still waiting in the ingest queue (ADR-006) is not in the records yet, so the hours
+// are sealed as if the time were still that of the oldest one.
+export const sealedUntil = (now, pendingSince) => {
+  const at = pendingSince == null ? now : new Date(Math.min(now.getTime(), pendingSince.getTime()))
+  const visitsOver = at.getTime() - DURATIONS_LIMIT
+  return floorHour(new Date(Math.min(visitsOver, startOfDay(at).getTime())))
 }
 
 // Hours are summed into days in the time zone of the viewer. That only works when no hour
@@ -81,14 +85,15 @@ const releaseLease = (lease) =>
 // Rolls up every sealed hour that is not rolled up yet, one chunk at a time. The covered range
 // grows after each chunk, so an interrupted run keeps what it built and the next one goes on
 // from there. Returns the covered range, or nothing when another process is building.
-export const rollUp = async (now = new Date()) => {
+// pendingSince is the time of the oldest event still in the ingest queue.
+export const rollUp = async (now = new Date(), pendingSince) => {
   const state = await acquireLease()
   if (state == null) return
 
   let lease = state.lockedUntil
 
   try {
-    const target = sealedUntil(now)
+    const target = sealedUntil(now, pendingSince)
     let until = state.until
 
     if (until == null) {
