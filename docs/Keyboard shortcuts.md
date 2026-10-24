@@ -13,6 +13,7 @@ In Ackee, you can quickly switch between views using the following keyboard shor
 | `r`     | Referrers |
 | `d`     | Durations |
 | `e`     | Events    |
+| `l`     | Live      |
 | `s`     | Settings  |
 
 ## Interact with modals

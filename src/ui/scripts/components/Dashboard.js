@@ -20,6 +20,7 @@ import RouteDomain from './routes/RouteDomain.js'
 import RouteDurations from './routes/RouteDurations.js'
 import RouteEvents from './routes/RouteEvents.js'
 import RouteLanguages from './routes/RouteLanguages.js'
+import RouteLive from './routes/RouteLive.js'
 import RouteOverview from './routes/RouteOverview.js'
 import RoutePages from './routes/RoutePages.js'
 import RouteReferrers from './routes/RouteReferrers.js'
@@ -41,6 +42,7 @@ const routeComponents = {
   [routes.BROWSERS]: RouteBrowsers,
   [routes.SIZES]: RouteSizes,
   [routes.LANGUAGES]: RouteLanguages,
+  [routes.LIVE]: RouteLive,
   [routes.SETTINGS]: RouteSettings,
 }
 
@@ -79,6 +81,7 @@ const Dashboard = (props) => {
   useHotkey('r', () => props.setRoute('/insights/referrers'))
   useHotkey('d', () => props.setRoute('/insights/durations'))
   useHotkey('e', () => props.setRoute('/insights/events'))
+  useHotkey('l', () => props.setRoute('/insights/live'))
   useHotkey('s', () => props.setRoute('/settings'))
   useHotkey('0,1,2,3,4,5,6,7,8,9', (event, { key }) => gotoDomainWhenDefined(domains.value, props.setRoute, key), {}, [
     domains.value,
@@ -100,6 +103,8 @@ const Dashboard = (props) => {
     createDropdownButton('Durations', '/insights/durations', props.route, props.setRoute, 'd'),
     createDropdownSeparator(),
     createDropdownButton('Events', '/insights/events', props.route, props.setRoute, 'e'),
+    createDropdownSeparator(),
+    createDropdownButton('Live', '/insights/live', props.route, props.setRoute, 'l'),
     createDropdownSeparator(),
     createDropdownButton('Systems', '/insights/systems', props.route, props.setRoute),
     createDropdownButton('Devices', '/insights/devices', props.route, props.setRoute),

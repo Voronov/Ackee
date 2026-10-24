@@ -164,3 +164,13 @@ server {
     }
 }
 ```
+
+## Live feed
+
+The [live feed](API.md#live-feed) at `/api/live` is a response that stays open and sends an event whenever a view arrives. A proxy that buffers responses holds those events back, and one with a short read timeout closes a quiet stream.
+
+- Turn buffering off. The configurations above already do with `proxy_buffering off`, and Ackee also sends `X-Accel-Buffering: no` on the stream.
+- Keep the read timeout above 20 seconds: Ackee sends a comment every 20 seconds while nothing happens. The nginx default of 60 seconds is fine.
+- Serve Ackee over HTTP/2 (`listen 443 ssl http2`). Over HTTP/1.1 a browser opens at most six connections to one host, and every open live page takes one of them.
+
+The configurations above need no changes for the stream. Caddy passes event streams through without buffering by default. Its `encode` directive does not get in the way either: Ackee sends the stream with `Cache-Control: no-transform`, and Caddy does not compress such a response, so the events are not held back.
