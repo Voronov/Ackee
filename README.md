@@ -49,9 +49,31 @@ And configure Ackee and your server correctly…
 - […with environment variables](docs/Options.md)
 - […with SSL and HTTPS enabled](docs/SSL%20and%20HTTPS.md)
 - […with CORS headers](docs/CORS%20headers.md)
+- […with Google Analytics next to Ackee](docs/Google%20Analytics.md)
 - […with tracking rules: clicks, views, forms, downloads, scrolling, page speed and Tag Manager](docs/Tracking%20rules.md)
 
 Take a look at the [FAQ](docs/FAQ.md) if you have any questions left.
+
+### Develop locally
+
+`docker-compose.dev.yml` starts MongoDB and [Mailpit](https://mailpit.axllent.org), which catches every email Ackee sends: confirmation, password reset and invitation links.
+
+```sh
+docker compose -f docker-compose.dev.yml up -d
+npm run dev
+```
+
+Point Ackee at Mailpit in `.env` and read the emails at http://localhost:8025:
+
+```
+ACKEE_MONGODB=mongodb://localhost:27017/ackee
+ACKEE_URL=http://localhost:3000
+ACKEE_SMTP_HOST=localhost
+ACKEE_SMTP_PORT=1025
+ACKEE_SMTP_FROM=ackee@localhost
+```
+
+Without `ACKEE_SMTP_HOST`, `npm run dev` writes each email with its link to the log instead.
 
 ## 📚 Documentation
 

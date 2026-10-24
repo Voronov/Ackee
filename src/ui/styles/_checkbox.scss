@@ -1,8 +1,9 @@
-// A checkbox with its label on one row
+// A checkbox with its label on one row: domain limits in the invitation form, switches in the tracking rules
 .checkbox {
-	display: flex;
-	align-items: center;
-	gap: 0.5em;
-	padding: 0.35em 0;
-	cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+  padding: 0.35em 0;
+  color: var(--color-text, inherit);
 }

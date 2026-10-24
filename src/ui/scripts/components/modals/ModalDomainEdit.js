@@ -9,7 +9,7 @@ import Textarea from '../Textarea.js'
 
 import useDeleteDomain from '../../api/hooks/domains/useDeleteDomain.js'
 import useUpdateDomain from '../../api/hooks/domains/useUpdateDomain.js'
-import { MODALS_DOMAIN_TRACKING } from '../../constants/modals.js'
+import { MODALS_DOMAIN_GA4, MODALS_DOMAIN_TRACKING } from '../../constants/modals.js'
 import useInputs from '../../hooks/useInputs.js'
 import commonModalProps from '../../utils/commonModalProps.js'
 import shortId from '../../utils/shortId.js'
@@ -119,6 +119,16 @@ const ModalDomainEdit = (props) => {
           onClick: () => props.addModal(MODALS_DOMAIN_TRACKING, { id: props.id, title: props.title }),
         },
         'Tracking rules →',
+      ),
+
+      h(
+        'button',
+        {
+          type: 'button',
+          className: 'link',
+          onClick: () => props.addModal(MODALS_DOMAIN_GA4, { id: props.id, title: props.title }),
+        },
+        'Google Analytics →',
       ),
 
       h(Spacer, { size: 0.5 }),

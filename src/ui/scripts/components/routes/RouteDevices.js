@@ -2,13 +2,13 @@ import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
 import useDevices from '../../api/hooks/devices/useDevices.js'
-import useDomains from '../../api/hooks/domains/useDomains.js'
+import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
 import RendererList from '../renderers/RendererList.js'
 
 const RouteDevices = (props) => {
-  const domains = useDomains()
+  const domains = useShownDomains()
 
   return domains.value.map((domain) => {
     return h(CardStatistics, {

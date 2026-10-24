@@ -21,7 +21,9 @@ services:
     environment:
       ACKEE_MONGODB: mongodb://mongo:27017/ackee
       # The address the browser in the tests container uses, so links in emails work there.
-      ACKEE_URL: http://ackee:3000
+      # *.localhost is a secure context in Chromium, which passkeys need (ACKEE-80). The browser
+      # reaches the container under this name through E2E_RESOLVE.
+      ACKEE_URL: http://ackee.localhost:3000
       ACKEE_ALLOW_SIGNUP: 'true'
       # Sites named after their domain may send events, like on the stands (tracking rules test)
       ACKEE_AUTO_ORIGIN: 'true'
@@ -44,7 +46,8 @@ services:
       # The container installs its own dependencies instead of using the host's.
       - /app/node_modules
     environment:
-      E2E_URL: http://ackee:3000
+      E2E_URL: http://ackee.localhost:3000
+      E2E_RESOLVE: ackee.localhost ackee
       E2E_MAILPIT: http://mailpit:8025
       CI: ${CI:-}
     command: sh -c "npm ci --ignore-scripts --no-audit --no-fund && npx playwright test"

@@ -2,13 +2,14 @@ import { gql } from '@apollo/client'
 
 import enhanceReferrers from '../../../enhancers/enhanceReferrers.js'
 import referrersField from '../../fragments/referrersField.js'
+import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchReferrers($id: ID!, $sorting: Sorting!, $type: ReferrerType!, $range: Range) {
+  query fetchReferrers($id: ID!, $sorting: Sorting!, $type: ReferrerType!, $range: Range, $source: StatisticsSource) {
     domain(id: $id) {
       id
-      statistics {
+      statistics(source: $source) {
         id
         ...referrersField
       }
@@ -19,6 +20,7 @@ const QUERY = gql`
 `
 
 export default (id, filters) => {
+  const source = useSource()
   const selector = (data) => data?.domain.statistics.referrers
   const enhancer = enhanceReferrers
 
@@ -26,6 +28,7 @@ export default (id, filters) => {
     variables: {
       ...filters,
       id,
+      source,
     },
   })
 }

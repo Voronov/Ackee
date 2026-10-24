@@ -2,18 +2,24 @@
 
 Кожна зміна потрапляє в `develop` лише через pull request, а PR зливається лише з зеленим CI.
 Рев'юера призначає `.github/CODEOWNERS`, і потрібен approve хоча б одного власника змінених файлів
-(CI/CD і сервер – Воронов або Пеняка, тести – Громяк або Воронов, решта – Воронов або Громяк).
+(CI/CD і сервер – Воронов або Пеняка, тести – Громяк або Воронов, решта – будь-хто з команди).
 Тут описано, що саме перевіряється і як виходить реліз.
 
 ## Перевірки на кожен push і PR
 
 Файл `.github/workflows/test.yml`.
 
-| Job              | Що робить                                                                                    | Чому                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux і macOS | Linux – там працює образ, macOS – там пише команда        |
-| Coverage         | `npm run test:coverage`, пороги в `.c8rc.json`                                               | Падіння покриття нижче порогу – це регресія, а не шум     |
-| Dependency audit | `npm audit --omit=dev --audit-level=high`                                                    | Висока вразливість у тому, що їде в образ, зупиняє збірку |
+| Job              | Що робить                                                                                                        | Чому                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux і macOS                     | Linux – там працює образ, macOS – там пише команда        |
+| Coverage         | `npm run test:coverage`, пороги в `.c8rc.json`; Redis – service container `redis:7.4-alpine`, `ACKEE_TEST_REDIS` | Падіння покриття нижче порогу – це регресія, а не шум     |
+| Dependency audit | `npm audit --omit=dev --audit-level=high`                                                                        | Висока вразливість у тому, що їде в образ, зупиняє збірку |
+
+Тести черги прийому (`test/queue/redis.js`, `test/resolvers/ingestQueue.js`) і спільної солі
+(`test/utils/salt.js`) ходять у справжній Redis лише тоді, коли задано `ACKEE_TEST_REDIS`. Це
+робить тільки job Coverage: service containers є лише на Linux-раннерах. У job Test (Linux і
+macOS) ці тести пропускаються (`skip`), а решта, зокрема обхід черги при недоступному Redis,
+іде як завжди.
 
 Пороги покриття стоять трохи нижче виміряного значення. Коли покриття росте, пороги піднімають
 у тому ж PR.
@@ -25,6 +31,15 @@ npm ci
 npm run build:pre
 npm test               # lint + усі тести
 npm run test:coverage  # те саме з порогами покриття
+```
+
+З тестами, яким потрібен Redis, як у job Coverage. Redis має бути без цінних даних: тести
+очищають свої бази.
+
+```
+docker run -d --name ackee-test-redis -p 127.0.0.1:6390:6379 redis:7.4-alpine
+ACKEE_TEST_REDIS=redis://127.0.0.1:6390 npm run test:coverage
+docker rm -f ackee-test-redis
 ```
 
 ## Версії

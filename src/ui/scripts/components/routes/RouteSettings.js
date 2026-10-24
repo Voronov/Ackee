@@ -3,6 +3,7 @@ import { Fragment, createElement as h } from 'react'
 
 import { homepage, version } from '../../../../../package.json'
 import useDomains from '../../api/hooks/domains/useDomains.js'
+import useWorkspaces from '../../api/hooks/members/useWorkspaces.js'
 import useEvents from '../../api/hooks/events/useEvents.js'
 import usePermanentTokens from '../../api/hooks/permanentTokens/usePermanentTokens.js'
 import useDeleteToken from '../../api/hooks/tokens/useDeleteToken.js'
@@ -15,6 +16,8 @@ import {
   MODALS_PERMANENT_TOKEN_EDIT,
 } from '../../constants/modals.js'
 
+import CardMembers from '../cards/CardMembers.js'
+import CardPasskeys from '../cards/CardPasskeys.js'
 import CardSetting from '../cards/CardSetting.js'
 import Line from '../Line.js'
 import LinkItem from '../LinkItem.js'
@@ -30,6 +33,7 @@ const RouteSettings = (props) => {
   const domains = useDomains()
   const events = useEvents()
   const permanentTokens = usePermanentTokens()
+  const workspaces = useWorkspaces()
 
   const onSignOut = async () => {
     await deleteToken.mutate({
@@ -90,6 +94,8 @@ const RouteSettings = (props) => {
       h(LinkItem, { type: 'button', onClick: onSignOut }, 'Sign Out'),
     ),
 
+    globalThis.env.isDemoMode !== true && h(CardPasskeys),
+
     h(
       CardSetting,
       {
@@ -105,6 +111,10 @@ const RouteSettings = (props) => {
       },
       ...(events.status.isInitializing === true ? [eventsLoading] : eventsItems),
     ),
+
+    ...workspaces.value
+      .filter((workspace) => workspace.canManageMembers === true)
+      .map((workspace) => h(CardMembers, { key: workspace.id, workspace, addModal: props.addModal })),
 
     h(
       CardSetting,

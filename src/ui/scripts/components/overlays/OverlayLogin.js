@@ -14,6 +14,7 @@ import useCreateToken from '../../api/hooks/tokens/useCreateToken.js'
 import useCreateUser from '../../api/hooks/users/useCreateUser.js'
 import useRequestPasswordReset from '../../api/hooks/users/useRequestPasswordReset.js'
 import useSignup from '../../api/hooks/users/useSignup.js'
+import { useSignInWithPasskey } from '../../api/hooks/passkeys/usePasskeys.js'
 import useInputs from '../../hooks/useInputs.js'
 
 // One screen with three modes rather than three routes. The interface is a single page
@@ -36,6 +37,20 @@ const OverlayLogin = (props) => {
   const createToken = useCreateToken()
   const createUser = useCreateUser()
   const requestPasswordReset = useRequestPasswordReset()
+  const signInWithPasskey = useSignInWithPasskey()
+  const [passkeyError, setPasskeyError] = useState(null)
+
+  // A cancelled browser prompt is not an error worth showing
+  const onPasskey = async (event) => {
+    event.preventDefault()
+    setPasskeyError(null)
+
+    try {
+      props.setToken(await signInWithPasskey.run())
+    } catch (error) {
+      if (error.name !== 'NotAllowedError') setPasskeyError(error.message)
+    }
+  }
 
   const current = { [SIGN_IN]: createToken, [REGISTER]: createUser, [FORGOT]: requestPasswordReset }[mode]
 
@@ -103,6 +118,7 @@ const OverlayLogin = (props) => {
 
       notice != null && h(Message, { status: 'success' }, notice),
       hasError === true && h(Message, { status: 'error' }, current.error.message),
+      passkeyError != null && h(Message, { status: 'error' }, passkeyError),
 
       h(Input, {
         type: 'username',
@@ -123,6 +139,13 @@ const OverlayLogin = (props) => {
           value: inputs.password,
           onChange: onInputChange('password'),
         }),
+
+      mode === SIGN_IN &&
+        signup.google === true &&
+        h('a', { className: 'button button--google', href: '/auth/google' }, 'Sign in with Google'),
+      mode === SIGN_IN &&
+        signup.passkey === true &&
+        h('a', { className: 'button button--google', href: '#', onClick: onPasskey }, 'Sign in with a passkey'),
 
       h(Spacer, { size: 1 }),
     ),
