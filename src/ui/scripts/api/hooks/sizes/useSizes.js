@@ -2,13 +2,14 @@ import { gql } from '@apollo/client'
 
 import enhanceSizes from '../../../enhancers/enhanceSizes.js'
 import sizesField from '../../fragments/sizesField.js'
+import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchSizes($id: ID!, $sorting: Sorting!, $type: SizeType!, $range: Range) {
+  query fetchSizes($id: ID!, $sorting: Sorting!, $type: SizeType!, $range: Range, $source: StatisticsSource) {
     domain(id: $id) {
       id
-      statistics {
+      statistics(source: $source) {
         id
         ...sizesField
       }
@@ -19,6 +20,7 @@ const QUERY = gql`
 `
 
 export default (id, filters) => {
+  const source = useSource()
   const selector = (data) => data?.domain.statistics.sizes
   const enhancer = enhanceSizes
 
@@ -26,6 +28,7 @@ export default (id, filters) => {
     variables: {
       ...filters,
       id,
+      source,
     },
   })
 }

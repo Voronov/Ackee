@@ -1,6 +1,7 @@
 import { DOMAINS_MANAGE, REPORTS_READ } from '../constants/permissions.js'
 import * as auditLog from '../database/auditLog.js'
 import * as domains from '../database/domains.js'
+import * as ga4 from '../database/ga4.js'
 import * as records from '../database/records.js'
 import * as rollups from '../database/rollups.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
@@ -12,8 +13,9 @@ import validated from '../utils/validated.js'
 
 export default {
   Domain: {
-    facts: (parent) => parent,
-    statistics: (parent) => parent,
+    // The source travels with the domain to every report below (ACKEE-21)
+    facts: (parent, { source }) => ({ ...parent, source }),
+    statistics: (parent, { source }) => ({ ...parent, source }),
   },
   Query: {
     // The limit is in the query, not a check afterwards: another workspace's domain is not
@@ -77,6 +79,8 @@ export default {
 
       await records.del(id)
       await rollups.del(id)
+      // The sealed key and the synced days go with the domain, and the sync stops asking for it
+      await ga4.disconnect(id)
       await auditLog.record(viewer, entry.workspaceId, 'domain.delete', id)
 
       return {

@@ -1,5 +1,6 @@
 import { assignDefaultWorkspace, dropOldRecordIndexes } from './database/migrations.js'
 import * as ingestQueue from './queue/redis.js'
+import { start as startGa4Sync } from './ga4/sync.js'
 import server from './server.js'
 import config from './utils/config.js'
 import connect from './utils/connect.js'
@@ -43,6 +44,9 @@ connect(config.dbUrl)
     server.listen(config.port)
 
     mailCheck()
+
+    // Pulls the connected GA4 properties at start and every three hours (ACKEE-21)
+    startGa4Sync()
 
     startRollups()
 

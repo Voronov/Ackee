@@ -8,6 +8,12 @@ import domainIds from '../utils/domainIds.js'
 import pipe from '../utils/pipe.js'
 import recursiveId from '../utils/recursiveId.js'
 import selectedDomain from '../utils/selectedDomain.js'
+import { SOURCE_GA4 } from '../constants/ga4.js'
+import * as ga4 from '../database/ga4.js'
+
+// GA4 days instead of Ackee's records when the facts ask for them (ACKEE-21)
+const viewsOf = (domain) => (domain.source === SOURCE_GA4 ? ga4.views : getViews)
+const durationsOf = (domain) => (domain.source === SOURCE_GA4 ? ga4.durations : getDurations)
 
 export default {
   AverageViews: {
@@ -49,46 +55,50 @@ export default {
       // Provide a static fallback id when there're domains to create a recursive id from
       if (ids.length === 0) return '882b8e8a-f30b-414d-85e1-00d8ed5585a6'
 
-      return recursiveId(ids)
+      // The interface caches by id, so Ackee's and GA4's numbers of the same domains must not share one
+      return recursiveId(domain.source === SOURCE_GA4 ? ['GA4', ...ids] : ids)
     }),
     activeVisitors: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
+      // GA4 is synced by day, so it knows nobody who is on the site right now
+      if (domain.source === SOURCE_GA4) return 0
       const activeVisitors = await getActiveVisitors(ids, dateDetails)
 
       return activeVisitors
     }),
     averageViews: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
-      const entries = getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 15, dateDetails)
+      const entries = viewsOf(domain)(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 15, dateDetails)
 
       return entries
     }),
     averageDuration: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
-      const entries = getDurations(ids, INTERVALS_DAILY, 15, dateDetails)
+      const entries = durationsOf(domain)(ids, INTERVALS_DAILY, 15, dateDetails)
 
       return entries
     }),
     viewsToday: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
-      const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 1, dateDetails)
+      const entries = await viewsOf(domain)(ids, VIEWS_TYPE_UNIQUE, INTERVALS_DAILY, 1, dateDetails)
 
       return entries[0].count
     }),
     viewsMonth: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
-      const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_MONTHLY, 1, dateDetails)
+      const entries = await viewsOf(domain)(ids, VIEWS_TYPE_UNIQUE, INTERVALS_MONTHLY, 1, dateDetails)
 
       return entries[0].count
     }),
     viewsYear: pipe(requireAuth, async (domain, _, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
-      const entries = await getViews(ids, VIEWS_TYPE_UNIQUE, INTERVALS_YEARLY, 1, dateDetails)
+      const entries = await viewsOf(domain)(ids, VIEWS_TYPE_UNIQUE, INTERVALS_YEARLY, 1, dateDetails)
 
       return entries[0].count
     }),
   },
   Query: {
-    facts: selectedDomain,
+    // The dashboard picks a domain (ACKEE-81) and a source (ACKEE-21) independently
+    facts: async (parent, args, context) => ({ ...(await selectedDomain(parent, args, context)), source: args.source }),
   },
 }

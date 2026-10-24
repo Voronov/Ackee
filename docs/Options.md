@@ -248,3 +248,11 @@ Create an OAuth client of type "Web application" in the Google Cloud console and
 - An address Google has not confirmed is refused.
 - An existing account with the same address is linked to the Google account on the first sign-in, and counts as confirmed from then on.
 - Someone without an account gets one only when `ACKEE_ALLOW_SIGNUP=true`, with a personal workspace like any registration. Such an account has no password until its owner sets one with "Forgot password".
+
+## Secret key
+
+```
+ACKEE_SECRET_KEY=a-long-random-string
+```
+
+Encrypts secrets Ackee keeps in the database, like the key of a Google service account ([Google Analytics](Google%20Analytics.md)). Generate one with `openssl rand -base64 32` and keep it with the other secrets of the server. Changing it makes the stored keys unreadable.

@@ -2,13 +2,14 @@ import { gql } from '@apollo/client'
 
 import enhanceDevices from '../../../enhancers/enhanceDevices.js'
 import devicesField from '../../fragments/devicesField.js'
+import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchDevices($id: ID!, $sorting: Sorting!, $type: DeviceType!, $range: Range) {
+  query fetchDevices($id: ID!, $sorting: Sorting!, $type: DeviceType!, $range: Range, $source: StatisticsSource) {
     domain(id: $id) {
       id
-      statistics {
+      statistics(source: $source) {
         id
         ...devicesField
       }
@@ -19,6 +20,7 @@ const QUERY = gql`
 `
 
 export default (id, filters) => {
+  const source = useSource()
   const selector = (data) => data?.domain.statistics.devices
   const enhancer = enhanceDevices
 
@@ -26,6 +28,7 @@ export default (id, filters) => {
     variables: {
       ...filters,
       id,
+      source,
     },
   })
 }

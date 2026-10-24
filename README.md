@@ -49,6 +49,7 @@ And configure Ackee and your server correctly…
 - […with environment variables](docs/Options.md)
 - […with SSL and HTTPS enabled](docs/SSL%20and%20HTTPS.md)
 - […with CORS headers](docs/CORS%20headers.md)
+- […with Google Analytics next to Ackee](docs/Google%20Analytics.md)
 
 Take a look at the [FAQ](docs/FAQ.md) if you have any questions left.
 
