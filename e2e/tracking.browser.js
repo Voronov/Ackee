@@ -224,12 +224,14 @@ test('a page that forges document.currentScript gets no tracking instead of trac
   const site = await visitor.newPage()
   const snippet = `<script async src="${ACKEE}/t/${id}.${ingestKey}.js"></script>`
   const forged = `<img name="currentScript" src="http://evil.test/pixel.gif">`
-  // The stands set ACKEE_URL; this is a server without it, where the snippet carries no address
-  await visitor.route(`${ACKEE}/t/**`, async (route) => {
-    const response = await route.fetch()
-    const body = (await response.text()).replace(/"server":"[^"]*"/, '"server":""')
-    await route.fulfill({ response, body })
-  })
+  // The stands set ACKEE_URL; this is a server without it, where the snippet carries no address.
+  // Read through the signed-in page: the browser knows Ackee by name, the test runner does not.
+  const served = await page.evaluate(async (url) => (await fetch(url)).text(), `${ACKEE}/t/${id}.${ingestKey}.js`)
+  expect(served).toContain('"server":"')
+  const withoutAddress = served.replace(/"server":"[^"]*"/, '"server":""')
+  await visitor.route(`${ACKEE}/t/**`, (route) =>
+    route.fulfill({ contentType: 'text/javascript', body: withoutAddress }),
+  )
   const requests = []
   await visitor.route(/^http:\/\/(shop|evil)\.test\//, (route) => {
     const { method, url } = { method: route.request().method(), url: route.request().url() }
