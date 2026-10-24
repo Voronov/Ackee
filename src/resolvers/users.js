@@ -1,7 +1,9 @@
+import * as passkeys from '../database/passkeys.js'
 import * as tokens from '../database/tokens.js'
 import * as userTokens from '../database/userTokens.js'
 import * as users from '../database/users.js'
 import { isEnabled as isGoogleEnabled } from '../google.js'
+import { isEnabled as isPasskeyEnabled } from '../database/passkeys.js'
 import config from '../utils/config.js'
 import { sendPasswordReset, sendVerification } from '../utils/emails.js'
 import { isEnabled as mailEnabled } from '../utils/mailer.js'
@@ -33,7 +35,7 @@ export default {
   Query: {
     // No requireAuth: the sign-in screen asks this before anyone has signed in.
     signup: () => ({ allowed: config.allowSignup === true }),
-    signInOptions: () => ({ google: isGoogleEnabled() }),
+    signInOptions: () => ({ google: isGoogleEnabled(), passkey: isPasskeyEnabled() }),
     viewer: pipe(requireAuth, (parent, args, { viewer }) => {
       return users.get(viewer.userId)
     }),
@@ -133,6 +135,7 @@ export default {
 
       // A reset often follows a stolen password, so whoever used it is signed out too.
       await tokens.delByUser(result.userId)
+      await passkeys.delByUser(result.userId)
 
       return { success: true }
     },

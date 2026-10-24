@@ -11,6 +11,7 @@ import facts from './facts.js'
 import members from './members.js'
 import ga4 from './ga4.js'
 import miscellaneous from './miscellaneous.js'
+import passkeys from './passkeys.js'
 import permanentTokens from './permanentTokens.js'
 import records from './records.js'
 import tokens from './tokens.js'
@@ -21,6 +22,7 @@ export default mergeTypeDefs(
     tokens,
     users,
     members,
+    passkeys,
     permanentTokens,
     records,
     domains,

@@ -17,6 +17,7 @@ import {
 } from '../../constants/modals.js'
 
 import CardMembers from '../cards/CardMembers.js'
+import CardPasskeys from '../cards/CardPasskeys.js'
 import CardSetting from '../cards/CardSetting.js'
 import Line from '../Line.js'
 import LinkItem from '../LinkItem.js'
@@ -92,6 +93,8 @@ const RouteSettings = (props) => {
       h(Line),
       h(LinkItem, { type: 'button', onClick: onSignOut }, 'Sign Out'),
     ),
+
+    globalThis.env.isDemoMode !== true && h(CardPasskeys),
 
     h(
       CardSetting,

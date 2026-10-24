@@ -256,3 +256,15 @@ ACKEE_SECRET_KEY=a-long-random-string
 ```
 
 Encrypts secrets Ackee keeps in the database, like the key of a Google service account ([Google Analytics](Google%20Analytics.md)). Generate one with `openssl rand -base64 32` and keep it with the other secrets of the server. Changing it makes the stored keys unreadable.
+
+## Passkeys
+
+Signed-in users can add passkeys (Touch ID, Windows Hello, a security key) under Settings → Passkeys and then sign in without a password. Passkeys need only `ACKEE_URL`:
+
+```
+ACKEE_URL=https://ackee.example.com
+```
+
+The browser binds every passkey to the host name of `ACKEE_URL`, so a passkey made on one stand never signs anyone in on another, and changing the host name makes existing passkeys unusable. Browsers allow passkeys only over https, or on `localhost` and `*.localhost`.
+
+The password and "Forgot password" keep working as a way back in when a passkey is lost.
