@@ -1,0 +1,29 @@
+### Live feed of all domains
+
+# Server-Sent Events, outside of GraphQL. The token goes in the header, never in the URL.
+# A client that shows streams, e.g. curl: curl -N -H 'Authorization: Bearer <token>' http://localhost:3000/api/live
+
+# @prompt accessToken
+
+GET http://localhost:3000/api/live
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+
+### Live feed of one domain
+
+# @prompt accessToken
+# @prompt domainId
+
+GET http://localhost:3000/api/live?domainId={{domainId}}
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+
+### Reconnect, replaying only what was missed
+
+# @prompt accessToken
+# @prompt lastEventId
+
+GET http://localhost:3000/api/live
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+Last-Event-ID: {{lastEventId}}

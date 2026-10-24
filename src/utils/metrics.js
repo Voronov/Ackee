@@ -13,6 +13,19 @@ import {
   RECORD_CREATE,
   RECORD_TOUCH,
 } from '../constants/ingest.js'
+import {
+  LIVE_FORBIDDEN,
+  LIVE_PATH,
+  LIVE_POLL_ERROR,
+  LIVE_POLL_GAP,
+  LIVE_POLL_OK,
+  LIVE_PROCESS_LIMIT,
+  LIVE_UNAUTHORIZED,
+  LIVE_UNKNOWN_DOMAIN,
+  LIVE_WORKSPACE_LIMIT,
+} from '../constants/live.js'
+import liveHub from '../live/hub.js'
+import liveRouter from '../live/router.js'
 import * as ingestQueue from '../queue/redis.js'
 import { stats as workerStats } from '../queue/worker.js'
 import config from './config.js'
@@ -118,6 +131,52 @@ countedBy(
   () => ingestQueue.stats.fallback,
 )
 
+// The live feed (ADR-007). No label names a workspace or a domain: the metrics are an
+// operational picture and must not tell which customers are watching.
+new client.Gauge({
+  name: 'ackee_live_connections',
+  help: 'Open live streams of this process',
+  registers: [registry],
+  collect() {
+    this.set(liveRouter.stats.connections)
+  },
+})
+
+new client.Gauge({
+  name: 'ackee_live_watched_domains',
+  help: 'Domains the live feed of this process polls for',
+  registers: [registry],
+  collect() {
+    this.set(liveHub.watched())
+  },
+})
+
+countedBy(
+  'ackee_live_polls_total',
+  'Queries of the live feed, by outcome; one per tick however many people watch',
+  'outcome',
+  [LIVE_POLL_OK, LIVE_POLL_GAP, LIVE_POLL_ERROR],
+  () => liveHub.stats.polls,
+)
+
+new client.Counter({
+  name: 'ackee_live_visits_sent_total',
+  help: 'Views sent to live streams, once per stream',
+  registers: [registry],
+  collect() {
+    this.reset()
+    this.inc(liveRouter.stats.sent)
+  },
+})
+
+countedBy(
+  'ackee_live_rejected_total',
+  'Live streams refused or ended, by reason',
+  'reason',
+  [LIVE_UNAUTHORIZED, LIVE_FORBIDDEN, LIVE_UNKNOWN_DOMAIN, LIVE_PROCESS_LIMIT, LIVE_WORKSPACE_LIMIT],
+  () => liveRouter.stats.rejected,
+)
+
 // Routes are listed explicitly. A label taken from an arbitrary request path would blow
 // up cardinality and make the metrics store unusable.
 const KNOWN_ROUTES = new Set([
@@ -134,13 +193,15 @@ const KNOWN_ROUTES = new Set([
 const routeLabel = (path) => (KNOWN_ROUTES.has(path) ? path : 'other')
 
 export const httpMiddleware = (request, response, next) => {
-  if (isEnabled() === false) return next()
-
-  const end = httpDuration.startTimer()
-
   // Use originalUrl rather than path: Express rewrites req.url when it hands a request to a
   // mounted handler, so by the finish event path is relative to the mount point.
-  const route = routeLabel(request.originalUrl.split('?')[0])
+  const path = request.originalUrl.split('?')[0]
+
+  // A stream lasts for hours and would turn the histogram of request durations into noise
+  if (isEnabled() === false || path === LIVE_PATH) return next()
+
+  const end = httpDuration.startTimer()
+  const route = routeLabel(path)
 
   response.on('finish', () => {
     end({ method: request.method, route, status: response.statusCode })

@@ -15,6 +15,7 @@ This folder contains `.http` files for manually testing the Ackee GraphQL API. T
 | `facts.http`            | Fetch domain facts (active visitors, views, durations)                                              |
 | `domainStatistics.http` | Domain statistics: browsers, devices, durations, languages, pages, referrers, sizes, systems, views |
 | `eventStatistics.http`  | Event statistics: chart and list                                                                    |
+| `live.http`             | Live feed of views (Server-Sent Events at `/api/live`)                                              |
 
 ## Usage
 

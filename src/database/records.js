@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import Record from '../models/Record.js'
 
 const response = (entry) => ({
@@ -130,6 +132,43 @@ export const hasNewer = async (clientId, id, created) => {
 
 export const anonymizeOne = (id) => {
   return Record.updateOne({ id }, anonymized)
+}
+
+// What the live feed may show of a view (ADR-007): fields of the reports only, never the
+// clientId, versions or sizes. The key stands in for the id, because the id is what updateRecord takes.
+const LIVE_FIELDS = [
+  'domainId',
+  'siteLocation',
+  'siteReferrer',
+  'source',
+  'siteLanguage',
+  'browserName',
+  'osName',
+  'deviceManufacturer',
+  'deviceName',
+  'created',
+]
+
+const liveKey = (id) => createHash('sha256').update(id).digest('base64url').slice(0, 16)
+
+const liveResponse = (entry) => ({
+  key: liveKey(entry.id),
+  ...Object.fromEntries(LIVE_FIELDS.map((field) => [field, entry[field] ?? null])),
+})
+
+// Newest first, so the limit drops what is already old rather than what just came in. Served
+// by the compound index of models/Record.js, read backwards (explain test in test/models/indexes.js).
+export const liveQuery = (domainIds, since, limit) => {
+  return Record.find({ domainId: { $in: domainIds }, created: { $gt: since } })
+    .select(['id', ...LIVE_FIELDS])
+    .sort({ created: -1 })
+    .limit(limit)
+    .lean()
+}
+
+// Views of the given domains created after `since`, newest first. The caller has checked access.
+export const live = async (domainIds, since, limit) => {
+  return (await liveQuery(domainIds, since, limit)).map(liveResponse)
 }
 
 export const del = (domainId) => {
