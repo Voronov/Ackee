@@ -50,6 +50,7 @@ And configure Ackee and your server correctly…
 - […with SSL and HTTPS enabled](docs/SSL%20and%20HTTPS.md)
 - […with CORS headers](docs/CORS%20headers.md)
 - […with Google Analytics next to Ackee](docs/Google%20Analytics.md)
+- […with tracking rules: clicks, views, forms, downloads, scrolling, page speed and Tag Manager](docs/Tracking%20rules.md)
 
 Take a look at the [FAQ](docs/FAQ.md) if you have any questions left.
 

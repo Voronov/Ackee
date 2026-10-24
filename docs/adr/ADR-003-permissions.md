@@ -13,7 +13,8 @@ ADR-002 задав ролі `OWNER`, `EDITOR`, `VIEWER`, але не сказа�
 ## Рішення
 
 - **Атомарні дозволи** (`src/constants/permissions.js`): `REPORTS_READ`, `DOMAINS_MANAGE`,
-  `EVENTS_MANAGE`, `TOKENS_MANAGE`, `MEMBERS_MANAGE`, `AUDIT_READ`.
+  `EVENTS_MANAGE`, `TOKENS_MANAGE`, `MEMBERS_MANAGE`, `AUDIT_READ`, `GTM_MANAGE` (ACKEE-25: контейнер
+  Tag Manager – довільний код на сайті, тому лише власник).
 - **Роль – набір дозволів, а не ранг.** Ранг («щонайменше редактор») не дозволяє ролі на кшталт
   «аналітик: звіти і журнал, без змін» – вона не лягає на одну шкалу.
 

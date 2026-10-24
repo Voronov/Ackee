@@ -31,6 +31,10 @@ const schema = new mongoose.Schema({
   targetId: {
     type: String,
   },
+  // What changed, where the id alone does not say, like the old and the new Tag Manager container
+  details: {
+    type: String,
+  },
   schemaVersion: {
     type: Number,
     required: true,
