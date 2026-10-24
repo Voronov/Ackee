@@ -101,12 +101,14 @@ const ensureEvents = async (domain, tracking) => {
 }
 
 // Saves the settings of a domain in the scope (see utils/permissions.js). A string is a refusal,
-// null an unknown domain.
-export const update = async (domainId, input, within) => {
+// null an unknown domain. `checkedGtm` is the container the caller was allowed to keep or change:
+// the write happens only while it is still the one stored, so a save that raced with an owner
+// removing the container cannot put it back without a log (review of #36).
+export const update = async (domainId, input, within, checkedGtm) => {
   const reason = refusal(input)
   if (reason != null) return reason
 
-  const domain = await Domain.findOne({ id: domainId, ...within })
+  const domain = await Domain.findOne({ id: domainId, ...within }).lean()
   if (domain == null) return null
 
   const previous = of(domain)
@@ -130,9 +132,18 @@ export const update = async (domainId, input, within) => {
 
   tracking.events = await ensureEvents(domain, response(tracking))
 
-  domain.tracking = tracking
-  domain.updated = Date.now()
-  await domain.save()
+  // A domain that never had a container stores no gtmId at all
+  const stillChecked = { 'tracking.gtmId': checkedGtm === '' ? { $in: [null, ''] } : checkedGtm }
+  const saved = await Domain.findOneAndUpdate(
+    { id: domainId, ...within, ...stillChecked },
+    { $set: { tracking, updated: Date.now() } },
+    { new: true },
+  ).lean()
 
-  return { domain, tracking: of(domain) }
+  if (saved == null) {
+    if ((await Domain.exists({ id: domainId, ...within })) == null) return null
+    return 'The Tag Manager container changed in the meantime, reload the page and try again'
+  }
+
+  return { domain: saved, tracking: of(saved) }
 }

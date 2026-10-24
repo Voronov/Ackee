@@ -4,6 +4,7 @@ import test from 'ava'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
+import * as tracking from '../../src/database/tracking.js'
 import * as users from '../../src/database/users.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Domain from '../../src/models/Domain.js'
@@ -269,4 +270,32 @@ test('only an owner sets the Tag Manager container, and the change is logged', a
     entries.map((entry) => `${entry.targetId} ${entry.details}`),
     [`${domain.id} none → GTM-ABC1234`],
   )
+})
+
+// Review of #36: the permission check and the write are two steps, so a save checked against one
+// container must not land once the container is another
+test('a save checked against a container the owner removed meanwhile does not put it back', async (t) => {
+  const { domain, workspace, call } = await account('tracking-11@example.com')
+  const within = { workspaceId: workspace.id }
+  await save(call, domain.id, { gtmId: 'GTM-ABC1234' })
+
+  // An editor's request passed its check while the container was GTM-ABC1234 …
+  const checked = 'GTM-ABC1234'
+  // … and the owner removed it before that request wrote
+  await save(call, domain.id, { gtmId: '' })
+
+  const late = await tracking.update(domain.id, { gtmId: checked, scroll: true }, within, checked)
+  t.regex(late, /changed in the meantime/)
+
+  const stored = tracking.of(await Domain.findOne({ id: domain.id }).lean())
+  t.is(stored.gtmId, '')
+  t.false(stored.scroll)
+  t.is(await AuditLog.countDocuments({ workspaceId: workspace.id, action: 'domain.gtm' }), 2)
+
+  // Checked against the container that is stored, the same save goes through
+  const inTime = await tracking.update(domain.id, { scroll: true }, within, '')
+  t.true(inTime.tracking.scroll)
+  // The same for a domain that never had a container, which stores no gtmId at all
+  const fresh = (await account('tracking-11b@example.com')).domain
+  t.true((await tracking.update(fresh.id, { scroll: true }, { workspaceId: fresh.workspaceId }, '')).tracking.scroll)
 })

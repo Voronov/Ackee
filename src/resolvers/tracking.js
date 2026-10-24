@@ -31,7 +31,7 @@ export default {
         throw new KnownError('Only an owner can set the Tag Manager container')
       }
 
-      const result = await tracking.update(id, input, within)
+      const result = await tracking.update(id, input, within, previousGtm)
 
       if (typeof result === 'string') throw new KnownError(result)
       if (result == null) throw new KnownError('Unknown domain')
