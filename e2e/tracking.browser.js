@@ -187,3 +187,70 @@ test('rules set up in Ackee collect clicks, views, forms, links, downloads and s
   const everything = JSON.stringify(await Promise.all(Object.values(events).map((eventId) => list(eventId))))
   expect(everything).not.toContain('secret@example.com')
 })
+
+// Review of #36: without ACKEE_URL the snippet reads its own address from document.currentScript,
+// and a page where visitors can place HTML can put an <img name="currentScript"> in its place
+test('a page that forges document.currentScript gets no tracking instead of tracking to a stranger', async ({
+  page,
+  request,
+  browser,
+}) => {
+  const address = newAddress()
+
+  await page.goto('/')
+  await page.getByText('Create account', { exact: true }).click()
+  await page.getByPlaceholder(/email/i).fill(address)
+  await page.getByPlaceholder(/password/i).fill(PASSWORD)
+  await page.getByRole('button', { name: /create account/i }).click()
+  await page.goto(await confirmationLink(request, address))
+  await page.goto('/')
+  await page.getByPlaceholder(/email/i).fill(address)
+  await page.getByPlaceholder(/password/i).fill(PASSWORD)
+  await page.getByRole('button', { name: /sign in/i }).click()
+  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+
+  const created = await graphql(
+    page,
+    'mutation { createDomain(input: { title: "shop.test" }) { payload { id ingestKey } } }',
+  )
+  const { id, ingestKey } = created.data.createDomain.payload
+
+  const visitor = await browser.newContext({ userAgent: VISITOR })
+  const site = await visitor.newPage()
+  const snippet = `<script async src="${ACKEE}/t/${id}.${ingestKey}.js"></script>`
+  const forged = `<img name="currentScript" src="http://evil.test/pixel.gif">`
+  // The stands set ACKEE_URL; this is a server without it, where the snippet carries no address
+  await visitor.route(`${ACKEE}/t/**`, async (route) => {
+    const response = await route.fetch()
+    const body = (await response.text()).replace(/"server":"[^"]*"/, '"server":""')
+    await route.fulfill({ response, body })
+  })
+  const requests = []
+  await visitor.route(/^http:\/\/(shop|evil)\.test\//, (route) => {
+    const { method, url } = { method: route.request().method(), url: route.request().url() }
+    requests.push(`${method} ${new URL(url).origin}`)
+    if (url.startsWith('http://evil.test/')) return route.fulfill({ status: 204 })
+    return route.fulfill({
+      contentType: 'text/html',
+      body: shop(url.includes('forged') ? forged + snippet : snippet)('/'),
+    })
+  })
+  await site.route(`${ACKEE}/api`, (route) => {
+    requests.push(`${route.request().method()} ${ACKEE}`)
+    return route.continue()
+  })
+
+  // A plain page: the snippet reports to the server it came from
+  await site.goto('http://shop.test/')
+  await site.waitForFunction(() => globalThis.ackeeTracker != null)
+  await expect.poll(() => requests.filter((entry) => entry === `POST ${ACKEE}`).length).toBeGreaterThan(0)
+
+  // The forged page: nothing goes to the stranger, and nothing is recorded either
+  requests.length = 0
+  await site.goto('http://shop.test/forged')
+  await site.waitForFunction(() => globalThis.ackeeTracker != null)
+  await site.waitForTimeout(1500)
+  expect(requests.filter((entry) => entry.startsWith('POST '))).toEqual([])
+  expect(requests).not.toContain('POST http://evil.test')
+  await visitor.close()
+})

@@ -10,9 +10,12 @@ export default function autotrack(config) {
   const tracker = globalThis.ackeeTracker
   if (tracker == null) return
 
-  // Where to report: the address the owner set, or the one this script was loaded from
+  // Where to report: the address the owner set, or the one this script was loaded from. A page
+  // with HTML injection can put an <img name="currentScript"> in place of the script (DOM
+  // clobbering, review of #36), so only a real script element with a source counts.
   const script = document.currentScript
-  const server = config.server || (script?.src ? new URL(script.src).origin : null)
+  const loadedFrom = script instanceof HTMLScriptElement && script.src ? new URL(script.src).origin : null
+  const server = config.server || loadedFrom
   if (server == null) return
 
   const instance = tracker.create(server, { detailed: false, ignoreLocalhost: config.ignoreLocalhost })

@@ -12,6 +12,8 @@ Open a domain under Settings → Domains and copy **Embed code with tracking rul
 
 It replaces the plain snippet: it records page views like before, including the pages of a single-page app, and applies the rules below. Use one or the other, not both.
 
+Set `ACKEE_URL` on the server (see [Options](Options.md)), so the snippet carries the address of Ackee. Without it the snippet reports to the address it was loaded from, which it reads from the page; on a page where visitors can place HTML, that reading can be forged, and then the snippet does not start at all.
+
 ## What it can collect
 
 Under **Tracking rules →** in the domain dialog:
