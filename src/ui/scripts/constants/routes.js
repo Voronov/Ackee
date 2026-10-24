@@ -12,6 +12,7 @@ export const DEVICES = Symbol()
 export const BROWSERS = Symbol()
 export const SIZES = Symbol()
 export const LANGUAGES = Symbol()
+export const LIVE = Symbol()
 export const SETTINGS = Symbol()
 
 const routes = [
@@ -62,6 +63,10 @@ const routes = [
   {
     pattern: new UrlPattern('/insights/languages'),
     key: LANGUAGES,
+  },
+  {
+    pattern: new UrlPattern('/insights/live'),
+    key: LIVE,
   },
   {
     pattern: new UrlPattern('/settings'),
