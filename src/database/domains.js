@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
 
+import { INGEST_DOMAIN_TTL } from '../constants/ingest.js'
 import Domain from '../models/Domain.js'
+import cachedLookup from '../utils/cachedLookup.js'
 import sortByProperty from '../utils/sortByProperty.js'
 
 const newIngestKey = () => randomBytes(16).toString('base64url')
@@ -39,6 +41,13 @@ const within = (scope) =>
     ? { workspaceId: { $in: scope } }
     : { $or: [{ workspaceId: { $in: scope.workspaces } }, { id: { $in: scope.domains } }] }
 
+// The ingest path reads domains from here while the ingest queue is on (ADR-006), so the
+// tracker does not wait for MongoDB. Every change below forgets the domain, so in this
+// process a rotated key, strict mode or a new title applies at once; other processes see it
+// within INGEST_DOMAIN_TTL. getUnscoped is defined further down.
+const cachedUnscoped = cachedLookup((id) => getUnscoped(id), INGEST_DOMAIN_TTL)
+const forgetCached = (id) => cachedUnscoped.forget(id)
+
 export const add = async (data, workspaceId) => {
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
@@ -76,6 +85,7 @@ export const get = async (id, workspaceIds) => {
 
 export const update = async (id, data, workspaceIds) => {
   const enhance = (entry) => {
+    forgetCached(id)
     return entry == null ? entry : response(entry)
   }
 
@@ -102,11 +112,14 @@ export const update = async (id, data, workspaceIds) => {
   )
 }
 
-export const del = (id, workspaceIds) => {
-  return Domain.findOneAndDelete({
+export const del = async (id, workspaceIds) => {
+  const entry = await Domain.findOneAndDelete({
     id,
     ...within(workspaceIds),
   })
+
+  forgetCached(id)
+  return entry
 }
 
 // Issues a new key and invalidates the old one at once. Used when a key has been abused.
@@ -117,6 +130,7 @@ export const rotateIngestKey = async (id, workspaceIds) => {
     { returnDocument: 'after' },
   )
 
+  forgetCached(id)
   return entry == null ? null : response(entry)
 }
 
@@ -134,8 +148,20 @@ export const getUnscoped = async (id) => {
   return entry == null ? null : response(entry)
 }
 
+export const getUnscopedCached = (id) => cachedUnscoped(id)
+
 export const allUnscoped = async () => {
   const entries = await Domain.find({})
 
   return entries.map(response)
+}
+
+// Which of the given domains still exist. The ingest worker drops the events of a domain
+// that was deleted while they waited in the queue.
+export const existingUnscoped = async (ids) => {
+  const entries = await Domain.find({ id: { $in: ids } })
+    .select('id')
+    .lean()
+
+  return new Set(entries.map((entry) => entry.id))
 }

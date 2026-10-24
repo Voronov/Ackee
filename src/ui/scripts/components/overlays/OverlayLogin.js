@@ -124,6 +124,10 @@ const OverlayLogin = (props) => {
           onChange: onInputChange('password'),
         }),
 
+      mode === SIGN_IN &&
+        signup.google === true &&
+        h('a', { className: 'button button--google', href: '/auth/google' }, 'Sign in with Google'),
+
       h(Spacer, { size: 1 }),
     ),
     h(

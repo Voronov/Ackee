@@ -1,0 +1,11 @@
+<clickhouse>
+    <!-- Profile settings belong in users.d. In config.d they would be ignored. -->
+    <profiles>
+        <default>
+            <!-- One query must leave room for the caches and the background merges -->
+            <max_memory_usage>700000000</max_memory_usage>
+            <!-- Two cores for the whole server -->
+            <max_threads>2</max_threads>
+        </default>
+    </profiles>
+</clickhouse>

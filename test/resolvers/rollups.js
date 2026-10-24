@@ -286,6 +286,23 @@ test.serial('deleting a domain deletes its rollups', async (t) => {
   t.true((await ViewRollup.countDocuments({ domainId: t.context.otherDomain.id })) > 0)
 })
 
+// Runs after the tests above: by now the rollups cover every sealed hour
+test.serial('hours after the oldest event in the ingest queue stay unsealed', async (t) => {
+  const now = new Date()
+  const back = new Date(startOfDay(now).getTime() - 3 * day)
+  const pendingSince = new Date(back.getTime() + day + 2 * hour)
+
+  await RollupState.updateOne({ _id: 'records' }, { $set: { until: back } })
+
+  const waiting = await rollUp(now, pendingSince)
+  t.deepEqual(waiting.until, sealedUntil(now, pendingSince))
+  t.true(waiting.until > back)
+  t.true(waiting.until < sealedUntil(now))
+
+  // Once the queue is empty the next run catches up
+  t.deepEqual((await rollUp(now)).until, sealedUntil(now))
+})
+
 test('hours are sealed only after the visits in them are over', (t) => {
   const now = new Date('2026-10-19T00:20:00')
 
@@ -299,4 +316,21 @@ test('hours of the current day are sealed only after the salt changed', (t) => {
   // A visit at 23:50 is over by now and the salt of the 19th anonymizes nothing of the 18th
   t.deepEqual(sealedUntil(now), new Date('2026-10-19T00:00:00'))
   t.deepEqual(sealedUntil(new Date('2026-10-19T18:00:00')), startOfDay(now))
+})
+
+test('an event waiting in the ingest queue holds the seal back to its own time', (t) => {
+  const now = new Date('2026-10-19T00:40:00')
+
+  // Written later, the event at 00:10 still extends visits from 23:40 on
+  t.deepEqual(sealedUntil(now, new Date('2026-10-19T00:10:00')), new Date('2026-10-18T23:00:00'))
+  // An event of the 18th may still anonymize earlier records of that day
+  t.deepEqual(sealedUntil(now, new Date('2026-10-18T22:10:00')), new Date('2026-10-18T00:00:00'))
+})
+
+test('an empty ingest queue does not move the seal', (t) => {
+  const now = new Date('2026-10-19T00:40:00')
+
+  t.deepEqual(sealedUntil(now, null), sealedUntil(now))
+  // A clock ahead in another process cannot seal hours that are not over here
+  t.deepEqual(sealedUntil(now, new Date('2026-10-19T03:00:00')), sealedUntil(now))
 })

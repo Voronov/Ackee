@@ -3,6 +3,7 @@ import { ROLE_OWNER } from '../constants/roles.js'
 import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
 import Membership from '../models/Membership.js'
 import PermanentToken from '../models/PermanentToken.js'
+import Token from '../models/Token.js'
 import User from '../models/User.js'
 import Workspace from '../models/Workspace.js'
 import { hash } from '../utils/password.js'
@@ -189,4 +190,55 @@ export const leave = async (entry) => {
   await Membership.deleteOne({ id: entry.id })
 
   return { status: 'OK', member: member(entry, await User.findOne({ id: entry.userId }).lean()) }
+}
+
+export const byGoogleId = async (googleId) => {
+  const entry = await User.findOne({ googleId })
+
+  return entry == null ? entry : { ...response(entry), googleId: entry.googleId }
+}
+
+// The account behind an address, with its Google link. For signing in with Google only.
+export const withGoogleId = async (email) => {
+  const entry = await User.findOne({ email: String(email).trim().toLowerCase() })
+
+  return entry == null ? entry : { ...response(entry), googleId: entry.googleId }
+}
+
+// Links a Google account. Google has confirmed the address, so the account counts as confirmed too.
+export const linkGoogle = async (id, googleId) => {
+  const current = await User.findOne({ id }).lean()
+  if (current == null) return null
+
+  // A password set before the address was confirmed proves nothing: anyone can register someone
+  // else's address and wait for its owner to confirm it with Google. So it goes, with every
+  // session, and the owner sets a password of their own with "Forgot password".
+  const unconfirmed = current.verified !== true
+
+  const entry = await User.findOneAndUpdate(
+    { id },
+    {
+      $set: { googleId, verified: true, updated: Date.now() },
+      ...(unconfirmed ? { $unset: { password: 1 } } : {}),
+    },
+    { returnDocument: 'after' },
+  )
+  if (unconfirmed) await Token.deleteMany({ userId: id })
+
+  return entry == null ? entry : response(entry)
+}
+
+/*
+ * Registers a user who signed in with Google, with a personal workspace like `add`.
+ *
+ * No password: the account signs in through Google until the owner sets one with "Forgot
+ * password". The address is confirmed, because Google says so (email_verified).
+ */
+export const addFromGoogle = async ({ email, googleId }) => {
+  const user = await User.create({ email, googleId, verified: true })
+  const workspace = await Workspace.create({ title: 'Personal' })
+
+  await Membership.create({ userId: user.id, workspaceId: workspace.id, role: ROLE_OWNER })
+
+  return { user: response(user), workspace: { id: workspace.id, title: workspace.title } }
 }
