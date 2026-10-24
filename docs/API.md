@@ -358,3 +358,48 @@ mutation updateAction($id: ID!, $input: UpdateActionInput!) {
   }
 }
 ```
+
+## Live feed
+
+New views of your domains as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html), outside of GraphQL. Send the token in the `Authorization` header, as for every other request. A token in the URL is ignored: URLs end up in logs.
+
+```
+curl -N -H 'Authorization: Bearer tokenId' https://ackee.example.com/api/live
+curl -N -H 'Authorization: Bearer tokenId' 'https://ackee.example.com/api/live?domainId=f43d8f1c-6a1e-4b1d-9c2e-3b5a7d9e0f12'
+```
+
+Without `domainId` the stream shows every domain you can read reports of. It needs the `REPORTS_READ` permission, like the reports. A browser has to read the stream with `fetch()`, because `EventSource` cannot send the header.
+
+| Status | When                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------- |
+| `200`  | The stream is open                                                                            |
+| `401`  | The token is missing, invalid or expired                                                      |
+| `403`  | You cannot read reports in any workspace                                                      |
+| `404`  | `Unknown domain`: the domain does not exist or is not yours. Also when the feed is turned off |
+| `429`  | Too many open streams, retry after `Retry-After` seconds ([limits](Options.md#live-feed))     |
+
+The stream starts with up to 20 recent views per domain that the server already holds (100 at most, the newest), then sends new views as they are written. It never loads history from the database: use the `RECENT` reports for that.
+
+```
+retry: 5000
+
+id: 1792790883680
+event: visit
+data: {"key":"…","domainId":"f43d8f1c-…","siteLocation":"https://example.com/pricing","siteReferrer":null,"source":null,"siteLanguage":"en","browserName":"Safari","osName":"iOS","deviceManufacturer":"Apple","deviceName":"iPhone","created":"2026-10-24T10:21:23.680Z"}
+
+: ping
+
+event: gap
+data: {}
+
+event: end
+data: {"reason":"unauthorized"}
+```
+
+- `visit` – a new view. `key` identifies it in the stream and nothing else; it is not the id of the record. Fields of views without [personal data](Anonymization.md#personal-data) are `null`.
+- `id` – the creation time in milliseconds. Send it back as `Last-Event-ID` when you reconnect to get only the views you missed, as far as the server still holds them. A late view can come with a smaller `id` than the previous one, so skip views whose `key` you have seen.
+- `: ping` – every 20 seconds, so proxies keep the connection.
+- `gap` – more new views arrived between two polls than one poll reads (200, newest first, every two seconds; about 100 views a second per process). The older of them were skipped.
+- `end` – the stream ends: the token is no longer valid (`unauthorized`), you lost the permission (`forbidden`) or the domain is gone (`unknown_domain`). Do not reconnect with the same token.
+
+Open streams check their token and domains once a minute, so taking access away ends a stream within a minute.

@@ -9,6 +9,7 @@ The following environment variables are used by Ackee. You can also create a `.e
 - [Tracker](#tracker)
 - [Environment](#environment)
 - [Demo mode](#demo-mode)
+- [Live feed](#live-feed)
 - [CORS headers](#cors-headers)
 
 ## Database
@@ -172,6 +173,23 @@ ACKEE_INGEST_CONSUMER=ackee-1
 
 To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
 
+## Live feed
+
+The live feed streams new views to `GET /api/live` (see [API](API.md#live-feed) and [ADR-007](adr/ADR-007-live-feed.md)). It is on by default. Every Ackee process polls MongoDB once every two seconds for all of its open streams together, and only while at least one stream is open.
+
+```
+ACKEE_LIVE_CONNECTIONS=100
+ACKEE_LIVE_WORKSPACE_CONNECTIONS=20
+```
+
+- `ACKEE_LIVE_CONNECTIONS` is the number of open streams per process, `100` by default. `0` turns the live feed off: `/api/live` then answers `404 Not found`.
+- `ACKEE_LIVE_WORKSPACE_CONNECTIONS` is the number of open streams per workspace and process, `20` by default. A stream of all domains takes a slot in every workspace the viewer can read.
+- A request over either limit gets `429 Too Many Requests` with `Retry-After`.
+- Both limits count per process. With more than one Ackee process, each one has its own limits and polls on its own.
+- A view shows up within about two seconds of being written. With the [ingest queue](#ingest-queue) it is written about a second later; a view that waits in the queue for more than 15 seconds never reaches the feed, but it still counts in the reports.
+- Serverless deployments have no live feed: a function lives for one request and cannot keep a stream open.
+- Reverse proxies must not buffer the stream, see [SSL and HTTPS](SSL%20and%20HTTPS.md#live-feed).
+
 ## Demo mode
 
 Set to `true` to enable demo mode. In demo mode, all mutations (creating, updating, deleting) are blocked, and the GraphQL Playground is enabled.
@@ -194,7 +212,7 @@ Scrape it with an `Authorization` header:
 curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
 ```
 
-Exposed series, next to the Node.js defaults:
+Exposed series, next to the Node.js defaults. No label names a workspace or a domain. Live streams are left out of `ackee_http_request_duration_seconds`, as they last for hours.
 
 | Metric                                     | What it answers                                                                                     |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
@@ -206,6 +224,11 @@ Exposed series, next to the Node.js defaults:
 | `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                            |
 | `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                    |
 | `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                |
+| `ackee_live_connections`                   | Open [live](#live-feed) streams of this process                                                     |
+| `ackee_live_watched_domains`               | Domains the live feed of this process polls for                                                     |
+| `ackee_live_polls_total`                   | Queries of the live feed by `outcome` (`ok`, `gap`, `error`); one per tick, however many watch      |
+| `ackee_live_visits_sent_total`             | Views sent to live streams, counted once per stream                                                 |
+| `ackee_live_rejected_total`                | Live streams refused or ended, by `reason`                                                          |
 
 ## CORS headers
 
