@@ -1,5 +1,7 @@
 import test from 'ava'
 
+import { stats as queueStats } from '../../src/queue/redis.js'
+import { stats as workerStats } from '../../src/queue/worker.js'
 import { apolloPlugin, handler, httpMiddleware, isEnabled, registry } from '../../src/utils/metrics.js'
 
 const fakeResponse = () => {
@@ -109,4 +111,49 @@ test.serial('the plugin stays quiet while metrics are off', async (t) => {
   delete process.env.ACKEE_METRICS_TOKEN
 
   t.deepEqual(await apolloPlugin.requestDidStart(), {})
+})
+
+const lineOf = async (series) => (await registry.metrics()).split('\n').find((line) => line.startsWith(`${series} `))
+
+test.serial('without the queue its series are there and stay at zero', async (t) => {
+  delete process.env.ACKEE_INGEST_QUEUE
+
+  t.is(await lineOf('ackee_ingest_queue_length{app="ackee"}'), 'ackee_ingest_queue_length{app="ackee"} 0')
+  t.is(
+    await lineOf('ackee_ingest_queue_oldest_age_seconds{app="ackee"}'),
+    'ackee_ingest_queue_oldest_age_seconds{app="ackee"} 0',
+  )
+  t.truthy(await lineOf('ackee_ingest_queue_processed_total{type="record.touch",app="ackee"}'))
+  t.truthy(await lineOf('ackee_ingest_queue_dropped_total{reason="unknown_record",app="ackee"}'))
+  t.truthy(await lineOf('ackee_ingest_fallback_total{reason="full",app="ackee"}'))
+})
+
+test.serial('the counters of the queue report what the worker and the API counted', async (t) => {
+  const restore = [workerStats.processed, workerStats.dropped, queueStats.fallback].map((counters) => {
+    const before = { ...counters }
+    return () => {
+      for (const key of Object.keys(counters)) delete counters[key]
+      Object.assign(counters, before)
+    }
+  })
+  t.teardown(() => {
+    for (const undo of restore) undo()
+  })
+
+  workerStats.processed['record.create'] = 7
+  workerStats.dropped.invalid = 2
+  queueStats.fallback.unavailable = 3
+
+  t.is(
+    await lineOf('ackee_ingest_queue_processed_total{type="record.create",app="ackee"}'),
+    'ackee_ingest_queue_processed_total{type="record.create",app="ackee"} 7',
+  )
+  t.is(
+    await lineOf('ackee_ingest_queue_dropped_total{reason="invalid",app="ackee"}'),
+    'ackee_ingest_queue_dropped_total{reason="invalid",app="ackee"} 2',
+  )
+  t.is(
+    await lineOf('ackee_ingest_fallback_total{reason="unavailable",app="ackee"}'),
+    'ackee_ingest_fallback_total{reason="unavailable",app="ackee"} 3',
+  )
 })

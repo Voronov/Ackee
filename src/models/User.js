@@ -23,6 +23,10 @@ const schema = new mongoose.Schema({
   password: {
     type: String,
   },
+  // The Google account (its `sub`) this user signs in with, once linked (ACKEE-79)
+  googleId: {
+    type: String,
+  },
   // Registered accounts cannot sign in until the address is confirmed.
   verified: {
     type: Boolean,
@@ -45,5 +49,8 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// One account per Google account. Sparse: most users have none.
+schema.index({ googleId: 1 }, { unique: true, sparse: true })
 
 export default mongoose.model('User', schema)

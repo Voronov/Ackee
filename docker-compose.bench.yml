@@ -5,7 +5,8 @@
 #   docker compose -f docker-compose.bench.yml up -d --build            # MongoDB + Ackee on :3100
 #   docker compose -f docker-compose.bench.yml --profile seed run --rm seed
 #   docker compose -f docker-compose.bench.yml --profile clickhouse up -d clickhouse
-#   docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse down -v
+#   BENCH_INGEST_QUEUE=redis://redis-queue:6379 docker compose -f docker-compose.bench.yml --profile queue up -d
+#   docker compose -f docker-compose.bench.yml --profile seed --profile clickhouse --profile queue down -v
 #
 # The image uses the committed UI bundle in dist/. Reports are measured through the API, so a
 # fresh `npm run build:pre` is optional; it rewrites tracked dist/ files, which are not committed.
@@ -37,6 +38,8 @@ services:
     build: .
     image: ackee-bench-ackee:local
     container_name: ackee-bench-ackee
+    # The consumer name of the ingest queue, kept when the container is recreated
+    hostname: ackee-bench
     ports:
       # 3000 belongs to the development server
       - '127.0.0.1:${BENCH_ACKEE_PORT:-3100}:3000'
@@ -44,6 +47,10 @@ services:
       - ACKEE_MONGODB=mongodb://mongo:27017/ackee
       - ACKEE_USERNAME=${BENCH_ACKEE_USERNAME:-bench}
       - ACKEE_PASSWORD=${BENCH_ACKEE_PASSWORD:-bench}
+      # Off unless set, so the stand measures the direct writes by default (ADR-006)
+      - ACKEE_INGEST_QUEUE=${BENCH_INGEST_QUEUE:-}
+      # Off unless set; with it /metrics shows the length and the age of the queue
+      - ACKEE_METRICS_TOKEN=${BENCH_METRICS_TOKEN:-}
     deploy:
       resources:
         limits:
@@ -116,8 +123,40 @@ services:
       timeout: 3s
       retries: 12
 
+  # Optional, `--profile queue`: the ingest queue, with BENCH_INGEST_QUEUE=redis://redis-queue:6379.
+  # Not for ACKEE_REDIS: the queue is kept on disk, the salt must never get there.
+  redis-queue:
+    image: redis:7.4-alpine
+    container_name: ackee-bench-redis-queue
+    profiles: [queue]
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - ${BENCH_QUEUE_MAXMEMORY:-96mb}
+      # A full queue refuses new events, which Ackee then writes directly, instead of dropping waiting ones
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      # 6379 belongs to the development Redis
+      - '127.0.0.1:${BENCH_QUEUE_PORT:-6391}:6379'
+    volumes:
+      - redis-queue-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${BENCH_QUEUE_MEMORY:-256m}
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   mongo-data:
     name: ackee-bench-mongo-data
   clickhouse-data:
     name: ackee-bench-clickhouse-data
+  redis-queue-data:
+    name: ackee-bench-redis-queue-data

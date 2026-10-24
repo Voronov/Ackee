@@ -10,6 +10,8 @@ The daily salt is never stored anywhere. It avoids that database backups can be 
 
 With [`ACKEE_REDIS`](Options.md#redis) the processes share the salt through Redis. It stays in Redis for 25 hours at most and, with persistence turned off, only in memory.
 
+With the [ingest queue](Options.md#ingest-queue) a view waits in Redis until the worker writes it. The queued view holds the identification and the device fields that the next view of the same visitor would remove, but never the IP address or the user agent it was computed from. It is deleted from the stream as soon as it is written. The queue runs on its own Redis with persistence, though, so its append-only file keeps such views until Redis rewrites the file. Leave that file out of backups and let Redis rewrite it often. The salt stays in the Redis of `ACKEE_REDIS` and never reaches the queue.
+
 Ackee also removes personal data from previous records when a new record with an existing identification gets added. This way the user identifier and other identifiable data is only stored once in the database. Or with other words: Ackee forgets who you are as soon as it sees you, again. It's not possible to reconstruct a browsing history, even on a daily basis.
 
 ## Personal data
