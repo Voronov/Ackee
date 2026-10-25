@@ -8,6 +8,7 @@ import useEventListEntries from '../../api/hooks/events/useEventList.js'
 import useEvents from '../../api/hooks/events/useEvents.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
+import Hint from '../Hint.js'
 import RendererEventChart from '../renderers/RendererEventChart.js'
 import RendererList from '../renderers/RendererList.js'
 
@@ -58,6 +59,10 @@ const cardProps = (event, props) => {
 
 const RouteEvents = (props) => {
   const events = useEvents()
+
+  // Said once the events are loaded, not while they still are
+  if (events.status.isEmpty === true && events.status.isLoading === false)
+    return h(Hint, {}, 'No event yet. Add one under Settings → Events, then report actions of it from your site.')
 
   return events.value.map((event) => {
     return h(CardStatistics, {

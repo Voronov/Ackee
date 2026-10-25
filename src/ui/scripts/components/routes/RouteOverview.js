@@ -13,6 +13,7 @@ import { VIEWS_TYPE_UNIQUE } from '../../../../constants/views.js'
 
 import { MODALS_DURATIONS, MODALS_VIEWS } from '../../constants/modals.js'
 
+import useDomains from '../../api/hooks/domains/useDomains.js'
 import useMergedBrowsers from '../../api/hooks/browsers/useMergedBrowsers.js'
 import useMergedDevices from '../../api/hooks/devices/useMergedDevices.js'
 import useMergedDurations from '../../api/hooks/durations/useMergedDurations.js'
@@ -27,6 +28,7 @@ import useMergedViews from '../../api/hooks/views/useMergedViews.js'
 
 import CardFacts from '../cards/CardFacts.js'
 import CardStatistics from '../cards/CardStatistics.js'
+import Hint from '../Hint.js'
 
 import RendererDurations from '../renderers/RendererDurations.js'
 import RendererList from '../renderers/RendererList.js'
@@ -34,11 +36,20 @@ import RendererReferrers from '../renderers/RendererReferrers.js'
 import RendererViews from '../renderers/RendererViews.js'
 
 const RouteOverview = (props) => {
+  const domains = useDomains()
   useMergedActiveVisitors()
 
   return h(
     Fragment,
     {},
+    domains.status.isEmpty === true &&
+      domains.status.isLoading === false &&
+      h(
+        Fragment,
+        {},
+        h(Hint, {}, 'No domain yet. Add one under Settings → Domains, then paste its embed code into your site.'),
+        h('div', { className: 'content__spacer' }),
+      ),
     h(CardFacts, {
       hook: useMergedFacts,
       hookArgs: [],
