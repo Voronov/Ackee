@@ -81,3 +81,33 @@ test('the pages and the dialogs fit the width of a phone', async ({ page, reques
   expect(await reachingOut(page), 'the dialog of an invitation').toEqual([])
   await expect(page.getByRole('button', { name: 'Send invitation' })).toBeInViewport()
 })
+
+// The lines of the text of an element: the box of a button is as high as its footer, so they are counted
+const lines = (locator) =>
+  locator.evaluate((element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+
+    return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size
+  })
+
+test('the sign-in card keeps its buttons readable on a phone and on a desktop', async ({ page }) => {
+  for (const width of [1280, 480, 390, 360, 320]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/')
+    // The font of the page is wider than the one before it, and the card is measured with it
+    await page.evaluate(() => document.fonts.ready)
+
+    // The main button is never squeezed into more than one line
+    expect(await lines(page.getByRole('button', { name: /sign in →/i })), `Sign In at ${width} px`).toBe(1)
+
+    // The links keep their words together on a phone
+    if (width <= 480) {
+      for (const name of ['Create account', 'Forgot password']) {
+        expect(await lines(page.getByText(name, { exact: true })), `${name} at ${width} px`).toBe(1)
+      }
+    }
+
+    expect(await reachingOut(page), `the sign-in card at ${width} px`).toEqual([])
+  }
+})
