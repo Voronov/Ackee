@@ -24,6 +24,8 @@ export default new Proxy(
         ingestQueue: process.env.ACKEE_INGEST_QUEUE || undefined,
         // Name of this process in the consumer group of the queue, the host name when unset
         ingestConsumer: process.env.ACKEE_INGEST_CONSUMER || undefined,
+        // Touches of one address per minute, 0 is off
+        updateRecordLimit: count(process.env.ACKEE_UPDATE_RECORD_LIMIT, 3000),
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,

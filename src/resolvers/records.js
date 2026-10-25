@@ -6,8 +6,10 @@ import { recordCreate, recordTouch } from '../queue/messages.js'
 import * as ingestQueue from '../queue/redis.js'
 import matchesOrigin from '../utils/matchesOrigin.js'
 import identifier from '../utils/identifier.js'
+import config from '../utils/config.js'
 import KnownError from '../utils/KnownError.js'
 import normalizeUrl from '../utils/normalizeUrl.js'
+import touchLimit from '../utils/touchLimit.js'
 import validated from '../utils/validated.js'
 
 const normalizeSiteLocation = (siteLocation) => {
@@ -75,6 +77,8 @@ const enqueueRecord = async (data) => {
   return entry
 }
 
+const withinTouchLimit = touchLimit()
+
 export default {
   Mutation: {
     createRecord: async (parent, { domainId, input }, { ip, userAgent, isIgnored, ingestKey, origin }) => {
@@ -122,13 +126,15 @@ export default {
         payload: entry,
       }
     },
-    updateRecord: async (parent, { id }, { isIgnored }) => {
+    updateRecord: async (parent, { id }, { isIgnored, ip }) => {
       // Ignore your own records when logged in
       if (isIgnored === true) {
         return {
           success: true,
         }
       }
+
+      if (withinTouchLimit(ip ?? '', config.updateRecordLimit) === false) throw new KnownError('Too many requests')
 
       if (ingestQueue.isEnabled() === true) {
         const now = new Date()
