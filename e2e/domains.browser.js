@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { createAccount, graphql } from './_helpers.js'
+import { createAccount, createDomain, graphql, sendView } from './_helpers.js'
 
 const addDomain = async (page, title) => {
   await page.getByRole('button', { name: 'New domain' }).click()
@@ -48,4 +48,17 @@ test('two domains of one account are listed side by side', async ({ page, reques
       (await graphql(page, '{ domains { title } }')).data.domains.map((domain) => domain.title).toSorted(),
     )
     .toEqual(['first.test', 'second.test'])
+})
+
+test('a deleted domain takes no more views', async ({ page, request }) => {
+  await createAccount(page, request, 'domains-gone')
+  const domain = await createDomain(page, 'gone.test')
+
+  expect((await sendView(request, domain, '/')).errors).toBeUndefined()
+  await graphql(page, 'mutation($id: ID!) { deleteDomain(id: $id) { success } }', { id: domain.id })
+
+  expect((await sendView(request, domain, '/')).errors[0].message).toBe('Unknown domain')
+  expect(
+    (await graphql(page, 'query($id: ID!) { domain(id: $id) { id } }', { id: domain.id })).data?.domain ?? null,
+  ).toBeNull()
 })
