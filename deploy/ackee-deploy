@@ -39,7 +39,7 @@ if [ "$STAGE" = dev ]; then
   cp docker-compose.yml "docker-compose.yml.bak-$(date +%Y%m%d-%H%M%S)"
   mv docker-compose.yml.new docker-compose.yml
   # Keep the five newest copies.
-  find . -maxdepth 1 -name 'docker-compose.yml.bak-*' | sort | head -n -5 | xargs -r rm --
+  find . -maxdepth 1 -name 'docker-compose.yml.bak-*' | sort -r | tail -n +6 | xargs -r rm --
 fi
 
 # The tag is kept in .env, so a restart by hand brings back the same build.
