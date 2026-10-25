@@ -32,6 +32,20 @@
 	&__footer {
 		display: flex;
 		border-top: 1px solid $black;
+
+		// On a phone the links keep their words together and the primary button goes below them
+		// (the three side by side are wider than the card, and the primary one was squeezed)
+		@media (max-width: 480px) {
+			flex-wrap: wrap;
+
+			.card__button:not(.card__button--primary) {
+				white-space: nowrap;
+			}
+
+			.card__button--primary {
+				border-top: 1px solid $black;
+			}
+		}
 	}
 
 	&__button {
