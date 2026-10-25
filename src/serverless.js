@@ -18,7 +18,8 @@ if (config.ingestQueue != null) {
   throw new Error('ACKEE_INGEST_QUEUE is not supported in serverless deployments')
 }
 
-connect(config.dbUrl).then(assignDefaultWorkspace)
+// Settles when the connection is up and the startup migration is done
+export const ready = connect(config.dbUrl).then(assignDefaultWorkspace)
 
 const apolloServer = createApolloServer()
 await apolloServer.start()
