@@ -70,9 +70,10 @@ export const runReport = async (account, propertyId, request, { fresh = false } 
       throw new Error(json.error?.message ?? `Google Analytics answered ${response.status}`)
     }
 
+    // A report without dimensions has no dimensionValues on its row
     for (const row of json.rows ?? []) {
       rows.push({
-        dimensions: row.dimensionValues.map((value) => value.value),
+        dimensions: (row.dimensionValues ?? []).map((value) => value.value),
         metrics: row.metricValues.map((value) => Number(value.value)),
       })
     }
