@@ -181,15 +181,24 @@ jobs:
 
       # The same command as on a laptop: Ackee built from this checkout, MongoDB, Mailpit and
       # Playwright with Chromium, all in containers.
-      - name: Register, confirm and sign in through a real browser
+      - name: Run the browser tests
         run: docker compose -f e2e/docker-compose.yml run --rm --build tests
 
       - name: Logs of the stand
         if: failure()
         run: docker compose -f e2e/docker-compose.yml logs ackee mailpit
 
+      # The result as a table on the page of the run, whatever the outcome
+      - name: Summary of the run
+        if: always()
+        run: |
+          if [ -f test-results/results.json ]; then
+            node .github/scripts/browser-test-summary.js test-results/results.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The report with a video of every test is kept for every run, not only for a failed one
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: browser-tests
           path: |
@@ -197,6 +206,28 @@ jobs:
             test-results/
           retention-days: 14
 
+      # The report of develop as a page, once GitHub Pages is on (repository variable E2E_PAGES=true)
+      - uses: actions/upload-pages-artifact@v3
+        if: always() && github.ref == 'refs/heads/develop' && vars.E2E_PAGES == 'true'
+        with:
+          path: playwright-report/
+
       - name: Stop the stand
         if: always()
         run: docker compose -f e2e/docker-compose.yml down -v
+
+  pages:
+    name: 'Report page'
+    needs: e2e
+    if: ${{ !cancelled() && github.ref == 'refs/heads/develop' && vars.E2E_PAGES == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

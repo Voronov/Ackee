@@ -48,6 +48,8 @@ services:
     environment:
       E2E_URL: http://ackee.localhost:3000
       E2E_RESOLVE: ackee.localhost ackee
+      # Where the tests themselves, not the browser, reach Ackee: only the browser knows ackee.localhost
+      E2E_API: http://ackee:3000
       E2E_MAILPIT: http://mailpit:8025
       CI: ${CI:-}
     command: sh -c "npm ci --ignore-scripts --no-audit --no-fund && npx playwright test"
