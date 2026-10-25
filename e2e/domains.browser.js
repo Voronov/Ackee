@@ -62,3 +62,34 @@ test('a deleted domain takes no more views', async ({ page, request }) => {
     (await graphql(page, 'query($id: ID!) { domain(id: $id) { id } }', { id: domain.id })).data?.domain ?? null,
   ).toBeNull()
 })
+
+test('the dialog says when a title is a name and not a host name', async ({ page, request }) => {
+  await createAccount(page, request, 'domains-label')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'New domain' }).click()
+
+  const note = page.getByText(/not a host name/i)
+  const title = page.getByPlaceholder('Domain title')
+
+  await title.fill('my shop')
+  await expect(note).toBeVisible()
+
+  await title.fill('shop.test')
+  await expect(note).toHaveCount(0)
+
+  await title.fill('shop test.com')
+  await expect(note).toBeVisible()
+})
+
+test('the same title twice is refused with the reason', async ({ page, request }) => {
+  await createAccount(page, request, 'domains-twice')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await addDomain(page, 'shop.test')
+
+  await page.getByRole('button', { name: 'New domain' }).click()
+  await page.getByPlaceholder('Domain title').fill('SHOP.test')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+
+  await expect(page.getByText('A domain with this title already exists')).toBeVisible()
+  await expect.poll(async () => (await graphql(page, '{ domains { id } }')).data.domains.length).toBe(1)
+})
