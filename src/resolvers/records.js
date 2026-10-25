@@ -63,13 +63,14 @@ const store = async (data) => {
 }
 
 // The tracker is answered with the id and the dates the worker will store (ADR-006). When the
-// queue cannot take the event, it is written at once, as without the queue.
+// queue cannot take the event, it is written at once the way the worker writes it: the worker
+// may already have stored a newer view of the visitor, or this one through a late XADD.
 const enqueueRecord = async (data) => {
   const now = new Date()
   const record = { ...data, id: uuid(), created: now, updated: now }
   const entry = await validated(records.validate(record))
 
-  if ((await ingestQueue.enqueue(recordCreate(record))) === false) await store(record)
+  if ((await ingestQueue.enqueue(recordCreate(record))) === false) await validated(records.addOnce(record))
 
   return entry
 }

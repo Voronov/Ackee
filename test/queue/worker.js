@@ -4,10 +4,10 @@ import mongoose from 'mongoose'
 import { randomUUID as uuid } from 'node:crypto'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-import { INGEST_MAX_DELIVERIES, INGEST_VERSION, RECORD_CREATE, RECORD_TOUCH } from '../../src/constants/ingest.js'
+import { INGEST_VERSION, RECORD_CREATE, RECORD_TOUCH } from '../../src/constants/ingest.js'
 import * as records from '../../src/database/records.js'
 import { decode, PoisonError, recordCreate, recordTouch } from '../../src/queue/messages.js'
-import { drain, processBatch, start, stats } from '../../src/queue/worker.js'
+import { createDrop, drain, processBatch, start, stats } from '../../src/queue/worker.js'
 import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
 import connect from '../../src/utils/connect.js'
@@ -136,6 +136,31 @@ const delta = (counters, before, key) => (counters[key] ?? 0) - (before[key] ?? 
 
 const snapshot = () => ({ processed: { ...stats.processed }, dropped: { ...stats.dropped } })
 
+// Collects what the worker logs as a warning or an error, without printing it
+const captureLogs = () => {
+  const lines = []
+  const { warn, error } = signale
+
+  signale.warn = (message) => lines.push(message)
+  signale.error = (message) => lines.push(message)
+
+  return {
+    lines,
+    restore: () => {
+      signale.warn = warn
+      signale.error = error
+    },
+  }
+}
+
+// Hands the batch out the given number of times, as the claims of a live worker would
+const deliver = async (queue, batch, times, drop) => {
+  for (let delivery = 1; delivery <= times; delivery++) {
+    await processBatch(batch, queue, drop)
+    batch = await queue.claim('worker', 0, batch.length)
+  }
+}
+
 // Record.create fails as it does while MongoDB is away, for the given records only
 const failInsertsOf = (ids) => {
   const insertOne = Record.collection.insertOne.bind(Record.collection)
@@ -237,6 +262,16 @@ test.serial('validates a record without storing it', async (t) => {
 
   const error = await t.throwsAsync(records.validate({ ...data, siteLocation: 'not a url' }))
   t.is(error.name, 'ValidationError')
+})
+
+// The API writes a view itself when its XADD timed out, and the XADD may still have gone through
+test.serial('a view stored once already is no error and stays one record', async (t) => {
+  const data = view(t.context.domain.id)
+
+  await records.addOnce(data)
+  await records.addOnce(data)
+
+  t.is(await Record.countDocuments({ id: data.id }), 1)
 })
 
 test.serial('stores a view with the id and the dates from the message', async (t) => {
@@ -396,20 +431,96 @@ test.serial('a touch of a record that never comes is dropped after the last deli
   t.is(delta(stats.processed, before.processed, RECORD_TOUCH), 0)
 })
 
-test.serial('the touch is kept for exactly the allowed deliveries', async (t) => {
+test.serial('a touch without its record waits silently for two deliveries and is dropped on the third', async (t) => {
   const { queue } = t.context
+  const before = snapshot()
+  const logs = captureLogs()
+  t.teardown(logs.restore)
+  const drop = createDrop()
 
   queue.add(recordTouch(uuid(), Date.now()))
   let batch = await queue.read('worker', 1)
 
-  for (let delivery = 1; delivery < INGEST_MAX_DELIVERIES; delivery++) {
-    await processBatch(batch, queue)
+  for (const delivery of [1, 2]) {
+    await processBatch(batch, queue, drop)
     t.is(queue.entries.length, 1, `delivery ${delivery}`)
     batch = await queue.claim('worker', 0, 1)
   }
 
-  await processBatch(batch, queue)
+  t.deepEqual(logs.lines, [])
+  t.is(delta(stats.dropped, before.dropped, 'unknown_record'), 0)
+
+  await processBatch(batch, queue, drop)
+  logs.restore()
+
   t.is(queue.entries.length, 0)
+  t.is(delta(stats.dropped, before.dropped, 'unknown_record'), 1)
+  t.is(logs.lines.length, 1)
+  t.regex(logs.lines[0], /unknown_record\): 1 since the last such line/)
+})
+
+test.serial('touches of unknown records are each counted but logged once a minute', async (t) => {
+  const { queue } = t.context
+  const before = snapshot()
+  const logs = captureLogs()
+  t.teardown(logs.restore)
+  let now = Date.now()
+  const drop = createDrop(() => now)
+
+  for (let index = 0; index < 10; index++) queue.add(recordTouch(uuid(), Date.now()))
+  await deliver(queue, await queue.read('worker', 10), 3, drop)
+
+  t.is(queue.entries.length, 0)
+  t.is(delta(stats.dropped, before.dropped, 'unknown_record'), 10)
+  t.is(logs.lines.length, 1)
+
+  // Not something a request to the API can make, so it is logged at once
+  queue.add({ ...recordTouch(uuid(), Date.now()), v: '2' })
+  await processBatch(await queue.read('worker', 1), queue, drop)
+  t.is(logs.lines.length, 2)
+  t.regex(logs.lines[1], /unknown_version/)
+
+  // The next line a minute later tells how many were dropped without one
+  now += minute
+  queue.add(recordTouch(uuid(), Date.now()))
+  await deliver(queue, await queue.read('worker', 1), 3, drop)
+  logs.restore()
+
+  t.is(delta(stats.dropped, before.dropped, 'unknown_record'), 11)
+  t.is(logs.lines.length, 3)
+  t.regex(logs.lines[2], /unknown_record\): 10 since the last such line/)
+})
+
+test.serial('a touch that overtook its create through a redelivery is written', async (t) => {
+  const { queue, domain } = t.context
+  const before = snapshot()
+  const logs = captureLogs()
+  t.teardown(logs.restore)
+  const data = view(domain.id)
+  const touched = data.created + 15_000
+
+  // The create went to a consumer that died, the touch after it to this one
+  queue.add(recordCreate(data))
+  queue.add(recordTouch(data.id, touched))
+  await queue.read('dead', 1)
+  await processBatch(await queue.read('worker', 1), queue)
+  t.is(queue.pending(), 2)
+
+  // Both are claimed back in the order of the stream, on their second delivery
+  const claimed = await queue.claim('worker', 0, 10)
+  t.deepEqual(
+    claimed.map((entry) => entry.fields.type),
+    [RECORD_CREATE, RECORD_TOUCH],
+  )
+  t.is(await queue.deliveries(claimed[1].id), 2)
+  t.is(await processBatch(claimed, queue), undefined)
+  logs.restore()
+
+  t.deepEqual((await Record.findOne({ id: data.id }).lean()).updated, new Date(touched))
+  t.is(queue.entries.length, 0)
+  t.is(delta(stats.processed, before.processed, RECORD_TOUCH), 1)
+  t.is(delta(stats.dropped, before.dropped, 'unknown_record'), 0)
+  t.deepEqual(logs.lines, [])
 })
 
 test.serial('drops poisoned messages and goes on with the rest of the batch', async (t) => {
@@ -659,16 +770,6 @@ const failDomainLookups = () => {
   return () => delete Domain.find
 }
 
-// Collects what the worker logs as an error, without printing it
-const captureErrors = () => {
-  const lines = []
-  const original = signale.error
-
-  signale.error = (message) => lines.push(message)
-
-  return { lines, restore: () => (signale.error = original) }
-}
-
 test.serial('MongoDB away before the batch is checked acknowledges nothing', async (t) => {
   const { queue, domain } = t.context
 
@@ -691,7 +792,7 @@ test.serial('MongoDB away before the batch is checked acknowledges nothing', asy
 
 test.serial('a lasting outage is logged as a failed batch, once and not on every retry', async (t) => {
   const { queue, domain } = t.context
-  const errors = captureErrors()
+  const errors = captureLogs()
   t.teardown(errors.restore)
 
   queue.add(recordCreate(view(domain.id)))
@@ -715,7 +816,7 @@ test.serial('a lasting outage is logged as a failed batch, once and not on every
 
 test.serial('a new outage after the worker recovered is logged at once', async (t) => {
   const { queue, domain } = t.context
-  const errors = captureErrors()
+  const errors = captureLogs()
   t.teardown(errors.restore)
 
   const worker = start(queue, { block: 5, retryDelay: 5 })

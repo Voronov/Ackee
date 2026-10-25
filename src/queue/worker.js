@@ -63,27 +63,7 @@ class UnknownRecordError extends Error {
 }
 
 const handlers = {
-  [RECORD_CREATE]: async (data) => {
-    try {
-      await records.add(data)
-    } catch (error) {
-      // Stored by an earlier delivery that died before its ack
-      if (error.code !== 11000) throw error
-    }
-
-    // Without a clientId the filter would match every record that has none
-    if (data.clientId == null) return
-
-    // A redelivery claimed back after a minute can arrive after a newer view of the same
-    // visitor. That newer view keeps the visitor, the late one is forgotten instead.
-    if ((await records.hasNewer(data.clientId, data.id, data.created)) === true) {
-      await records.anonymizeOne(data.id)
-      return
-    }
-
-    // Repeated on a redelivery too: the earlier delivery may have died between the two writes
-    await records.anonymize(data.clientId, data.id, data.created)
-  },
+  [RECORD_CREATE]: (data) => records.addOnce(data),
   [RECORD_TOUCH]: async ({ id, updated }) => {
     const entry = await records.update(id, updated)
 
@@ -93,21 +73,36 @@ const handlers = {
   },
 }
 
-const drop = (entry, error) => {
-  count(stats.dropped, error.reason)
-  signale.error(`Dropping ingest message ${entry.id} (${error.reason}): ${error.message}`)
+// Drops a message for good and counts it. Made once per worker run, so the log is limited per
+// process, as the outages of its loop are.
+export const createDrop = (now = Date.now) => {
+  // The updateRecord mutation needs no sign-in, so anyone can send touches of made-up ids.
+  // They are summed up in a line a minute; the other reasons are bugs or foreign entries.
+  const unknownSometimes = sometimes(minute, now)
+  let unknown = 0
+
+  return (entry, error) => {
+    count(stats.dropped, error.reason)
+
+    if (error.reason !== DROP_UNKNOWN_RECORD) {
+      signale.error(`Dropping ingest message ${entry.id} (${error.reason}): ${error.message}`)
+      return
+    }
+
+    unknown++
+    unknownSometimes(DROP_UNKNOWN_RECORD, () => {
+      signale.error(
+        `Dropped ingest touches of unknown records (${DROP_UNKNOWN_RECORD}): ${unknown} since the last such line, the latest ${entry.id}: ${error.message}`,
+      )
+      unknown = 0
+    })
+  }
 }
 
-// True when the entry is done with: it is dropped after its last allowed delivery
-const givesUp = async (entry, error, adapter) => {
-  const deliveries = await adapter.deliveries(entry.id)
-
-  if (deliveries < INGEST_MAX_DELIVERIES) {
-    signale.warn(
-      `Ingest message ${entry.id} failed on delivery ${deliveries} of ${INGEST_MAX_DELIVERIES}: ${error.message}`,
-    )
-    return false
-  }
+// True when the entry is done with: it is dropped on its last allowed delivery. Until then it
+// waits silently, a line per delivery would let anyone flood the log.
+const givesUp = async (entry, error, adapter, drop) => {
+  if ((await adapter.deliveries(entry.id)) < INGEST_MAX_DELIVERIES) return false
 
   drop(entry, new PoisonError(DROP_UNKNOWN_RECORD, error.message))
   return true
@@ -144,7 +139,7 @@ const handle = async ({ entry, message, error }, existing) => {
 // Entries are acknowledged only after they are written, so a crash before the ack
 // redelivers and never loses. An outage stops the batch at once: what was written before it
 // is acknowledged, the rest stays pending and comes back first. Returns the outage, if any.
-export const processBatch = async (entries, adapter) => {
+export const processBatch = async (entries, adapter, drop = createDrop()) => {
   const decoded = decodeAll(entries)
   let existing
 
@@ -173,7 +168,7 @@ export const processBatch = async (entries, adapter) => {
       }
 
       if (error instanceof UnknownRecordError) {
-        if ((await givesUp(item.entry, error, adapter)) === true) done.push(item.entry.id)
+        if ((await givesUp(item.entry, error, adapter, drop)) === true) done.push(item.entry.id)
         continue
       }
 
@@ -189,7 +184,7 @@ export const processBatch = async (entries, adapter) => {
 
 // Stale entries first, they are older than everything not yet handed out. Waiting for new
 // ones would only hold the stale ones back.
-const round = async (adapter, { consumer, count, block, minIdle }) => {
+const round = async (adapter, { consumer, count, block, minIdle }, drop) => {
   const stale = await adapter.claim(consumer, minIdle, count)
   const room = count - stale.length
   const fresh = room > 0 ? await adapter.read(consumer, room, stale.length === 0 ? block : null) : []
@@ -197,20 +192,20 @@ const round = async (adapter, { consumer, count, block, minIdle }) => {
 
   if (entries.length === 0) return { size: 0 }
 
-  return { size: entries.length, outage: await processBatch(entries, adapter) }
+  return { size: entries.length, outage: await processBatch(entries, adapter, drop) }
 }
 
 // Whatever this consumer was handed and never acknowledged: the batch an outage stopped, or
 // the entries of its previous run under the same name. Read once, oldest first, before
 // anything new, instead of waiting INGEST_MIN_IDLE for them. Returns the outage, if any.
-const recover = async (adapter, { consumer, count }) => {
+const recover = async (adapter, { consumer, count }, drop) => {
   let after = '0'
 
   for (;;) {
     const entries = await adapter.own(consumer, count, after)
     if (entries.length === 0) return
 
-    const outage = await processBatch(entries, adapter)
+    const outage = await processBatch(entries, adapter, drop)
     if (outage != null) return outage
 
     // A touch still waiting for its create stays pending, the cursor steps over it
@@ -248,6 +243,7 @@ const defaults = () => ({
 export const start = (adapter, options = {}) => {
   const settings = { ...defaults(), ...options }
   const controller = new AbortController()
+  const drop = createDrop()
 
   // The first line of an outage at once, then one a minute: it is retried every retryDelay
   const errorSometimes = sometimes(minute)
@@ -273,7 +269,8 @@ export const start = (adapter, options = {}) => {
           await prune(adapter, settings)
         }
 
-        const outage = recovering === true ? await recover(adapter, settings) : (await round(adapter, settings)).outage
+        const outage =
+          recovering === true ? await recover(adapter, settings, drop) : (await round(adapter, settings, drop)).outage
 
         if (outage == null) {
           // Only a round, not the recovery, proves the outage over: with nothing pending of
@@ -310,11 +307,12 @@ export const start = (adapter, options = {}) => {
 // it out, so a test or a script sees the failure.
 export const drain = async (adapter, options = {}) => {
   const settings = { ...defaults(), block: null, minIdle: 0, ...options }
+  const drop = createDrop()
 
   await adapter.createGroup()
 
   for (;;) {
-    const { size, outage } = await round(adapter, settings)
+    const { size, outage } = await round(adapter, settings, drop)
 
     if (outage != null) throw outage
     if (size === 0) return

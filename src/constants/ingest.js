@@ -18,8 +18,11 @@ export const INGEST_MIN_IDLE = 60 * second
 // How long the worker waits after MongoDB or Redis failed, before it tries the same messages again
 export const INGEST_RETRY_DELAY = 5 * second
 
-// A touch may reach a worker before its create only on a redelivery, so it gets a few chances
-export const INGEST_MAX_DELIVERIES = 5
+// The delivery on which a touch without its record is dropped. Its create is earlier in the
+// stream, so it is overtaken only while stuck with a dead consumer; XAUTOCLAIM hands both back
+// after INGEST_MIN_IDLE in id order, the create first. The third is a spare for more consumers
+// (ACKEE-19). A touch of a made-up id stays in Redis about 2 minutes.
+export const INGEST_MAX_DELIVERIES = 3
 
 // Domains on the ingest path are read from a cache, so a heavy report cannot slow the tracker down
 export const INGEST_DOMAIN_TTL = 30 * second
