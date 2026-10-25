@@ -12,6 +12,7 @@ import useUpdateDomain from '../../api/hooks/domains/useUpdateDomain.js'
 import { MODALS_DOMAIN_GA4, MODALS_DOMAIN_TRACKING } from '../../constants/modals.js'
 import useInputs from '../../hooks/useInputs.js'
 import commonModalProps from '../../utils/commonModalProps.js'
+import isLabel from '../../utils/isLabel.js'
 import shortId from '../../utils/shortId.js'
 
 const ModalDomainEdit = (props) => {
@@ -75,6 +76,13 @@ const ModalDomainEdit = (props) => {
         value: inputs.title,
         onChange: onInputChange('title'),
       }),
+
+      isLabel(inputs.title) &&
+        h(
+          Text,
+          { type: 'p', className: 'color-secondary' },
+          'This is not a host name like example.com, so the origin of visits cannot be checked against it, even in strict mode.',
+        ),
 
       h(Label, { htmlFor: idId }, 'Domain id'),
 

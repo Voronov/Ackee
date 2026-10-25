@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto'
 import { INGEST_DOMAIN_TTL } from '../constants/ingest.js'
 import Domain from '../models/Domain.js'
 import cachedLookup from '../utils/cachedLookup.js'
+import KnownError from '../utils/KnownError.js'
 import sortByProperty from '../utils/sortByProperty.js'
 
 const newIngestKey = () => randomBytes(16).toString('base64url')
@@ -48,7 +49,21 @@ const within = (scope) =>
 const cachedUnscoped = cachedLookup((id) => getUnscoped(id), INGEST_DOMAIN_TTL)
 const forgetCached = (id) => cachedUnscoped.forget(id)
 
+// Two domains of a workspace with one title cannot be told apart in the lists and in the
+// select of the overview. The case does not tell them apart either.
+const titleTaken = (workspaceId, title, exceptId) =>
+  Domain.exists({ workspaceId, title: title.trim(), ...(exceptId == null ? {} : { id: { $ne: exceptId } }) }).collation(
+    {
+      locale: 'en',
+      strength: 2,
+    },
+  )
+
+const TITLE_TAKEN = 'A domain with this title already exists'
+
 export const add = async (data, workspaceId) => {
+  if ((await titleTaken(workspaceId, data.title)) != null) throw new KnownError(TITLE_TAKEN)
+
   const enhance = (entry) => {
     return entry == null ? entry : response(entry)
   }
@@ -84,6 +99,11 @@ export const get = async (id, workspaceIds) => {
 }
 
 export const update = async (id, data, workspaceIds) => {
+  const current = await Domain.findOne({ id, ...within(workspaceIds) })
+
+  if (current != null && (await titleTaken(current.workspaceId, data.title, id)) != null)
+    throw new KnownError(TITLE_TAKEN)
+
   const enhance = (entry) => {
     forgetCached(id)
     return entry == null ? entry : response(entry)

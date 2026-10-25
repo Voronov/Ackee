@@ -13,6 +13,7 @@ const schema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
+    trim: true,
     maxlength: 500,
   },
   // Sent by the tracker alongside the domain id.
