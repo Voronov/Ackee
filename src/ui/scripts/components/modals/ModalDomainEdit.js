@@ -119,24 +119,33 @@ const ModalDomainEdit = (props) => {
         copyOnFocus: true,
       }),
 
+      // Each on a line of its own. Plain buttons: LinkItem would submit the form of this dialog.
       h(
-        'button',
-        {
-          type: 'button',
-          className: 'link',
-          onClick: () => props.addModal(MODALS_DOMAIN_TRACKING, { id: props.id, title: props.title }),
-        },
-        'Tracking rules →',
+        'div',
+        { className: 'linkItem' },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'link',
+            onClick: () => props.addModal(MODALS_DOMAIN_TRACKING, { id: props.id, title: props.title }),
+          },
+          'Tracking rules →',
+        ),
       ),
 
       h(
-        'button',
-        {
-          type: 'button',
-          className: 'link',
-          onClick: () => props.addModal(MODALS_DOMAIN_GA4, { id: props.id, title: props.title }),
-        },
-        'Google Analytics →',
+        'div',
+        { className: 'linkItem' },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'link',
+            onClick: () => props.addModal(MODALS_DOMAIN_GA4, { id: props.id, title: props.title }),
+          },
+          'Google Analytics →',
+        ),
       ),
 
       h(Spacer, { size: 0.5 }),
