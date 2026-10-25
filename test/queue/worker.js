@@ -819,6 +819,14 @@ test.serial('a new outage after the worker recovered is logged at once', async (
   const errors = captureLogs()
   t.teardown(errors.restore)
 
+  // Counts the reads of the worker, one per round
+  let reads = 0
+  const read = queue.read
+  queue.read = (...args) => {
+    reads++
+    return read.apply(queue, args)
+  }
+
   const worker = start(queue, { block: 5, retryDelay: 5 })
   t.teardown(worker.stop)
 
@@ -830,8 +838,10 @@ test.serial('a new outage after the worker recovered is logged at once', async (
     await waitFor(() => errors.lines.length === outage + 1)
     restore()
     await waitFor(async () => (await Record.countDocuments({ id: data.id })) === 1)
-    // A round with nothing to write, so the worker is back to normal
-    await sleep(30)
+    // A round with nothing to write, so the worker is back to normal. Waited for, not timed:
+    // the second read starts only after the round before it has ended.
+    const before = reads
+    await waitFor(() => reads >= before + 2)
   }
 
   await worker.stop()

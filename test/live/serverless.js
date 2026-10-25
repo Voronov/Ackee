@@ -1,17 +1,16 @@
 import test from 'ava'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
-import { setTimeout as sleep } from 'node:timers/promises'
 
 import { job as saltJob } from '../../src/utils/salt.js'
 
 const mongoDb = await MongoMemoryServer.create()
 
+let ready
+
 test.after.always(async () => {
-  // The module also runs a migration once connected. Nothing tells when it is done, and
-  // disconnecting under it would reject it.
-  await mongoose.connection.asPromise()
-  await sleep(1000)
+  // The module also runs a migration once connected, and disconnecting under it would reject it
+  await ready
   await mongoose.disconnect()
   await mongoDb.stop()
   saltJob.cancel()
@@ -20,7 +19,8 @@ test.after.always(async () => {
 test('a serverless deployment says that it has no live feed, so the UI does not retry', async (t) => {
   // The module connects on import, so the address has to be there first
   process.env.ACKEE_MONGODB = mongoDb.getUri()
-  const { handler } = await import('../../src/serverless.js')
+  const { handler, ready: started } = await import('../../src/serverless.js')
+  ready = started
 
   const response = await handler(new Request('http://localhost/api/live', { headers: { Authorization: 'Bearer x' } }))
 
