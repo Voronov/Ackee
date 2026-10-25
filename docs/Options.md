@@ -173,6 +173,14 @@ ACKEE_INGEST_CONSUMER=ackee-1
 
 To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
 
+## Touch limit
+
+```
+ACKEE_UPDATE_RECORD_LIMIT=3000
+```
+
+`updateRecord`, the call a tracker makes to keep a view alive, needs no sign-in, so anyone can send it for made-up ids. One address may send this many per minute; the next ones are answered with an error until the minute is over. The default leaves room for a whole office behind one address. `0` turns the limit off. The count is kept per process.
+
 ## Live feed
 
 The live feed streams new views to `GET /api/live` (see [API](API.md#live-feed) and [ADR-007](adr/ADR-007-live-feed.md)). It is on by default. Every Ackee process polls MongoDB once every two seconds for all of its open streams together, and only while at least one stream is open.
