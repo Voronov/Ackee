@@ -31,6 +31,10 @@ export const emailedLink = async (request, address, pattern) => {
   return link
 }
 
+// Opening mail links is limited per address, see createAccount
+export const ownAddress = () =>
+  `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250) + 1}`
+
 export const confirmationLink = (request, address) =>
   emailedLink(request, address, /https?:\/\/\S+\/verify\?token=[\w-]+/)
 
@@ -57,9 +61,7 @@ export const createAccount = async (page, request, name) => {
 
   // Opening links is limited to 30 a quarter of an hour for one address (ACKEE-65). Every test
   // comes from its own, as if from behind a proxy.
-  const own = () =>
-    `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250) + 1}`
-  await page.context().setExtraHTTPHeaders({ 'X-Forwarded-For': own() })
+  await page.context().setExtraHTTPHeaders({ 'X-Forwarded-For': ownAddress() })
   await page.goto(await confirmationLink(request, address))
   await expect(page.getByRole('heading', { name: 'Address confirmed' })).toBeVisible()
   await page.context().setExtraHTTPHeaders({})
@@ -102,8 +104,8 @@ export const createDomain = async (page, title) => {
 
 // One view as the tracker sends it. Returns the GraphQL answer. The visitor is told by the
 // address and the browser, so another visitor number is another browser version.
-export const sendView = async (request, domain, path, { headers = {}, referrer, visitor = 0 } = {}) => {
-  const response = await request.post(`${API}/api`, {
+export const sendView = async (request, domain, path, { headers = {}, referrer, visitor = 0, api = API } = {}) => {
+  const response = await request.post(`${api}/api`, {
     headers: {
       'User-Agent': VISITOR.replace('141.0.0.0', `${141 + visitor}.0.0.0`),
       'Origin': `http://${domain.title}`,
