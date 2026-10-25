@@ -71,3 +71,11 @@ docker rm -f ackee-test-redis
 `build` (відкат на давній тег), перевіряється лише на відповідь API – з попередженням у лозі.
 
 Вручну: `.github/scripts/smoke.sh https://dev.ackee2.varlex.app sha-1a2b3c4`.
+
+### Compose на сервері
+
+`/usr/local/bin/ackee-deploy` перед кожним деплоєм сам завантажує `deploy/docker-compose.yml` того ж коміту (dev) або тега (live), перевіряє його `docker compose config -q`, кладе стару копію поруч як `docker-compose.yml.bak-<дата>` і підміняє файл. Якщо завантаження чи перевірка не вдалися, деплой зупиняється, а працюючий стенд лишається як був. Ключ деплою, як і раніше, обмежений `command=`, клієнт нічого не передає.
+
+Скрипт на сервері оновлюється вручну (один раз): `sudo install -m 755 deploy/ackee-deploy /usr/local/bin/ackee-deploy`. Нові змінні в `.env` (ключі, токени) теж вручну: compose їх лише читає.
+
+Чекліст, якщо скрипт на сервері старий: скопіювати `deploy/docker-compose.yml` у `/opt/ackee`, `docker compose config -q`, `docker compose up -d`.
