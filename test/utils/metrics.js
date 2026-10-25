@@ -157,3 +157,29 @@ test.serial('the counters of the queue report what the worker and the API counte
     'ackee_ingest_fallback_total{reason="unavailable",app="ackee"} 3',
   )
 })
+
+test.serial('the series of the live feed are there before the first stream', async (t) => {
+  t.is(await lineOf('ackee_live_connections{app="ackee"}'), 'ackee_live_connections{app="ackee"} 0')
+  t.is(await lineOf('ackee_live_watched_domains{app="ackee"}'), 'ackee_live_watched_domains{app="ackee"} 0')
+  t.is(await lineOf('ackee_live_visits_sent_total{app="ackee"}'), 'ackee_live_visits_sent_total{app="ackee"} 0')
+  t.truthy(await lineOf('ackee_live_polls_total{outcome="gap",app="ackee"}'))
+  t.truthy(await lineOf('ackee_live_rejected_total{reason="workspace_limit",app="ackee"}'))
+
+  // No label could name a workspace or a domain
+  const text = await registry.metrics()
+  t.false(/ackee_live_[a-z_]+{[^}]*(domain|workspace)Id/.test(text))
+})
+
+test.serial('a live stream is left out of the request durations', (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  const target = fakeResponse()
+  let called = false
+
+  httpMiddleware({ method: 'GET', originalUrl: '/api/live?domainId=x', path: '/api/live' }, target, () => {
+    called = true
+  })
+
+  t.true(called)
+  t.is(target.listeners.length, 0)
+})

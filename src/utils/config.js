@@ -1,4 +1,12 @@
+import { LIVE_CONNECTIONS, LIVE_WORKSPACE_CONNECTIONS } from '../constants/live.js'
 import { day } from './times.js'
+
+// A count from the environment. Unset, empty or not a whole number gives the default.
+const count = (value, fallback) => {
+  const parsed = Number(value)
+
+  return value == null || value === '' || Number.isInteger(parsed) === false || parsed < 0 ? fallback : parsed
+}
 
 // Must be a function or object that loads and returns the env variables at runtime.
 // Otherwise it wouldn't be possible to mock the env variables with mockedEnv.
@@ -33,6 +41,9 @@ export default new Proxy(
         smtpPassword: process.env.ACKEE_SMTP_PASSWORD,
         smtpFrom: process.env.ACKEE_SMTP_FROM || process.env.ACKEE_SMTP_USER,
         metricsToken: process.env.ACKEE_METRICS_TOKEN,
+        // Open live streams per process (ADR-007). 0 turns the live feed off.
+        liveConnections: count(process.env.ACKEE_LIVE_CONNECTIONS, LIVE_CONNECTIONS),
+        liveWorkspaceConnections: count(process.env.ACKEE_LIVE_WORKSPACE_CONNECTIONS, LIVE_WORKSPACE_CONNECTIONS),
         // Sign-in with Google (ACKEE-79). Off unless both are set, and ACKEE_URL too.
         googleClientId: process.env.ACKEE_GOOGLE_CLIENT_ID,
         googleClientSecret: process.env.ACKEE_GOOGLE_CLIENT_SECRET,
