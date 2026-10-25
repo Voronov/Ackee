@@ -25,6 +25,8 @@ services:
       # reaches the container under this name through E2E_RESOLVE.
       ACKEE_URL: http://ackee.localhost:3000
       ACKEE_ALLOW_SIGNUP: 'true'
+      # Sites named after their domain may send events, like on the stands (tracking rules test)
+      ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_SMTP_HOST: mailpit
       ACKEE_SMTP_PORT: '1025'
       ACKEE_SMTP_FROM: ackee@localhost

@@ -12,6 +12,7 @@ import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
 import google from './google.js'
+import autotrackLoader from './autotrack/loader.js'
 import live from './live/router.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
@@ -114,6 +115,8 @@ app.use(pages)
 // Sign-in with Google. Answers 404 until ACKEE_GOOGLE_CLIENT_ID and ACKEE_GOOGLE_CLIENT_SECRET are set.
 app.use(google)
 
+// /t/<id>.js: the tracker with the tracking rules of a domain (ACKEE-25)
+app.use(autotrackLoader)
 // Live feed of views as Server-Sent Events (ADR-007). Before Apollo, which takes all of /api.
 app.use(live)
 

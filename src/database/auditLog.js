@@ -7,11 +7,12 @@ const response = (entry) => ({
   workspaceId: entry.workspaceId,
   action: entry.action,
   targetId: entry.targetId,
+  details: entry.details,
   created: entry.created,
 })
 
-export const record = (viewer, workspaceId, action, targetId) => {
-  return AuditLog.create({ userId: viewer.userId, email: viewer.email, workspaceId, action, targetId })
+export const record = (viewer, workspaceId, action, targetId, details) => {
+  return AuditLog.create({ userId: viewer.userId, email: viewer.email, workspaceId, action, targetId, details })
 }
 
 // Newest first, only from the given workspaces.
