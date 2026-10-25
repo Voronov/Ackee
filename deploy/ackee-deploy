@@ -23,24 +23,24 @@ case "$STAGE:$TAG" in
   live:[0-9]*.[0-9]*.[0-9]*) ;;
   *) echo "Refusing tag for $STAGE: $TAG" >&2; exit 1 ;;
 esac
-# sha-<commit> is a commit, a version is a tag.
-case "$STAGE" in
-  dev) TAG_REF=${TAG#sha-} ;;
-  live) TAG_REF=$TAG ;;
-esac
 case "$TAG" in
   *[!0-9a-z.-]*) echo "Refusing tag: $TAG" >&2; exit 1 ;;
 esac
 
 cd /opt/ackee
 
-# docker-compose.yml of the same commit or release. A failed download or a file compose
-# rejects stops the deploy and leaves the running one as it is (ACKEE-77).
-curl -fsS --max-time 30 -o docker-compose.yml.new \
-  "https://raw.githubusercontent.com/Voronov/Ackee/$TAG_REF/deploy/docker-compose.yml"
-docker compose -f docker-compose.yml.new config -q
-cp docker-compose.yml "docker-compose.yml.bak-$(date +%Y%m%d-%H%M%S)"
-mv docker-compose.yml.new docker-compose.yml
+# One compose file describes both stands, so only dev, which follows develop, brings it along.
+# Live keeps the file it has: a release must not rewrite dev, and old tags have no such file.
+# A failed download or a file compose rejects stops the deploy with the stand untouched (ACKEE-77).
+if [ "$STAGE" = dev ]; then
+  curl -fsS --max-time 30 -o docker-compose.yml.new \
+    "https://raw.githubusercontent.com/Voronov/Ackee/${TAG#sha-}/deploy/docker-compose.yml"
+  docker compose -f docker-compose.yml.new config -q
+  cp docker-compose.yml "docker-compose.yml.bak-$(date +%Y%m%d-%H%M%S)"
+  mv docker-compose.yml.new docker-compose.yml
+  # Keep the five newest copies.
+  find . -maxdepth 1 -name 'docker-compose.yml.bak-*' | sort | head -n -5 | xargs -r rm --
+fi
 
 # The tag is kept in .env, so a restart by hand brings back the same build.
 if grep -q "^$VAR=" .env; then

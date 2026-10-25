@@ -74,8 +74,8 @@ docker rm -f ackee-test-redis
 
 ### Compose на сервері
 
-`/usr/local/bin/ackee-deploy` перед кожним деплоєм сам завантажує `deploy/docker-compose.yml` того ж коміту (dev) або тега (live), перевіряє його `docker compose config -q`, кладе стару копію поруч як `docker-compose.yml.bak-<дата>` і підміняє файл. Якщо завантаження чи перевірка не вдалися, деплой зупиняється, а працюючий стенд лишається як був. Ключ деплою, як і раніше, обмежений `command=`, клієнт нічого не передає.
+Один `docker-compose.yml` описує обидва стенди, тому його оновлює лише деплой dev. `/usr/local/bin/ackee-deploy` перед перезапуском `ackee-dev` завантажує `deploy/docker-compose.yml` того ж коміту, перевіряє його `docker compose config -q`, кладе стару копію поруч як `docker-compose.yml.bak-<дата>` (лишається 5 останніх) і підміняє файл. Якщо завантаження чи перевірка не вдалися, деплой зупиняється, а стенд лишається як був. Деплой live файл не чіпає: реліз не має переписувати dev, а старі теги (`3.6.x`, відкат) такого файлу не мають. Тому compose на сервері завжди відповідає `develop`, навіть для live, поки там не буде нового релізу; нове в compose для live доїде з наступним деплоєм dev і застосується при перезапуску сервісу.
 
-Скрипт на сервері оновлюється вручну (один раз): `sudo install -m 755 deploy/ackee-deploy /usr/local/bin/ackee-deploy`. Нові змінні в `.env` (ключі, токени) теж вручну: compose їх лише читає.
+`ackee-deploy` перезапускає лише `ackee-<стенд>` (`--no-deps`), тож змінні й ліміти доходять самі, а новий сервіс (наприклад `redis-queue`) треба підняти руками: `docker compose up -d <service>`. Скрипт на сервері оновлюється вручну (один раз): `sudo install -m 755 deploy/ackee-deploy /usr/local/bin/ackee-deploy`. Нові змінні в `.env` (ключі, токени) теж вручну.
 
 Чекліст, якщо скрипт на сервері старий: скопіювати `deploy/docker-compose.yml` у `/opt/ackee`, `docker compose config -q`, `docker compose up -d`.
