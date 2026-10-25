@@ -7,6 +7,8 @@ name: Deploy
 #   DEPLOY_HOST  address of the server
 #   DEPLOY_USER  user to connect as
 #   DEPLOY_KEY   private half of the key the server pins to /usr/local/bin/ackee-deploy
+#   SMOKE_USER, SMOKE_PASSWORD  a test user of the stand, for the feature check (optional)
+#   SMOKE_METRICS_TOKEN         the token of /metrics of the stand (optional)
 # Variable, under each environment:
 #   DEPLOY_URL   address to check once the container is back
 # Variable, for the repository:
@@ -207,6 +209,19 @@ jobs:
             exit 0
           fi
           .github/scripts/smoke.sh "$DEPLOY_URL" "$TAG"
+
+      # What the stand does for a signed-in user. Skipped where the test user is not set.
+      - name: Feature check
+        env:
+          SMOKE_USER: ${{ secrets.SMOKE_USER }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SMOKE_METRICS_TOKEN: ${{ secrets.SMOKE_METRICS_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "DEPLOY_URL is not set, skipping the feature check"
+            exit 0
+          fi
+          .github/scripts/smoke-features.sh "$DEPLOY_URL"
 
       - name: Forget the key
         if: always()

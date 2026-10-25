@@ -72,6 +72,15 @@ docker rm -f ackee-test-redis
 
 Вручну: `.github/scripts/smoke.sh https://dev.ackee2.varlex.app sha-1a2b3c4`.
 
+Після smoke йде `.github/scripts/smoke-features.sh`: що стенд робить для залогіненого користувача, лише читанням. Тестовий користувач і токен метрик беруться з секретів середовища (`SMOKE_USER`, `SMOKE_PASSWORD`, `SMOKE_METRICS_TOKEN`); без `SMOKE_USER` і `SMOKE_PASSWORD` крок пропускається, тож стенд без тестового користувача (live) не страждає. Перевіряє:
+
+- `ga4Available` (на стенді заданий `ACKEE_SECRET_KEY`);
+- помилки синхронізації GA4 в доменах користувача (лише попередження: це відповідь Google, а не поламаний деплой);
+- що `/api/live` відповідає `200 text/event-stream`;
+- що `/metrics` відповідає 200 з токеном (якщо токен заданий).
+
+Вручну: `SMOKE_USER=... SMOKE_PASSWORD=... .github/scripts/smoke-features.sh https://dev.ackee2.varlex.app`. Токен входу скрипт створює на час запуску й видаляє.
+
 ### Compose на сервері
 
 Один `docker-compose.yml` описує обидва стенди, тому його оновлює лише деплой dev. `/usr/local/bin/ackee-deploy` перед перезапуском `ackee-dev` завантажує `deploy/docker-compose.yml` того ж коміту, перевіряє його `docker compose config -q`, кладе стару копію поруч як `docker-compose.yml.bak-<дата>` (лишається 5 останніх) і підміняє файл. Якщо завантаження чи перевірка не вдалися, деплой зупиняється, а стенд лишається як був. Деплой live файл не чіпає: реліз не має переписувати dev, а старі теги (`3.6.x`, відкат) такого файлу не мають. Тому compose на сервері завжди відповідає `develop`, навіть для live, поки там не буде нового релізу; нове в compose для live доїде з наступним деплоєм dev і застосується при перезапуску сервісу.
