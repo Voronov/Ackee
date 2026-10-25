@@ -7,6 +7,7 @@ import listen from 'test-listen'
 
 import { INGEST_STREAM } from '../../src/constants/ingest.js'
 import { getUnscoped } from '../../src/database/domains.js'
+import * as records from '../../src/database/records.js'
 import { sealedUntil } from '../../src/database/rollups.js'
 import Record from '../../src/models/Record.js'
 import RollupState from '../../src/models/RollupState.js'
@@ -15,7 +16,7 @@ import { adapter, close, oldest, start, stats } from '../../src/queue/redis.js'
 import { drain } from '../../src/queue/worker.js'
 import server from '../../src/server.js'
 import { run as runRollups } from '../../src/utils/rollupJob.js'
-import { day } from '../../src/utils/times.js'
+import { day, minute } from '../../src/utils/times.js'
 import { api } from '../_utils.js'
 import { openStream } from '../live/_stream.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from './_utils.js'
@@ -159,6 +160,32 @@ test.serial('an unreachable queue writes the view directly, with the id the trac
   t.true((await updateRecord(latest.id)).json.data.updateRecord.success)
   t.true((await Record.findOne({ id: latest.id }).lean()).updated > latest.updated)
   t.true((await updateRecord(uuid())).json.data.updateRecord.success)
+})
+
+// Waiting a second for Redis, the API may find a newer view of the visitor the worker already stored
+test.serial('a view written directly leaves the visitor with a newer view the worker stored', async (t) => {
+  useQueue(UNREACHABLE)
+  const { domain } = t.context
+  const headers = { 'User-Agent': 'visitor' }
+
+  const first = (await createRecord(domain.id, {}, headers)).json.data.createRecord.payload
+  const { clientId } = await Record.findOne({ id: first.id }).lean()
+
+  const newer = uuid()
+  const created = new Date(Date.now() + minute)
+  await records.addOnce({ ...input, id: newer, clientId, domainId: domain.id, created, updated: created })
+
+  const late = (await createRecord(domain.id, {}, headers)).json.data.createRecord.payload
+  const kept = await Record.find({ clientId }).lean()
+  const forgotten = await Record.findOne({ id: late.id }).lean()
+
+  t.deepEqual(
+    kept.map((entry) => entry.id),
+    [newer],
+  )
+  t.is(kept[0].browserName, 'Safari')
+  t.is(forgotten.browserName, null)
+  t.is(forgotten.siteLocation, input.siteLocation)
 })
 
 test.serial('rollups are skipped while the queue is unreachable', async (t) => {

@@ -134,6 +134,30 @@ export const anonymizeOne = (id) => {
   return Record.updateOne({ id }, anonymized)
 }
 
+// Stores a view with the id and the dates the tracker was answered with: the worker does it,
+// and so does the API when the queue cannot take the view. Safe to repeat (ADR-006).
+export const addOnce = async (data) => {
+  try {
+    await add(data)
+  } catch (error) {
+    // Stored by an earlier attempt: a delivery that died before its ack, or a late XADD
+    if (error.code !== 11000) throw error
+  }
+
+  // Without a clientId the filter would match every record that has none
+  if (data.clientId == null) return
+
+  // A redelivery claimed back after a minute can arrive after a newer view of the same
+  // visitor. That newer view keeps the visitor, the late one is forgotten instead.
+  if ((await hasNewer(data.clientId, data.id, data.created)) === true) {
+    await anonymizeOne(data.id)
+    return
+  }
+
+  // Repeated on a redelivery too: the earlier attempt may have died between the two writes
+  await anonymize(data.clientId, data.id, data.created)
+}
+
 // What the live feed may show of a view (ADR-007): fields of the reports only, never the
 // clientId, versions or sizes. The key stands in for the id, because the id is what updateRecord takes.
 const LIVE_FIELDS = [
