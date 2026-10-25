@@ -105,7 +105,7 @@ const fakeGoogle = http.createServer((request, response) => {
     const [{ startDate, endDate }] = report.dateRanges
     const dimension = report.dimensions?.[1]?.name
     const rows = days(startDate, endDate).flatMap((date) => {
-      if (report.dimensions == null) return [{ dimensionValues: [], metricValues: [{ value: String(DAY.views) }] }]
+      if (report.dimensions == null) return [{ metricValues: [{ value: String(DAY.views) }] }]
       if (dimension == null) {
         return [
           {
