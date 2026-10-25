@@ -14,8 +14,16 @@ services:
     ports:
       - '8025:8025'
 
+  # A stand-in for Google, so GA4 can be connected without a real account (ACKEE-21)
+  google:
+    image: node:24-alpine
+    volumes:
+      - ./google-stub.js:/stub.js:ro
+    command: node /stub.js
+
   ackee:
     build: ..
+    image: ackee-e2e:local
     ports:
       - '3000:3000'
     environment:
@@ -25,12 +33,46 @@ services:
       # reaches the container under this name through E2E_RESOLVE.
       ACKEE_URL: http://ackee.localhost:3000
       ACKEE_ALLOW_SIGNUP: 'true'
+      # The metrics endpoint answers only to this token (ACKEE-6)
+      ACKEE_METRICS_TOKEN: e2e-metrics-token
+      # GA4: the key of a service account is kept encrypted with this, Google is the stand-in
+      ACKEE_SECRET_KEY: e2e-secret-key-of-the-stand
+      ACKEE_GA4_TOKEN_URL: http://google:4000/token
+      ACKEE_GA4_API_URL: http://google:4000
       # Sites named after their domain may send events, like on the stands (tracking rules test)
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_SMTP_HOST: mailpit
       ACKEE_SMTP_PORT: '1025'
       ACKEE_SMTP_FROM: ackee@localhost
-    depends_on: [mongo, mailpit]
+    depends_on: [mongo, mailpit, google]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/']
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  # A Redis for the ingest queue (ADR-006), with the settings the docs ask for
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes --maxmemory 96mb --maxmemory-policy noeviction
+
+  # The same Ackee with the queue on, in a database of its own and with a small limit of touches.
+  # Nobody registers here: the administrator of the environment makes the domains through the API.
+  ackee-queue:
+    image: ackee-e2e:local
+    environment:
+      ACKEE_MONGODB: mongodb://mongo:27017/ackee_queue
+      ACKEE_INGEST_QUEUE: redis://redis:6379
+      ACKEE_USERNAME: queue-admin
+      ACKEE_PASSWORD: a-password-for-the-queue-e2e
+      ACKEE_AUTO_ORIGIN: 'true'
+      ACKEE_METRICS_TOKEN: e2e-metrics-token
+      ACKEE_UPDATE_RECORD_LIMIT: '5'
+    depends_on:
+      ackee:
+        condition: service_healthy
+      redis:
+        condition: service_started
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/']
       interval: 2s
@@ -48,9 +90,15 @@ services:
     environment:
       E2E_URL: http://ackee.localhost:3000
       E2E_RESOLVE: ackee.localhost ackee
+      # Where the tests themselves, not the browser, reach Ackee: only the browser knows ackee.localhost
+      E2E_API: http://ackee:3000
+      E2E_METRICS_TOKEN: e2e-metrics-token
+      E2E_QUEUE_API: http://ackee-queue:3000
       E2E_MAILPIT: http://mailpit:8025
       CI: ${CI:-}
     command: sh -c "npm ci --ignore-scripts --no-audit --no-fund && npx playwright test"
     depends_on:
       ackee:
+        condition: service_healthy
+      ackee-queue:
         condition: service_healthy

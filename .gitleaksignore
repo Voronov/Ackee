@@ -1,0 +1,3 @@
+# A made-up key of the throwaway stand of the browser tests (e2e/docker-compose.yml): it only has to
+# be set, so that GA4 can keep a key. It protects nothing and never leaves that compose network.
+d00138acd6fe613b77983a1b83b46285eb7729eb:e2e/docker-compose.yml:generic-api-key:39

@@ -7,10 +7,17 @@ export default defineConfig({
   testMatch: '*.browser.js',
   retries: 0,
   workers: 1,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'test-results/results.json' }],
+  ],
   use: {
     baseURL: process.env.E2E_URL ?? 'http://localhost:3000',
     trace: 'retain-on-failure',
+    // A short recording of every test, so the report shows what the browser did, not only that it passed
+    video: 'on',
+    screenshot: 'off',
     // Maps a name like ackee.localhost to the container that serves Ackee, see e2e/docker-compose.yml
     launchOptions: process.env.E2E_RESOLVE ? { args: [`--host-resolver-rules=MAP ${process.env.E2E_RESOLVE}`] } : {},
   },
