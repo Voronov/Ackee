@@ -29,6 +29,13 @@
 		width: 100%;
 	}
 
+	// A last card alone in its row takes the whole row
+	@media (min-width: 561px) {
+		&__card:last-child:nth-child(3n+2) {
+			grid-column: span 2;
+		}
+	}
+
 	&__top {
 		grid-area: top;
 	}

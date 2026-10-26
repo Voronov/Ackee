@@ -26,6 +26,9 @@ export const useSourceMode = () => useSyncExternalStore(subscribe, () => mode)
 // The source of the reports below. With both shown, each half of the page provides its own.
 export const SourceContext = createContext(null)
 
+// True inside the two halves of the side-by-side view
+export const SplitContext = createContext(false)
+
 export default () => {
   const provided = useContext(SourceContext)
   const selected = useSourceMode()
