@@ -1,5 +1,5 @@
 # Caddy gets and renews the Let's Encrypt certificates itself.
-# All three names point to 178.104.38.165.
+# All four names point to 178.104.38.165.
 
 ackee.varlex.app {
 	encode gzip
@@ -16,4 +16,14 @@ dev.ackee2.varlex.app {
 	# A test stand: keep it out of search results.
 	header X-Robots-Tag "noindex, nofollow"
 	reverse_proxy ackee-dev:3000
+}
+
+prometeus.ackee.varlex.app {
+	encode gzip
+	header X-Robots-Tag "noindex, nofollow"
+	# Prometheus has no login of its own. With empty values Caddy refuses to start, so set both in .env.
+	basic_auth {
+		{$PROMETHEUS_USER} {$PROMETHEUS_PASSWORD_HASH}
+	}
+	reverse_proxy prometheus:9090
 }
