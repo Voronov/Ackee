@@ -2,7 +2,6 @@ import mongoose from 'mongoose'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
 
-import { GA4_DIMENSIONS } from '../src/constants/ga4.js'
 import Ga4Connection from '../src/models/Ga4Connection.js'
 import Ga4Daily from '../src/models/Ga4Daily.js'
 import Record from '../src/models/Record.js'
@@ -15,7 +14,7 @@ import signale from '../src/utils/signale.js'
 const defaults = { factor: 0.82, spread: 0.1, seed: 1 }
 
 // The Ackee field behind every GA4 dimension, and how its value is written in GA4
-const field = (name, format = (value) => String(value)) => ({ name, format })
+const field = (name, format = String) => ({ name, format })
 
 const withoutScheme = (value) => value.replace(/^https?:\/\//, '')
 const host = (value) => new URL(value).hostname.replace(/^www\./, '')
@@ -30,12 +29,16 @@ const dimensions = {
 }
 
 // Mulberry32: the same seed gives the same numbers, so a rerun replaces the data with itself
-const createRandom = (seed) => () => {
-  seed |= 0
-  seed = (seed + 0x6d2b79f5) | 0
-  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+const createRandom = (seed) => {
+  let state = seed >>> 0
+
+  return () => {
+    state = (state + 1831565813) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
 }
 
 export const parseOptions = (args) => {
@@ -59,7 +62,7 @@ export const parseOptions = (args) => {
 const dateOf = { $dateToString: { format: '%Y-%m-%d', date: '$created', timezone: 'UTC' } }
 
 // Views, visitors and time on site per day, straight from the records
-const totals = async (domainId) =>
+const totals = (domainId) =>
   Record.aggregate([
     { $match: { domainId } },
     {
@@ -73,7 +76,7 @@ const totals = async (domainId) =>
     { $sort: { _id: 1 } },
   ])
 
-const counts = async (domainId, source) =>
+const counts = (domainId, source) =>
   Record.aggregate([
     { $match: { domainId, [source]: { $nin: [null, ''] } } },
     { $group: { _id: { date: dateOf, value: `$${source}` }, views: { $sum: 1 } } },
