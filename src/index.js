@@ -45,7 +45,7 @@ connect(config.dbUrl)
 
     mailCheck()
 
-    // Pulls the connected GA4 properties at start and every three hours (ACKEE-21)
+    // Pulls the connected GA4 properties at start and on a schedule (ACKEE-21)
     startGa4Sync()
 
     startRollups()

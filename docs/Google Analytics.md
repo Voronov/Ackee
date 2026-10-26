@@ -23,7 +23,7 @@ Ackee reads a week of views once before it stores anything, so a wrong id or a m
 ## Sync
 
 - The first sync reads about 14 months of history. That takes a few minutes; the dialog shows how far it got.
-- Then every three hours. Each run reads the last three days again, because Google Analytics finishes counting a day up to three days later. Reading the same days twice changes nothing.
+- Then every three hours, or as `ACKEE_GA4_SYNC_SCHEDULE` says. Each run reads the last three days again, because Google Analytics finishes counting a day up to three days later. Reading the same days twice changes nothing.
 - **Sync now** in the dialog runs it at once. **Disconnect** forgets the property and deletes every day synced from it.
 
 ## What is shown

@@ -57,6 +57,8 @@ export default new Proxy(
         // Google's endpoints for GA4. Only tests point them elsewhere, at a stand-in for Google.
         ga4TokenUrl: process.env.ACKEE_GA4_TOKEN_URL || 'https://oauth2.googleapis.com/token',
         ga4ApiUrl: process.env.ACKEE_GA4_API_URL || 'https://analyticsdata.googleapis.com',
+        // Cron expression of the GA4 sync
+        ga4SyncSchedule: process.env.ACKEE_GA4_SYNC_SCHEDULE || '15 */3 * * *',
         isDemoMode: process.env.ACKEE_DEMO === 'true',
         isDevelopmentMode: process.env.NODE_ENV === 'development',
         isPreBuildMode: process.env.BUILD_ENV === 'pre',
