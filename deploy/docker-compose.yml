@@ -157,8 +157,15 @@ services:
       ACKEE_SECRET_KEY: ${ACKEE_DEV_SECRET_KEY:-}
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
+      # Views go through the queue in Redis (ADR-006) when this is set, for example redis://redis:6379.
+      # Empty keeps the direct write.
+      ACKEE_INGEST_QUEUE: ${ACKEE_DEV_INGEST_QUEUE:-}
+      # The name of this process in the queue, the same after the container is made again
+      ACKEE_INGEST_CONSUMER: ackee-dev
     depends_on:
       mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     mem_limit: 512m
     networks: [ackee]
