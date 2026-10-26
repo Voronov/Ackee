@@ -151,7 +151,7 @@ const ModalDomainGa4 = (props) => {
       h(
         Text,
         { type: 'p', className: 'color-secondary' },
-        `Google Analytics 4 next to Ackee for ${props.title}. Synced every three hours.`,
+        `Google Analytics 4 next to Ackee for ${props.title}. Synced regularly.`,
       ),
       ...body,
       error != null && h(Spacer, { size: 0.5 }),

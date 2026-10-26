@@ -288,6 +288,14 @@ ACKEE_SECRET_KEY=a-long-random-string
 
 Encrypts secrets Ackee keeps in the database, like the key of a Google service account ([Google Analytics](Google%20Analytics.md)). Generate one with `openssl rand -base64 32` and keep it with the other secrets of the server. Changing it makes the stored keys unreadable.
 
+### GA4 sync schedule
+
+```
+ACKEE_GA4_SYNC_SCHEDULE='*/10 * * * *'
+```
+
+When Ackee reads the connected Google Analytics properties, as a cron expression. Defaults to `15 */3 * * *`, every three hours. Google Analytics reports lag behind real time by hours, so a shorter interval picks up what Google has finished counting sooner, not newer data.
+
 ## Passkeys
 
 Signed-in users can add passkeys (Touch ID, Windows Hello, a security key) under Settings → Passkeys and then sign in without a password. Passkeys need only `ACKEE_URL`:

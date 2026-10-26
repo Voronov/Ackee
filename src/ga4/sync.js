@@ -3,6 +3,7 @@ import schedule from 'node-schedule'
 import { GA4_BACKFILL_DAYS, GA4_CHUNK_DAYS, GA4_DIMENSIONS, GA4_REFRESH_DAYS } from '../constants/ga4.js'
 import Ga4Connection from '../models/Ga4Connection.js'
 import Ga4Daily from '../models/Ga4Daily.js'
+import config from '../utils/config.js'
 import { open } from '../utils/secretBox.js'
 import signale from '../utils/signale.js'
 import { day, minute } from '../utils/times.js'
@@ -113,8 +114,8 @@ export const syncAll = async () => {
   }
 }
 
-// At start and every three hours
+// At start and on the schedule, every three hours unless ACKEE_GA4_SYNC_SCHEDULE says otherwise
 export const start = () => {
   syncAll()
-  return schedule.scheduleJob('15 */3 * * *', syncAll)
+  return schedule.scheduleJob(config.ga4SyncSchedule, syncAll)
 }
