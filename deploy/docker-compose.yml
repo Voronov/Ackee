@@ -3,6 +3,7 @@
 #   ackee.varlex.app       upstream 3.6.1, the unchanged reference
 #   ackee2.varlex.app      live: the last version tag
 #   dev.ackee2.varlex.app  dev: the last merge into develop
+#   prometheus.ackee.varlex.app  Prometheus, behind basic auth
 #
 # One MongoDB, one database per stand.
 #
@@ -171,6 +172,23 @@ services:
     networks: [ackee]
     logging: *logging
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: ackee-prometheus
+    restart: unless-stopped
+    # The disk filled up once already, so the data is capped by age and by size.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    mem_limit: 384m
+    networks: [ackee]
+    logging: *logging
+
   caddy:
     image: caddy:2-alpine
     container_name: ackee-caddy
@@ -182,7 +200,10 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-    depends_on: [ackee-v1, ackee-live, ackee-dev]
+    environment:
+      PROMETHEUS_USER: ${PROMETHEUS_USER:-}
+      PROMETHEUS_PASSWORD_HASH: ${PROMETHEUS_PASSWORD_HASH:-}
+    depends_on: [ackee-v1, ackee-live, ackee-dev, prometheus]
     mem_limit: 96m
     networks: [ackee]
     logging: *logging
@@ -199,3 +220,4 @@ volumes:
   # A fresh one: the tables of 4.0.1 are not what ACKEE-17 will write
   clickhouse-store:
   redis-data:
+  prometheus-data:
