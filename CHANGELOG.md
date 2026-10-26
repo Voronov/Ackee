@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha.1] - 2026-10-26
+
+First pre-release of 4.0. Accounts, workspaces and roles change what the data belongs to, which is why this is a new major version. A single Ackee can still be started as before with `ACKEE_USERNAME` and `ACKEE_PASSWORD`.
+
+### Added
+
+- Accounts with registration and email confirmation, password reset by a one-time link, sign-in with a passkey and sign-in with Google (`ACKEE_ALLOW_SIGNUP`, `ACKEE_SMTP_*`, `ACKEE_URL`, `ACKEE_GOOGLE_CLIENT_ID`, `ACKEE_GOOGLE_CLIENT_SECRET`)
+- Workspaces whose domains, events and API tokens are kept apart, and invitations to a workspace, optionally limited to some domains
+- Roles as sets of permissions (Viewer, Editor, Owner), checked in one place, with an audit log
+- An ingest key for every domain: events without it are rejected
+- Reports built from hourly rollups, a stable order of the top, new and recent lists, and a compound index on `domainId` and `created`
+- Google Analytics 4 next to Ackee's own numbers, with a continuous sync (`ACKEE_SECRET_KEY`)
+- Tracking rules and Tag Manager: clicks, views, forms, outbound links, downloads and scrolling without changing the site
+- A live feed of views under Insights → Live
+- Prometheus metrics behind a token of the stand (`ACKEE_METRICS_TOKEN`)
+- A queue of events in Redis, optional (`ACKEE_INGEST_QUEUE`, `ACKEE_INGEST_CONSUMER`), and a limit of touches per address (`ACKEE_UPDATE_RECORD_LIMIT`)
+- Hints for a new account without a domain and for the events page without an event, and a note in the dialog of a domain whose title is not a host name
+- A benchmark stand with ten million records, browser tests, CodeQL, secret scanning, Dependabot and a smoke test after every deploy
+
+### Changed
+
+- The daily salt is rotated once a day and shared between processes through Redis (`ACKEE_REDIS`)
+- Cookies are all sent, not only the last one
+- The interface is built from source inside the image
+- A domain title is trimmed and unique in a workspace
+
+### Security
+
+- `proxy-addr`, `@graphql-tools/utils`, `body-parser` and `nodemailer` updated for known advisories
+- Tracking rules read the address of the server only from a script element with a `src`, so markup on a page cannot redirect the data
+- An invitation cannot give a role above the role of the person who sends it, and a removed member loses the reports of the workspace
+
+### Fixed
+
+- The Google Analytics check no longer fails on a report that has no dimensions
+
 ## [3.6.3] - 2026-10-11
 
 Refactoring before Sprint 4. The API behaves as before.
