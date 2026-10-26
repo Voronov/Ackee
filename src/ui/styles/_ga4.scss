@@ -11,6 +11,14 @@
 	}
 }
 
+.sourceNote {
+	grid-column: 1 / -1;
+	margin: 0;
+	text-align: right;
+	font-size: 0.85em;
+	opacity: 0.6;
+}
+
 .sourceSplit {
 	grid-column: 1 / -1;
 	display: grid;
@@ -30,6 +38,13 @@
 		// The reports of one source are a single column here
 		> * {
 			grid-column: 1 / -1;
+		}
+	}
+
+	// Half a page is too narrow for three facts in a row
+	@media (min-width: 801px) {
+		.facts {
+			--columns: 2;
 		}
 	}
 

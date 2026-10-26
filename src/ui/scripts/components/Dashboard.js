@@ -12,7 +12,7 @@ import Modals from './modals/Modals.js'
 import SourceSelect from './SourceSelect.js'
 
 import { useGa4Connected } from '../api/hooks/ga4/useGa4.js'
-import { SOURCE_ACKEE, SOURCE_BOTH, SOURCE_GA4, SourceContext, useSourceMode } from '../hooks/useSource.js'
+import { SOURCE_ACKEE, SOURCE_BOTH, SOURCE_GA4, SourceContext, SplitContext, useSourceMode } from '../hooks/useSource.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
 import RouteDevices from './routes/RouteDevices.js'
@@ -149,6 +149,13 @@ const Dashboard = (props) => {
       PICKS_DOMAIN.has(currentRoute.key) &&
         h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
       showsSource && h(SourceSelect),
+      showsSource &&
+        sourceMode !== SOURCE_ACKEE &&
+        h(
+          'p',
+          { className: 'sourceNote' },
+          'Google Analytics data arrives with a delay: the Google API reports hours and days that are already counted, not the last minutes.',
+        ),
       ...(showsSource && sourceMode === SOURCE_BOTH
         ? [
             h(
@@ -162,10 +169,14 @@ const Dashboard = (props) => {
                   SourceContext.Provider,
                   { key: source, value: source },
                   h(
-                    'div',
-                    { className: 'sourceSplit__half' },
-                    h('h2', { className: 'sourceSplit__title' }, label),
-                    route,
+                    SplitContext.Provider,
+                    { value: true },
+                    h(
+                      'div',
+                      { className: 'sourceSplit__half' },
+                      h('h2', { className: 'sourceSplit__title' }, label),
+                      route,
+                    ),
                   ),
                 ),
               ),

@@ -1,9 +1,11 @@
 import PropTypes from 'prop-types'
-import { createElement as h } from 'react'
+import { createElement as h, useContext } from 'react'
 
 import formatDuration from '../../utils/formatDuration.js'
 import formatNumber from '../../utils/formatNumber.js'
 import pluralize from '../../utils/pluralize.js'
+
+import useSource, { SOURCE_GA4, SplitContext } from '../../hooks/useSource.js'
 
 import ChangeBadge from '../ChangeBadge.js'
 import Headline from '../Headline.js'
@@ -47,6 +49,10 @@ const Presentation = (props) => {
 
 const CardFacts = (props) => {
   const { value } = props.hook(...props.hookArgs)
+  // Google Analytics has no active visitors, and beside it the two halves must show the same cards
+  const source = useSource()
+  const isSplit = useContext(SplitContext)
+  const showsLive = source !== SOURCE_GA4 && isSplit === false
 
   const { activeVisitors, averageViews, averageDuration, viewsToday, viewsMonth, viewsYear } = value
 
@@ -55,12 +61,13 @@ const CardFacts = (props) => {
     {
       className: 'facts',
     },
-    h(Presentation, {
-      headline: 'Active visitors',
-      value: activeVisitors,
-      unit: pluralize(['visitors', 'visitor', 'visitors'], activeVisitors),
-      addition: h(TextBadge, { type: 'positive', value: 'Live' }),
-    }),
+    showsLive &&
+      h(Presentation, {
+        headline: 'Active visitors',
+        value: activeVisitors,
+        unit: pluralize(['visitors', 'visitor', 'visitors'], activeVisitors),
+        addition: h(TextBadge, { type: 'positive', value: 'Live' }),
+      }),
     h(Presentation, {
       headline: 'Average views',
       value: formatNumber(averageViews.count),
