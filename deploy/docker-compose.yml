@@ -3,7 +3,7 @@
 #   ackee.varlex.app       upstream 3.6.1, the unchanged reference
 #   ackee2.varlex.app      live: the last version tag
 #   dev.ackee2.varlex.app  dev: the last merge into develop
-#   prometheus.ackee.varlex.app  Prometheus, behind basic auth
+#   prometeus.ackee.varlex.app  Prometheus, behind basic auth
 #
 # One MongoDB, one database per stand.
 #

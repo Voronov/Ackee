@@ -18,7 +18,7 @@ dev.ackee2.varlex.app {
 	reverse_proxy ackee-dev:3000
 }
 
-prometheus.ackee.varlex.app {
+prometeus.ackee.varlex.app {
 	encode gzip
 	header X-Robots-Tag "noindex, nofollow"
 	# Prometheus has no login of its own. With empty values Caddy refuses to start, so set both in .env.
