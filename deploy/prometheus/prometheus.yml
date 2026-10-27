@@ -15,3 +15,12 @@ scrape_configs:
       credentials_file: /etc/prometheus/secrets/dev
     static_configs:
       - targets: ['ackee-dev:3000']
+
+  - job_name: server
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: containers
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['cadvisor:8080']

@@ -1,5 +1,5 @@
 # Caddy gets and renews the Let's Encrypt certificates itself.
-# All four names point to 178.104.38.165.
+# All five names point to 178.104.38.165.
 
 ackee.varlex.app {
 	encode gzip
@@ -26,4 +26,11 @@ prometeus.ackee.varlex.app {
 		{$PROMETHEUS_USER} {$PROMETHEUS_PASSWORD_HASH}
 	}
 	reverse_proxy prometheus:9090
+}
+
+grafana.ackee.varlex.app {
+	encode gzip
+	header X-Robots-Tag "noindex, nofollow"
+	# Grafana has its own login (GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD in .env)
+	reverse_proxy grafana:3000
 }
