@@ -1,9 +1,7 @@
 {
   "uid": "ackee-containers",
   "title": "Ackee · Containers",
-  "tags": [
-    "ackee"
-  ],
+  "tags": ["ackee"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -58,9 +56,7 @@
         "orientation": "horizontal",
         "displayMode": "gradient",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -117,9 +113,7 @@
         "orientation": "horizontal",
         "displayMode": "gradient",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 2,
@@ -176,10 +170,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -227,10 +218,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -291,10 +279,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -355,10 +340,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -405,10 +387,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -500,9 +479,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 12,
@@ -553,9 +530,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 13,

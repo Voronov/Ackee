@@ -1,9 +1,7 @@
 {
   "uid": "ackee-server",
   "title": "Ackee · Server",
-  "tags": [
-    "ackee"
-  ],
+  "tags": ["ackee"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -56,9 +54,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 1,
@@ -113,9 +109,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 2,
@@ -170,9 +164,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 3,
@@ -219,9 +211,7 @@
         "colorMode": "background",
         "graphMode": "area",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
+          "calcs": ["lastNotNull"]
         }
       },
       "id": 4,
@@ -279,10 +269,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -344,10 +331,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -419,10 +403,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -470,10 +451,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -539,10 +517,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -595,10 +570,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -663,10 +635,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
@@ -718,10 +687,7 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ]
+          "calcs": ["mean", "max"]
         },
         "tooltip": {
           "mode": "multi",
