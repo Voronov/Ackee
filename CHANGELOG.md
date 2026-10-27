@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha.2] - 2026-10-27
+
+### Added
+
+- The schedule of the Google Analytics 4 sync can be set with `ACKEE_GA4_SYNC_SCHEDULE`
+- A seed of Google Analytics 4 data that follows the records of a domain
+- A Prometheus stand behind basic auth that reads the metrics of the live and dev stands
+
+### Changed
+
+- With both sources shown side by side, the cards of Ackee and Google Analytics 4 line up in shared rows
+- Live is not offered for Google Analytics 4, and the page notes that its numbers come with a delay
+
 ## [4.0.0-alpha.1] - 2026-10-26
 
 First pre-release of 4.0. Accounts, workspaces and roles change what the data belongs to, which is why this is a new major version. A single Ackee can still be started as before with `ACKEE_USERNAME` and `ACKEE_PASSWORD`.
