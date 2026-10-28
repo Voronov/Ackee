@@ -25,7 +25,8 @@ test('a configured list is matched exactly, so a port has to be listed', async (
 
   t.is(await findMatchingOrigin('https://shop.example.com', allowed, false), 'https://shop.example.com')
   t.is(await findMatchingOrigin('http://localhost:8080', allowed, false), 'http://localhost:8080')
-  t.is(await findMatchingOrigin('http://shop.example.com:8080', allowed, false), null)
+  // Nothing rather than null: "null" is an origin of its own and must never be reflected
+  t.is(await findMatchingOrigin('http://shop.example.com:8080', allowed, false), undefined)
   t.is(await findMatchingOrigin('https://shop.example.com', '*', false), '*')
-  t.is(await findMatchingOrigin('https://shop.example.com', null, false), null)
+  t.is(await findMatchingOrigin('https://shop.example.com', null, false), undefined)
 })
