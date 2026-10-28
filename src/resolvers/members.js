@@ -10,15 +10,13 @@ import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import Role from '../models/Role.js'
 import config from '../utils/config.js'
+import { looksLikeEmail } from '../utils/emailAddress.js'
 import { sendInvitation } from '../utils/emails.js'
 import KnownError from '../utils/KnownError.js'
 import { isEnabled as mailEnabled } from '../utils/mailer.js'
 import { workspacesWith } from '../utils/permissions.js'
 import pipe from '../utils/pipe.js'
 import { hour } from '../utils/times.js'
-
-// A shape check, as in users.js: only the email itself can confirm the address.
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // At most three invitations per address and hour, so the form cannot flood a mailbox.
 const MAXIMUM_INVITATIONS_PER_HOUR = 3
@@ -67,7 +65,7 @@ export default {
 
       // The same answer for a workspace that does not exist and one the viewer may not manage
       if (manages(viewer, input.workspaceId) === false) throw new KnownError('Unknown workspace')
-      if (EMAIL.test(email) === false) throw new KnownError('Email address looks invalid')
+      if (looksLikeEmail(email) === false) throw new KnownError('Email address looks invalid')
       // The same answer for a role that does not exist and one the viewer may not hand out
       if ((await grantable(viewer, input.workspaceId, input.role)) === false) throw new KnownError('Unknown role')
 

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import * as passkeys from '../database/passkeys.js'
 import * as tokens from '../database/tokens.js'
 import * as userTokens from '../database/userTokens.js'
@@ -5,17 +7,16 @@ import * as users from '../database/users.js'
 import { isEnabled as isGoogleEnabled } from '../google.js'
 import { isEnabled as isPasskeyEnabled } from '../database/passkeys.js'
 import config from '../utils/config.js'
-import { sendPasswordReset, sendVerification } from '../utils/emails.js'
+import { looksLikeEmail } from '../utils/emailAddress.js'
+import { sendAlreadyRegistered, sendPasswordReset, sendVerification } from '../utils/emails.js'
 import { isEnabled as mailEnabled } from '../utils/mailer.js'
+import { hash } from '../utils/password.js'
 import { hour } from '../utils/times.js'
 import KnownError from '../utils/KnownError.js'
 import messages from '../utils/messages.js'
 import pipe from '../utils/pipe.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
-
-// A shape check, not an existence one: only a message to the address can confirm it.
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Length instead of required symbols, as NIST SP 800-63B recommends. Rules like "one
 // capital and one digit" produce predictable passwords, not strong ones.
@@ -29,6 +30,39 @@ const withinSendingLimit = async (userId, purpose) => {
   const sent = await userTokens.recentCount(userId, purpose, new Date(Date.now() - hour))
 
   return sent < MAXIMUM_EMAILS_PER_HOUR
+}
+
+// A fresh confirmation link, within the sending limit. Older links stop working.
+const confirmAgain = async (user) => {
+  if ((await withinSendingLimit(user.id, 'VERIFY')) === false) return
+
+  await userTokens.revoke(user.id, 'VERIFY')
+  await sendVerification(user.email, await userTokens.issue(user.id, 'VERIFY'))
+}
+
+// What a fresh registration answers: an unconfirmed account with an id of its own.
+const asNewAccount = (email) => ({
+  success: true,
+  payload: { id: randomUUID(), email, verified: false, created: new Date() },
+})
+
+// A taken address answers like a new one, so the form cannot be used to find out who has
+// an account here. The owner hears about it by email instead: the confirmation link again
+// while the address is unconfirmed, otherwise a note to sign in.
+const takenAddress = async (user, password) => {
+  // Costs the time that hashing the password of a new account costs, so the answer time
+  // does not tell the two apart either.
+  await hash(password)
+
+  if (user.verified === false) {
+    await confirmAgain(user)
+  } else if (await withinSendingLimit(user.id, 'EXISTS')) {
+    // Issued only to count towards the limit: nothing redeems it.
+    await userTokens.issue(user.id, 'EXISTS')
+    await sendAlreadyRegistered(user.email)
+  }
+
+  return asNewAccount(user.email)
 }
 
 export default {
@@ -47,7 +81,7 @@ export default {
         .toLowerCase()
       const password = String(input.password ?? '')
 
-      if (EMAIL.test(email) === false) throw new KnownError('Email address looks invalid')
+      if (looksLikeEmail(email) === false) throw new KnownError('Email address looks invalid')
       if (password.length < MINIMUM_PASSWORD_LENGTH) {
         throw new KnownError(`Password must be at least ${MINIMUM_PASSWORD_LENGTH} characters long`)
       }
@@ -59,9 +93,9 @@ export default {
         throw new KnownError('Registration needs outgoing email, which is not configured')
       }
 
-      if ((await users.byEmail(email)) != null) {
-        throw new KnownError('Email address is already in use')
-      }
+      const existing = await users.byEmail(email)
+
+      if (existing != null) return takenAddress(existing, password)
 
       let created
 
@@ -71,8 +105,8 @@ export default {
         if (error.name === 'ValidationError') throw new KnownError(messages(error.errors))
 
         // The unique index catches two registrations for the same address arriving at
-        // once, when both pass the check above.
-        if (error.code === 11_000) throw new KnownError('Email address is already in use')
+        // once, when both pass the check above. The one that won sends the confirmation.
+        if (error.code === 11_000) return asNewAccount(email)
 
         throw error
       }
@@ -100,10 +134,7 @@ export default {
     resendVerification: async (parent, { email }) => {
       const user = await users.byEmail(email)
 
-      if (user != null && user.verified === false && (await withinSendingLimit(user.id, 'VERIFY'))) {
-        await userTokens.revoke(user.id, 'VERIFY')
-        await sendVerification(user.email, await userTokens.issue(user.id, 'VERIFY'))
-      }
+      if (user != null && user.verified === false) await confirmAgain(user)
 
       return { success: true }
     },

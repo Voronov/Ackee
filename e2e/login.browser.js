@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { PASSWORD, createAccount, fillCredentials, newAddress, signIn } from './_helpers.js'
+import { PASSWORD, createAccount, emailedLink, fillCredentials, newAddress, signIn } from './_helpers.js'
 
 test('an address is registered only with a password of ten characters', async ({ page }) => {
   await page.goto('/')
@@ -37,12 +37,20 @@ test('registering an address that has an account does not touch the account', as
   await page.getByText('Create account', { exact: true }).click()
   await fillCredentials(page, address, 'another-password-for-e2e')
   await page.getByRole('button', { name: /create account/i }).click()
-  await expect(page.getByText('Email address is already in use')).toBeVisible()
+
+  // The same answer as for a new address, so the form does not tell who has an account here.
+  // The owner is told by email instead.
+  await expect(page.getByText(/check your email for a confirmation link/i)).toBeVisible()
+  await emailedLink(request, address, /already have an Ackee account/)
 
   // The first password still works, the second never did
-  await page.getByText('Back to sign in').click()
   await signIn(page, address, PASSWORD)
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Sign Out' }).click()
+  await expect(page.getByText('Sign in with a passkey')).toBeVisible()
+  await signIn(page, address, 'another-password-for-e2e')
+  await expect(page.getByText('Username or password incorrect')).toBeVisible()
 })
 
 test('asking for a new password says the same for a known and an unknown address', async ({ page, request }) => {

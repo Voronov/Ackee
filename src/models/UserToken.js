@@ -21,7 +21,9 @@ const schema = new mongoose.Schema({
   purpose: {
     type: String,
     required: true,
-    enum: ['VERIFY', 'RESET'],
+    // EXISTS is never redeemed: it only counts the notes about a taken address towards the
+    // sending limit, like the links count for the other two.
+    enum: ['VERIFY', 'RESET', 'EXISTS'],
   },
   hash: {
     type: String,
