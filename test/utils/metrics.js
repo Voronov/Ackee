@@ -183,3 +183,48 @@ test.serial('a live stream is left out of the request durations', (t) => {
   t.true(called)
   t.is(target.listeners.length, 0)
 })
+
+// The Grafana dashboards (deploy/grafana) query these names and labels. A change of the client
+// library (ACKEE-69) or a refactor must not rename a series by accident.
+test('the series of Ackee keep their names, types and labels', (t) => {
+  const own = registry
+    .getMetricsAsArray()
+    .filter((metric) => /^ackee_(?!nodejs_|process_)/.test(metric.name))
+    .map((metric) => [metric.name, metric.type, [...metric.labelNames]])
+
+  t.deepEqual(own, [
+    ['ackee_http_request_duration_seconds', 'histogram', ['method', 'route', 'status']],
+    ['ackee_graphql_operation_duration_seconds', 'histogram', ['operation', 'field', 'outcome']],
+    ['ackee_mongodb_command_duration_seconds', 'histogram', ['command', 'collection', 'outcome']],
+    ['ackee_ingest_queue_length', 'gauge', []],
+    ['ackee_ingest_queue_oldest_age_seconds', 'gauge', []],
+    ['ackee_ingest_queue_processed_total', 'counter', ['type']],
+    ['ackee_ingest_queue_dropped_total', 'counter', ['reason']],
+    ['ackee_ingest_fallback_total', 'counter', ['reason']],
+    ['ackee_live_connections', 'gauge', []],
+    ['ackee_live_watched_domains', 'gauge', []],
+    ['ackee_live_polls_total', 'counter', ['outcome']],
+    ['ackee_live_visits_sent_total', 'counter', []],
+    ['ackee_live_rejected_total', 'counter', ['reason']],
+  ])
+})
+
+test('the default series the dashboards use are still collected', (t) => {
+  const names = new Set(registry.getMetricsAsArray().map((metric) => metric.name))
+
+  for (const name of [
+    'ackee_nodejs_eventloop_lag_p50_seconds',
+    'ackee_nodejs_eventloop_lag_p90_seconds',
+    'ackee_nodejs_eventloop_lag_p99_seconds',
+    'ackee_nodejs_gc_duration_seconds',
+    'ackee_nodejs_heap_size_total_bytes',
+    'ackee_nodejs_heap_size_used_bytes',
+    'ackee_nodejs_version_info',
+    'ackee_process_cpu_seconds_total',
+    'ackee_process_resident_memory_bytes',
+    // File descriptors are read from /proc, so only Linux has them
+    ...(process.platform === 'linux' ? ['ackee_process_open_fds', 'ackee_process_max_fds'] : []),
+  ]) {
+    t.true(names.has(name), name)
+  }
+})
