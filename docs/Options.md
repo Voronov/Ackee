@@ -72,6 +72,48 @@ so update the snippet on your site first. With the [ingest queue](#ingest-queue)
 one Ackee process, the other processes keep accepting the old key for up to a minute; the
 same goes for turning strict mode on.
 
+## Country of visitors
+
+Off by default. With it on, Ackee looks up the country of each visit from the address the
+request came from, on this server and nowhere else, and stores the two-letter code
+([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)) with the view. The
+address itself is not stored, as before. The report is "Countries" under Insights.
+
+```
+ACKEE_GEO=country
+```
+
+That alone changes nothing. The owner of a domain has to turn it on for that domain as well,
+in the dialog of the domain under Settings, or through the API:
+
+```graphql
+mutation {
+  updateDomain(id: "…", input: { title: "example.com", collectCountry: true }) {
+    success
+  }
+}
+```
+
+> ⚠️ The country of a person is personal data, and the address it is read from even more so.
+> Looking it up is processing under the GDPR: you need a lawful basis and a line in the privacy
+> policy of the site, see [Privacy Policy](Privacy%20Policy.md). The country is wrong for anyone
+> behind a VPN or a proxy. Keep this off unless you need it.
+
+The database comes with Ackee: `@ip-location-db/geo-whois-asn-country-mmdb` from npm, built
+from the public WHOIS and ASN registrations and published as CC0, so nothing is owed for it. It
+is read into memory once (about 8 MB), and a lookup takes a fraction of a millisecond. A new
+version of the package brings new data, and Dependabot proposes it like any other dependency.
+Another database in the same format, such as MaxMind's GeoLite2 or DB-IP Lite under their own
+licences, goes in with:
+
+```
+ACKEE_GEO_DATABASE=/path/to/country.mmdb
+```
+
+A private or unknown address gives no country, and such views are left out of the report. The
+country is removed from the earlier views of the same visitor like the other
+[personal data](Anonymization.md#personal-data).
+
 ## Username and password
 
 Username and password. Both are required to generate a new token.

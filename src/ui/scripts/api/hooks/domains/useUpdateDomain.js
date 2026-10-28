@@ -30,6 +30,9 @@ export default (id) => {
             payload: {
               id,
               title: options.variables.input.title,
+              ...(options.variables.input.collectCountry == null
+                ? {}
+                : { collectCountry: options.variables.input.collectCountry }),
               __typename: 'Domain',
             },
             __typename: 'UpdateDomainPayload',

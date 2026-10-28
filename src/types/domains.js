@@ -24,6 +24,11 @@ export default gql`
     """
     strictIngest: Boolean
     """
+    Whether views carry the country of the visitor, read from their address on the server.
+    Needs ACKEE_GEO on the instance. Only the two-letter code is stored, never the address.
+    """
+    collectCountry: Boolean
+    """
     Facts about a domain. Usually simple data that can be represented in one value.
     """
     facts(source: StatisticsSource = ACKEE): Facts!
@@ -75,6 +80,10 @@ export default gql`
     Turn on once the snippet on your site carries the ingest key.
     """
     strictIngest: Boolean
+    """
+    Collect the country of visitors from their address. Personal data: tell your visitors.
+    """
+    collectCountry: Boolean
   }
 
   type UpdateDomainPayload {
@@ -104,6 +113,10 @@ export default gql`
     Data of all existing domains.
     """
     domains: [Domain!]
+    """
+    Whether this instance can tell the country of a visitor (ACKEE_GEO).
+    """
+    countryAvailable: Boolean!
   }
 
   type Mutation {

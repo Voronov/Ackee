@@ -15,6 +15,7 @@ import { MODALS_DURATIONS, MODALS_VIEWS } from '../../constants/modals.js'
 
 import useDomains from '../../api/hooks/domains/useDomains.js'
 import useMergedBrowsers from '../../api/hooks/browsers/useMergedBrowsers.js'
+import useMergedCountries from '../../api/hooks/countries/useMergedCountries.js'
 import useMergedDevices from '../../api/hooks/devices/useMergedDevices.js'
 import useMergedDurations from '../../api/hooks/durations/useMergedDurations.js'
 import useMergedActiveVisitors from '../../api/hooks/facts/useMergedActiveVisitors.js'
@@ -207,6 +208,22 @@ const RouteOverview = (props) => {
       headline: 'Languages',
       onMore: () => props.setRoute('/insights/languages'),
       hook: useMergedLanguages,
+      hookArgs: [
+        {
+          sorting: SORTINGS_TOP,
+          range: RANGES_LAST_24_HOURS,
+        },
+      ],
+      renderer: RendererList,
+      rendererProps: {
+        sorting: SORTINGS_TOP,
+        range: RANGES_LAST_24_HOURS,
+      },
+    }),
+    h(CardStatistics, {
+      headline: 'Countries',
+      onMore: () => props.setRoute('/insights/countries'),
+      hook: useMergedCountries,
       hookArgs: [
         {
           sorting: SORTINGS_TOP,

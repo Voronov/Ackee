@@ -1,5 +1,6 @@
 import { DOMAINS_MANAGE, REPORTS_READ } from '../constants/permissions.js'
 import * as auditLog from '../database/auditLog.js'
+import * as geo from '../utils/geo.js'
 import * as domains from '../database/domains.js'
 import * as ga4 from '../database/ga4.js'
 import * as records from '../database/records.js'
@@ -26,6 +27,8 @@ export default {
     domains: pipe(requireAuth, (parent, args, { viewer }) => {
       return domains.all(domainScope(viewer, REPORTS_READ))
     }),
+    // No requireAuth: it says nothing about the data, only what the instance offers
+    countryAvailable: () => geo.isEnabled(),
   },
   Mutation: {
     createDomain: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {

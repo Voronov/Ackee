@@ -15,6 +15,7 @@ const ROUTES = [
   'insights/browsers',
   'insights/sizes',
   'insights/languages',
+  'insights/countries',
   'settings',
 ]
 

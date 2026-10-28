@@ -59,6 +59,7 @@ const record = (domainId, created) => {
     osVersion: pick(['14.0', '13.0', null]),
     browserName: pick(['Safari', 'Chrome', 'Firefox', null]),
     browserVersion: pick(['14.0', '13.0', null]),
+    country: pick(['UA', 'US', 'DE', null]),
     created: new Date(created),
     updated: new Date(created + duration),
   }
@@ -86,6 +87,9 @@ const views = (type, interval) => `views(type: ${type}, interval: ${interval}, l
 const durations = (interval) => `durations(interval: ${interval}, limit: 30) { id value count }`
 const top = (report, type, range, limit = 100) =>
   `${report}(sorting: TOP, type: ${type}, range: ${range}, limit: ${limit}) { id value count }`
+// Reports with no type to pick, like countries
+const plainTop = (report, range, limit = 100) =>
+  `${report}(sorting: TOP, range: ${range}, limit: ${limit}) { id value count }`
 
 const ranges = ['LAST_24_HOURS', 'LAST_7_DAYS', 'LAST_30_DAYS', 'LAST_6_MONTHS']
 
@@ -106,6 +110,8 @@ const reports = [
     'SCREEN_HEIGHT',
     'SCREEN_RESOLUTION',
   ].map((type) => top('sizes', type, 'LAST_30_DAYS')),
+  ...ranges.map((range) => plainTop('countries', range)),
+  plainTop('countries', 'LAST_30_DAYS', 2),
   // A limit that cuts through entries with the same count
   top('browsers', 'WITH_VERSION', 'LAST_30_DAYS', 3),
   top('referrers', 'WITH_SOURCE', 'LAST_7_DAYS', 1),
