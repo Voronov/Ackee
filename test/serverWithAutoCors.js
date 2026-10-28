@@ -38,6 +38,13 @@ test('return cors headers based on fully qualifed domain names', async (t) => {
   t.is(fqdnHeaders.get('Access-Control-Allow-Headers'), 'Content-Type, Authorization, Time-Zone, X-Ackee-Key')
   t.is(fqdnHeaders.get('Access-Control-Allow-Credentials'), 'true')
 
+  // A site in development runs on a port, which the Origin header carries
+  const { headers: portHeaders } = await api(base, { query: '{ __typename }' }, null, {
+    Origin: 'http://fqdn.example.com:8080',
+  })
+
+  t.is(portHeaders.get('Access-Control-Allow-Origin'), 'http://fqdn.example.com:8080')
+
   const { headers: noFqdnHeaders } = await api(base, { query: '{ __typename }' }, null, {
     Origin: 'https://not-in-list.example.com',
   })

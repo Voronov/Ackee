@@ -266,6 +266,8 @@ As opposed to manually configuring CORS domains, you can also automatically add 
 ACKEE_AUTO_ORIGIN=true
 ```
 
+A port in the origin is fine: a site developed at `http://example.com:8080` matches the domain `example.com`.
+
 ## Sign in with Google
 
 Ackee can offer "Sign in with Google" next to the password form. It uses OpenID Connect with PKCE and asks Google only for the address (`openid email`).
