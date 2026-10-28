@@ -1,4 +1,5 @@
 import test from 'ava'
+import { randomUUID } from 'node:crypto'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
@@ -104,7 +105,8 @@ const signInFrom = (ip, username, password) =>
   )
 
 test.serial('five wrong passwords lock the address for that client, not for its owner elsewhere', async (t) => {
-  const email = `locked-${Math.random().toString(36).slice(2)}@example.com`
+  // From node:crypto: CodeQL reads Math.random() in an address as insecure randomness
+  const email = `locked-${randomUUID()}@example.com`
   const password = 'the-right-password'
   const { user, workspace } = await users.add({ email, password })
   await users.verify(user.id)
