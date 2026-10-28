@@ -37,24 +37,24 @@ const response = (entry) => ({
 
 export default {
   Mutation: {
-    createToken: async (parent, { input }, { setCookies }) => {
+    createToken: async (parent, { input }, { setCookies, ip }) => {
       const { username, password } = input
 
-      if (await loginAttempts.tooMany(username)) {
+      if (await loginAttempts.tooMany(username, ip)) {
         throw new KnownError('Too many failed sign-ins for this address, try again in 15 minutes')
       }
 
       const user = await signIn(username, password)
 
       if (user == null) {
-        await loginAttempts.record(username)
+        await loginAttempts.record(username, ip)
         throw new KnownError('Username or password incorrect')
       }
 
       // Checked after the password, so it says nothing about an address to someone who does not know it.
       if (user.verified !== true) throw new KnownError('Confirm your email address before signing in')
 
-      await loginAttempts.clear(username)
+      await loginAttempts.clear(username, ip)
 
       const entry = await tokens.add(user.id)
 

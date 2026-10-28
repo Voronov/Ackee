@@ -4,7 +4,7 @@ import { LOGIN_WINDOW } from '../constants/login.js'
 
 // A failed sign-in. Only the count within the window matters, so MongoDB drops old ones itself.
 const schema = new mongoose.Schema({
-  // The address that was tried, lowercased. Not the IP: the limit protects the account.
+  // The address that was tried, lowercased, and the client it was tried from (database/loginAttempts.js).
   key: {
     type: String,
     required: true,
