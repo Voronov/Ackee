@@ -357,6 +357,7 @@ const Filter = (props) => {
       rangeItem,
     ],
     [routes.LANGUAGES]: [sortingItem, rangeItem],
+    [routes.COUNTRIES]: [sortingItem, rangeItem],
   }
 
   const currentRoute = useRoute(props.route)

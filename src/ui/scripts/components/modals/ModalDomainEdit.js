@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import { createElement as h } from 'react'
+import { createElement as h, useState } from 'react'
 
 import Input from '../Input.js'
 import Label from '../Label.js'
@@ -7,6 +7,7 @@ import Spacer from '../Spacer.js'
 import Text from '../Text.js'
 import Textarea from '../Textarea.js'
 
+import useCountryAvailable from '../../api/hooks/domains/useCountryAvailable.js'
 import useDeleteDomain from '../../api/hooks/domains/useDeleteDomain.js'
 import useUpdateDomain from '../../api/hooks/domains/useUpdateDomain.js'
 import { MODALS_DOMAIN_GA4, MODALS_DOMAIN_TRACKING } from '../../constants/modals.js'
@@ -18,6 +19,8 @@ import shortId from '../../utils/shortId.js'
 const ModalDomainEdit = (props) => {
   const updateDomain = useUpdateDomain(props.id)
   const deleteDomain = useDeleteDomain(props.id)
+  const countryAvailable = useCountryAvailable()
+  const [collectCountry, setCollectCountry] = useState(props.collectCountry === true)
 
   const [inputs, onInputChange] = useInputs({
     title: props.title,
@@ -31,6 +34,13 @@ const ModalDomainEdit = (props) => {
       },
     })
     props.closeModal()
+  }
+
+  // Saved at once: the switch is a decision about personal data, not part of a rename
+  const toggleCountry = () => {
+    const next = collectCountry === false
+    setCollectCountry(next)
+    updateDomain.mutate({ variables: { input: { title: props.title, collectCountry: next } } })
   }
 
   const onDelete = (event) => {
@@ -148,6 +158,23 @@ const ModalDomainEdit = (props) => {
         ),
       ),
 
+      h(Label, {}, 'Country of visitors'),
+
+      countryAvailable.value === true
+        ? h(
+            'label',
+            { className: 'checkbox' },
+            h('input', { type: 'checkbox', checked: collectCountry, onChange: toggleCountry }),
+            ' Read the country from the address of each visit',
+          )
+        : h(Text, { type: 'p', className: 'color-secondary' }, 'Not offered by this Ackee instance (ACKEE_GEO).'),
+
+      h(
+        Text,
+        { type: 'p', className: 'color-secondary' },
+        'Personal data. The address of a visitor is used to look up the country, on this server and nowhere else. Only the two-letter code is stored with the view, never the address, and the next visit of the same person removes it like the other personal data. Tell your visitors in your privacy policy before turning this on. VPNs and proxies give the wrong country.',
+      ),
+
       h(Spacer, { size: 0.5 }),
 
       h(
@@ -203,6 +230,7 @@ const ModalDomainEdit = (props) => {
 
 ModalDomainEdit.propTypes = {
   addModal: PropTypes.func,
+  collectCountry: PropTypes.bool,
   ingestKey: PropTypes.string,
   ...commonModalProps,
   id: PropTypes.string.isRequired,

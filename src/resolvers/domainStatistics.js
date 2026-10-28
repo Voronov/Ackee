@@ -1,4 +1,5 @@
 import getBrowsers from '../database/browsers.js'
+import getCountries from '../database/countries.js'
 import getDevices from '../database/devices.js'
 import getDurations from '../database/durations.js'
 import getLanguages from '../database/languages.js'
@@ -33,6 +34,8 @@ const fromGa4 = {
   sizes: ga4.list('sizes'),
   languages: (ids, sorting, range, limit, dateDetails) =>
     ga4.list('languages')(ids, sorting, undefined, range, limit, dateDetails),
+  countries: (ids, sorting, range, limit, dateDetails) =>
+    ga4.list('countries')(ids, sorting, undefined, range, limit, dateDetails),
 }
 
 const pick = (domain, own, name) => (domain.source === SOURCE_GA4 ? fromGa4[name] : own)
@@ -83,6 +86,10 @@ export default {
     languages: pipe(requireAuth, async (domain, { sorting, range, limit }, { dateDetails, viewer }) => {
       const ids = await domainIds(domain, viewer)
       return pick(domain, getLanguages, 'languages')(ids, sorting, range, limit, dateDetails)
+    }),
+    countries: pipe(requireAuth, async (domain, { sorting, range, limit }, { dateDetails, viewer }) => {
+      const ids = await domainIds(domain, viewer)
+      return pick(domain, getCountries, 'countries')(ids, sorting, range, limit, dateDetails)
     }),
   },
   Query: {

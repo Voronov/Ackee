@@ -16,7 +16,7 @@ Ackee also removes personal data from previous records when a new record with an
 
 ## Live feed
 
-The [live feed](API.md#live-feed) shows each new view as it is written: the page, the referrer and source, and, for views with personal data, the language, browser, OS and device. It never sends the identification (`clientId`), the IP address, the user agent, the id of the record, versions or screen sizes.
+The [live feed](API.md#live-feed) shows each new view as it is written: the page, the referrer and source, and, for views with personal data, the language, browser, OS and device. It never sends the identification (`clientId`), the IP address, the user agent, the id of the record, versions, screen sizes or the country.
 
 The fields are the same as in the reports, but the feed shows more than the reports do:
 
@@ -51,7 +51,10 @@ The following data is considered as "personal data":
 | browserVersion     | The browser/environment version.                                              |
 | browserWidth       | The width of the screen in pixels.                                            |
 | browserHeight      | The height of the screen in pixels.                                           |
+| country            | The country of the visitor, see below.                                        |
 
 All those parameters are considered as personal data, because you could point at the tracked person when sitting in the same room (even when this is probably never the case and totally unrealistic).
+
+`country` is different from the others: the tracker does not send it, and `detailed` has nothing to do with it. When the owner of the domain turned it on and the instance offers it ([Options](Options.md#country-of-visitors)), the server reads the country from the address of the request, on this server and nowhere else, keeps the two-letter code with the view and forgets the address as before. The next visit of the same person removes it from the earlier views like the other personal data.
 
 `siteReferrer` and visit duration (calculated using the creation and update time of a record) is not considered as personal data as you won't be able to identify a user with this piece of information. Even when you are in the same room you would need access to the browsing history of the user.
