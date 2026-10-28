@@ -58,3 +58,20 @@ export const sendInvitation = (to, token, { workspaceTitle, invitedBy }) => {
     ),
   })
 }
+
+// Sent when someone registers with an address that has an account. No one-time link: the
+// owner has a password already, and the sign-in page offers a reset if it is forgotten.
+export const sendAlreadyRegistered = (to) => {
+  const url = `${(config.publicUrl ?? '').replace(/\/$/, '')}/`
+
+  return send({
+    to,
+    subject: 'You already have an Ackee account',
+    ...layout(
+      'You already have an Ackee account',
+      'Someone tried to create an account with this address, but it already has one. Sign in with your password, or ask for a new one on the sign-in page.',
+      'Sign in',
+      url,
+    ),
+  })
+}
