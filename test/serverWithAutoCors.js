@@ -35,7 +35,7 @@ test('return cors headers based on fully qualifed domain names', async (t) => {
 
   t.is(fqdnHeaders.get('Access-Control-Allow-Origin'), 'https://fqdn.example.com')
   t.is(fqdnHeaders.get('Access-Control-Allow-Methods'), 'GET, POST, PATCH, OPTIONS')
-  t.is(fqdnHeaders.get('Access-Control-Allow-Headers'), 'Content-Type, Authorization, Time-Zone')
+  t.is(fqdnHeaders.get('Access-Control-Allow-Headers'), 'Content-Type, Authorization, Time-Zone, X-Ackee-Key')
   t.is(fqdnHeaders.get('Access-Control-Allow-Credentials'), 'true')
 
   const { headers: noFqdnHeaders } = await api(base, { query: '{ __typename }' }, null, {

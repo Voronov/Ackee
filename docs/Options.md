@@ -44,7 +44,9 @@ PORT=3000
 
 Every domain has an ingest key. The embed code carries it after the domain id, separated by
 a dot, and the tracker passes the whole value through untouched – so nothing about the
-tracker had to change.
+tracker had to change. Your own code that sends events without the tracker passes the key
+in the `X-Ackee-Key` header; Ackee's own [CORS headers](CORS%20headers.md) allow it, and a
+reverse proxy that sets them itself has to list it too.
 
 The key is **not a secret**: it sits in a script tag on a public page, and anyone who opens
 that page can read it. What it buys is a higher bar. Without it, a domain id found in
