@@ -2,7 +2,15 @@ import test from 'ava'
 
 import { stats as queueStats } from '../../src/queue/redis.js'
 import { stats as workerStats } from '../../src/queue/worker.js'
-import { apolloPlugin, handler, httpMiddleware, isEnabled, registry } from '../../src/utils/metrics.js'
+import {
+  MAXIMUM_PENDING_COMMANDS,
+  apolloPlugin,
+  handler,
+  httpMiddleware,
+  instrumentMongo,
+  isEnabled,
+  registry,
+} from '../../src/utils/metrics.js'
 
 const fakeResponse = () => {
   const listeners = []
@@ -182,4 +190,49 @@ test.serial('a live stream is left out of the request durations', (t) => {
 
   t.true(called)
   t.is(target.listeners.length, 0)
+})
+
+test.serial('a document with several root fields is one series, multiple', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  const hooks = await apolloPlugin.requestDidStart()
+  await hooks.didResolveOperation({
+    operation: {
+      operation: 'query',
+      selectionSet: {
+        selections: [{ name: { value: 'domains' } }, { name: { value: 'events' } }, { name: { value: 'domains' } }],
+      },
+    },
+  })
+  await hooks.willSendResponse({})
+
+  const text = await registry.metrics()
+  t.true(text.includes('field="multiple"'))
+  // Not the combination: a client could mint a series per subset of the schema
+  t.false(text.includes('field="domains,events"'))
+})
+
+test.serial('commands the driver never finishes do not pile up', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  // The driver as the code sees it: something to listen to
+  const listeners = {}
+  const client = { on: (name, listener) => (listeners[name] = listener), emit: (name, event) => listeners[name](event) }
+  instrumentMongo(client)
+
+  const series =
+    'ackee_mongodb_command_duration_seconds_count{app="ackee",command="find",collection="pending",outcome="ok"}'
+  const before = await lineOf(series)
+
+  for (let id = 1; id <= MAXIMUM_PENDING_COMMANDS + 1; id++) {
+    client.emit('commandStarted', { requestId: id, commandName: 'find', command: { find: 'pending' } })
+  }
+
+  // The oldest was dropped to make room, so its late finish counts nothing
+  client.emit('commandSucceeded', { requestId: 1 })
+  t.is(await lineOf(series), before)
+
+  // A command still remembered is measured as usual
+  client.emit('commandSucceeded', { requestId: MAXIMUM_PENDING_COMMANDS + 1 })
+  t.not(await lineOf(series), before)
 })

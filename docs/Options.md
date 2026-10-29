@@ -222,21 +222,21 @@ curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
 
 Exposed series, next to the Node.js defaults. No label names a workspace or a domain. Live streams are left out of `ackee_http_request_duration_seconds`, as they last for hours.
 
-| Metric                                     | What it answers                                                                                     |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
-| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
-| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
-| `ackee_ingest_queue_length`                | Views in the [ingest queue](#ingest-queue) not written to MongoDB yet, `0` without the queue        |
-| `ackee_ingest_queue_oldest_age_seconds`    | How long the oldest view in the ingest queue has waited                                             |
-| `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                            |
-| `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                    |
-| `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                |
-| `ackee_live_connections`                   | Open [live](#live-feed) streams of this process                                                     |
-| `ackee_live_watched_domains`               | Domains the live feed of this process polls for                                                     |
-| `ackee_live_polls_total`                   | Queries of the live feed by `outcome` (`ok`, `gap`, `error`); one per tick, however many watch      |
-| `ackee_live_visits_sent_total`             | Views sent to live streams, counted once per stream                                                 |
-| `ackee_live_rejected_total`                | Live streams refused or ended, by `reason`                                                          |
+| Metric                                     | What it answers                                                                                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                                                          |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field (`multiple` for a document with several) — separates the read profile from the write profile |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself                                                    |
+| `ackee_ingest_queue_length`                | Views in the [ingest queue](#ingest-queue) not written to MongoDB yet, `0` without the queue                                                 |
+| `ackee_ingest_queue_oldest_age_seconds`    | How long the oldest view in the ingest queue has waited                                                                                      |
+| `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                                                                     |
+| `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                                                             |
+| `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                                                         |
+| `ackee_live_connections`                   | Open [live](#live-feed) streams of this process                                                                                              |
+| `ackee_live_watched_domains`               | Domains the live feed of this process polls for                                                                                              |
+| `ackee_live_polls_total`                   | Queries of the live feed by `outcome` (`ok`, `gap`, `error`); one per tick, however many watch                                               |
+| `ackee_live_visits_sent_total`             | Views sent to live streams, counted once per stream                                                                                          |
+| `ackee_live_rejected_total`                | Live streams refused or ended, by `reason`                                                                                                   |
 
 ## CORS headers
 
