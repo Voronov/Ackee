@@ -1,5 +1,7 @@
 # API
 
+An AI assistant can read the same reports through the [MCP endpoint](MCP.md), which runs fixed queries of this API and nothing else.
+
 Ackee features a GraphQL API that allows you to build custom tools upon Ackee. Everything you see in the UI is made from data delivered by the API.
 
 Here are a few resources to help you get started with GraphQL:
