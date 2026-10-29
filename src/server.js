@@ -16,6 +16,7 @@ import autotrackLoader from './autotrack/loader.js'
 import live from './live/router.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
+import mcp from './mcp/server.js'
 import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
 
@@ -137,6 +138,10 @@ app.use(
     context: createExpressContext,
   }),
 )
+
+// Read-only MCP endpoint for AI assistants (ACKEE-27, ADR-008). Its own JSON parser: the
+// one above is mounted on /api only.
+app.all('/mcp', express.json(), mcp)
 
 // Handle 404 errors for unmatched routes (must be after Apollo middleware)
 app.use((request, response) => {
