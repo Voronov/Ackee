@@ -6,6 +6,8 @@ import { ownAddress, sendView } from './_helpers.js'
 // its API: the views go through Redis and a worker stores them. The administrator of the
 // environment makes the domain, nobody registers here.
 const QUEUE = process.env.E2E_QUEUE_API ?? 'http://localhost:3001'
+// The worker is a process of its own (ACKEE-19); what it wrote is counted on its /metrics
+const WORKER = process.env.E2E_QUEUE_WORKER_API ?? QUEUE
 const TOKEN = process.env.E2E_METRICS_TOKEN ?? 'e2e-metrics-token'
 
 const call = async (request, query, variables, token, headers = {}) =>
@@ -53,7 +55,7 @@ test('views go through the queue and are stored by the worker', async ({ request
 
   // The worker counted what it stored, and dropped nothing as broken
   const metrics = await (
-    await request.get(`${QUEUE}/metrics`, { headers: { Authorization: `Bearer ${TOKEN}` } })
+    await request.get(`${WORKER}/metrics`, { headers: { Authorization: `Bearer ${TOKEN}` } })
   ).text()
   const stored = /ackee_ingest_queue_processed_total\{type="record\.create",app="ackee"\} (\d+)/.exec(metrics)[1]
   expect(Number(stored)).toBeGreaterThanOrEqual(3)

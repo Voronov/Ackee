@@ -30,7 +30,8 @@ origin, нормалізація, валідація схеми без MongoDB),
 трекеру тим самим payload, що й без черги. Воркер у тому самому процесі (`src/index.js`, поруч
 зі згортками) читає stream групою `ackee-ingest` і пише в MongoDB:
 `XAUTOCLAIM` (min-idle 60 с) → `XREADGROUP … COUNT 200 BLOCK 1000` → запис по черзі →
-`XACK` + `XDEL` у `MULTI`. ACKEE-19 лише рознесе API і воркер по процесах.
+`XACK` + `XDEL` у `MULTI`. ACKEE-19 рознесла API і воркер по процесах: `ACKEE_ROLE=api` чи `ingest`
+лише кладе події в stream, `ACKEE_ROLE=worker` лише пише з нього; без змінної все в одному процесі, як тут описано.
 
 **Змінні.** `ACKEE_INGEST_QUEUE=<redis URL>` вмикає чергу, порожнє значення – як не задане.
 `ACKEE_INGEST_CONSUMER` – ім'я споживача, за замовчуванням ім'я хоста. `src/serverless.js`
