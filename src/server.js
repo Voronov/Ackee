@@ -141,7 +141,16 @@ app.use(
 
 // Read-only MCP endpoint for AI assistants (ACKEE-27, ADR-008). Its own JSON parser: the
 // one above is mounted on /api only.
-app.all('/mcp', express.json(), mcp)
+app.post('/mcp', express.json(), mcp)
+
+// Stateless, so there is no stream to open with GET and no session to end with DELETE. A GET
+// would hold a stream open forever, so every other method gets 405, as in the SDK example.
+app.all('/mcp', (request, response) => {
+  response
+    .status(405)
+    .set('Allow', 'POST')
+    .json({ jsonrpc: '2.0', error: { code: -32_000, message: 'Method not allowed.' }, id: null })
+})
 
 // Handle 404 errors for unmatched routes (must be after Apollo middleware)
 app.use((request, response) => {

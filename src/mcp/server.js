@@ -62,15 +62,22 @@ const executor = (viewer, headers) => async (query, variables) => {
   return result?.data
 }
 
-// The workspace a call is written to the audit log for: the one of the domain asked for, else
-// the first of the viewer. A token without a workspace has nothing to charge, and sees nothing.
-const workspaceOf = async (viewer, domainId) => {
-  if (domainId != null) {
+// The workspaces a call is written to the audit log for: the one of each domain asked for.
+// Without a domain the call reads every workspace of the viewer, so each one gets an entry.
+// An unknown or foreign domain also goes to every workspace of the viewer: the attempt must
+// leave a trace, but not in the workspace that owns the domain.
+const workspacesOf = async (viewer, domainIds) => {
+  const own = viewer.memberships.map((membership) => membership.workspaceId)
+  if (domainIds.length === 0) return own
+
+  const found = new Set()
+
+  for (const domainId of domainIds) {
     const entry = await domains.get(domainId, domainScope(viewer, REPORTS_READ))
-    if (entry != null) return entry.workspaceId
+    for (const workspaceId of entry == null ? own : [entry.workspaceId]) found.add(workspaceId)
   }
 
-  return viewer.memberships[0]?.workspaceId
+  return [...found]
 }
 
 const shorten = (text, limit = 200) => (text.length > limit ? `${text.slice(0, limit)}…` : text)
@@ -87,15 +94,25 @@ const createServer = (viewer, headers) => {
       tool.name,
       { description: tool.description, inputSchema: tool.inputSchema, annotations: { readOnlyHint: true } },
       async (args = {}) => {
-        const result = await tool.run(args, execute)
+        let outcome
 
-        // Every call lands in the audit log, with its arguments, like a change made in the UI
-        const workspaceId = await workspaceOf(viewer, args.domainId ?? args.domainIds?.[0])
-        if (workspaceId != null) {
-          await auditLog.record(viewer, workspaceId, `mcp.${tool.name}`, args.domainId, shorten(JSON.stringify(args)))
+        try {
+          const result = await tool.run(args, execute)
+          outcome = 'ok'
+
+          return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+        } catch (error) {
+          outcome = `error: ${error.message}`
+          throw error
+        } finally {
+          // Every call lands in the audit log, failed ones too, or probing foreign ids leaves no trace
+          const domainIds = args.domainIds ?? (args.domainId == null ? [] : [args.domainId])
+          const details = shorten(`${outcome} ${JSON.stringify(args)}`)
+
+          for (const workspaceId of await workspacesOf(viewer, domainIds)) {
+            await auditLog.record(viewer, workspaceId, `mcp.${tool.name}`, args.domainId, details)
+          }
         }
-
-        return { content: [{ type: 'text', text: JSON.stringify(result) }] }
       },
     )
   }
