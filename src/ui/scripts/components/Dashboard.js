@@ -2,14 +2,15 @@ import { createElement as h } from 'react'
 
 import useDomains from '../api/hooks/domains/useDomains.js'
 import * as routes from '../constants/routes.js'
+import { sectionOf } from '../constants/sections.js'
 import useHotkey from '../hooks/useHotkey.js'
 import useRoute from '../hooks/useRoute.js'
-import whenBelow from '../utils/whenBelow.js'
 
-import Header, { createButton, createDropdown, createDropdownButton, createDropdownSeparator } from './Header.js'
 import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
+import Navigation from './Navigation.js'
 import SourceSelect from './SourceSelect.js'
+import Tabs from './Tabs.js'
 
 import { useGa4Connected } from '../api/hooks/ga4/useGa4.js'
 import {
@@ -94,39 +95,6 @@ const Dashboard = (props) => {
     domains.value,
   ])
 
-  const hasDomains = domains.value.length > 0
-
-  const domainsLabel = (activeItem) => (activeItem == null ? 'Domains' : activeItem.label)
-  const insightsLabel = (activeItem) => (activeItem == null ? 'Insights' : activeItem.label)
-
-  const domainsItems = domains.value.map((domain, index) =>
-    createDropdownButton(domain.title, `/domains/${domain.id}`, props.route, props.setRoute, whenBelow(index, 10)),
-  )
-
-  const insightsItems = [
-    createDropdownButton('Views', '/insights/views', props.route, props.setRoute, 'v'),
-    createDropdownButton('Pages', '/insights/pages', props.route, props.setRoute, 'p'),
-    createDropdownButton('Referrers', '/insights/referrers', props.route, props.setRoute, 'r'),
-    createDropdownButton('Durations', '/insights/durations', props.route, props.setRoute, 'd'),
-    createDropdownSeparator(),
-    createDropdownButton('Events', '/insights/events', props.route, props.setRoute, 'e'),
-    createDropdownSeparator(),
-    createDropdownButton('Live', '/insights/live', props.route, props.setRoute, 'l'),
-    createDropdownSeparator(),
-    createDropdownButton('Systems', '/insights/systems', props.route, props.setRoute),
-    createDropdownButton('Devices', '/insights/devices', props.route, props.setRoute),
-    createDropdownButton('Browsers', '/insights/browsers', props.route, props.setRoute),
-    createDropdownButton('Sizes', '/insights/sizes', props.route, props.setRoute),
-    createDropdownButton('Languages', '/insights/languages', props.route, props.setRoute),
-  ]
-
-  const items = [
-    createButton('Overview', '/', props.route, props.setRoute),
-    hasDomains === true ? createDropdown(domainsLabel, domainsItems) : undefined,
-    createDropdown(insightsLabel, insightsItems),
-    createButton('Settings', '/settings', props.route, props.setRoute),
-  ].filter(Boolean)
-
   const route = h(routeComponents[currentRoute.key], {
     reset: props.reset,
     route: props.route,
@@ -137,22 +105,28 @@ const Dashboard = (props) => {
   })
   // Without a GA4 connection everything reads Ackee, so there is nothing to switch
   const showsSource = ga4Connected.value === true && READS_SOURCE.has(currentRoute.key)
+  const section = sectionOf(currentRoute.key)
 
   return h(
     'div',
-    {},
+    { className: 'dashboard' },
     h(Modals, {
       modals: props.modals,
       removeModal: props.removeModal,
       addModal: props.addModal,
     }),
-    h(Header, {
+    h(Navigation, {
       loading: props.loading,
-      items,
+      route: props.route,
+      routeKey: currentRoute.key,
+      domains: domains.value,
     }),
     h(
       'main',
-      { className: 'content' },
+      // Takes the focus when a page is picked in the menu of a narrow screen
+      { id: 'content', className: 'content', tabIndex: -1 },
+      section != null &&
+        h(Tabs, { label: section.label, tabs: section.tabs, routeKey: currentRoute.key, setRoute: props.setRoute }),
       PICKS_DOMAIN.has(currentRoute.key) &&
         h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
       showsSource && h(SourceSelect),

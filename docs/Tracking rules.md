@@ -30,7 +30,7 @@ Under **Tracking rules →** in the domain dialog:
 
 A domain can have up to 50 rules of any kind at once. Each rule can be limited to some pages: `/product/*` matches every page under `/product/`, `/checkout/` only that page, and an empty field every page. `*` stands for anything; the query string and the part after `#` are not compared.
 
-Every kind is an Ackee event of the domain's workspace, named after the domain, like "shop.example.com · Clicks". Its reports are under Insights → Events.
+Every kind is an Ackee event of the domain's workspace, named after the domain, like "shop.example.com · Clicks". Its reports are under Events.
 
 ## Google Tag Manager
 

@@ -14,7 +14,7 @@ test('an address is registered only with a password of ten characters', async ({
 
 test('five wrong passwords lock the address, the right one is not accepted meanwhile', async ({ page, request }) => {
   const address = await createAccount(page, request, 'lock')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Sign Out' }).click()
   await expect(page.getByText('Sign in with a passkey')).toBeVisible()
 
@@ -26,12 +26,12 @@ test('five wrong passwords lock the address, the right one is not accepted meanw
 
   await signIn(page, address, PASSWORD)
   await expect(page.getByText(/too many failed sign-ins/i)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0)
 })
 
 test('registering an address that has an account does not touch the account', async ({ page, request }) => {
   const address = await createAccount(page, request, 'twice')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Sign Out' }).click()
 
   await page.getByText('Create account', { exact: true }).click()
@@ -42,12 +42,12 @@ test('registering an address that has an account does not touch the account', as
   // The first password still works, the second never did
   await page.getByText('Back to sign in').click()
   await signIn(page, address, PASSWORD)
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 
 test('asking for a new password says the same for a known and an unknown address', async ({ page, request }) => {
   const known = await createAccount(page, request, 'forgot')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Sign Out' }).click()
 
   await expect(page.getByText('Sign in with a passkey')).toBeVisible()

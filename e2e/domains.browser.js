@@ -11,7 +11,7 @@ const addDomain = async (page, title) => {
 
 test('a new domain gets an id and an embed code, can be renamed and then deleted', async ({ page, request }) => {
   await createAccount(page, request, 'domains')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
 
   await addDomain(page, 'shop.test')
 
@@ -38,7 +38,7 @@ test('a new domain gets an id and an embed code, can be renamed and then deleted
 
 test('two domains of one account are listed side by side', async ({ page, request }) => {
   await createAccount(page, request, 'domains-two')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
 
   await addDomain(page, 'first.test')
   await addDomain(page, 'second.test')
@@ -65,7 +65,7 @@ test('a deleted domain takes no more views', async ({ page, request }) => {
 
 test('the dialog says when a title is a name and not a host name', async ({ page, request }) => {
   await createAccount(page, request, 'domains-label')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'New domain' }).click()
 
   const note = page.getByText(/not a host name/i)
@@ -83,7 +83,7 @@ test('the dialog says when a title is a name and not a host name', async ({ page
 
 test('the same title twice is refused with the reason', async ({ page, request }) => {
   await createAccount(page, request, 'domains-twice')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await addDomain(page, 'shop.test')
 
   await page.getByRole('button', { name: 'New domain' }).click()

@@ -1,0 +1,224 @@
+.navigation {
+
+	position: sticky;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	border-right: 1px solid $border;
+	// Above the filter bar, below the modals and the context menus
+	z-index: 2;
+
+	@keyframes navigation__rotate {
+		0% {
+			transform: rotate(0turn);
+		}
+		100% {
+			transform: rotate(1turn);
+		}
+	}
+
+	&__bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: $gutter $gutter*1.2;
+	}
+
+	&__logo {
+		$size: 42px;
+
+		position: relative;
+		flex-shrink: 0;
+		width: $size;
+		height: $size;
+		background: $gradient;
+		border-radius: 100%;
+	}
+
+	&__spinner {
+		$offset: 4px;
+
+		position: absolute;
+		top: $offset*-1;
+		left: $offset*-1;
+		width: calc(100% + #{ $offset*2 });
+		height: calc(100% + #{ $offset*2 });
+		border-style: solid;
+		border-width: 2px;
+		border-radius: 100%;
+		border-color: transparent;
+		opacity: 0;
+		transition: opacity 1.2s ease;
+		animation-name: navigation__rotate;
+		animation-iteration-count: infinite;
+		animation-timing-function: linear;
+
+		&--visible {
+			opacity: 1;
+		}
+
+		&--white {
+			border-right-color: $white;
+			animation-duration: .5s;
+		}
+
+		&--primary {
+			border-right-color: $primary;
+			animation-duration: 1.2s;
+		}
+	}
+
+	&__toggle {
+		display: none;
+		padding: math.div($gutter, 2);
+		color: $white;
+		outline: none;
+
+		&:focus-visible {
+			color: $primary;
+		}
+	}
+
+	&__icon {
+		$size: 22px;
+
+		display: block;
+		width: $size;
+		height: $size;
+		fill: currentColor;
+	}
+
+	&__panel {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: $gutter;
+		padding: 0 math.div($gutter, 2) $gutter;
+		overflow-x: hidden;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	&__list {
+		display: grid;
+		// Long domain titles are cut, not widening the whole column
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	&__heading {
+		margin: math.div($gutter, 1.5) 0 math.div($gutter, 4);
+		padding: 0 math.div($gutter, 1.5);
+		font-size: .75em;
+		letter-spacing: .08em;
+		text-transform: uppercase;
+		color: $tertiary;
+	}
+
+	&__item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: math.div($gutter, 2);
+		padding: math.div($gutter, 2.5) math.div($gutter, 1.5);
+		color: $light;
+		text-decoration: none;
+		border-radius: $innerRadius;
+		outline: none;
+		transition: color .3s ease, background .2s ease;
+
+		&:hover {
+			color: $white;
+			background: $dimmed;
+		}
+
+		// Inside, as the panel cuts what reaches past its sides
+		&:focus-visible {
+			color: $white;
+			outline: 2px solid $primary;
+			outline-offset: -2px;
+		}
+
+		&.active {
+			color: $white;
+			box-shadow: inset 2px 0 0 $primary;
+			background: $dimmed;
+		}
+	}
+
+	&__label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__backdrop {
+		display: none;
+	}
+
+	@media (max-width: $compact) {
+		height: auto;
+		background: $black;
+		border-right: none;
+		border-bottom: 1px solid $border;
+
+		&__bar {
+			padding: math.div($gutter, 2) $gutter;
+		}
+
+		&__logo {
+			$size: 32px;
+
+			width: $size;
+			height: $size;
+		}
+
+		&__toggle {
+			display: block;
+		}
+
+		&__backdrop {
+			position: fixed;
+			display: block;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			background: rgba($black, .7);
+		}
+
+		// Hidden, not only moved away: the links of a closed menu must not take the focus
+		&__panel {
+			position: fixed;
+			top: 0;
+			bottom: 0;
+			left: 0;
+			padding-top: $gutter;
+			width: min(280px, 85vw);
+			background: $card;
+			box-shadow: $shadow;
+			visibility: hidden;
+			transform: translateX(-100%);
+			transition: transform .3s ease, visibility 0s linear .3s;
+		}
+
+		// The filter bar is rendered at the end of the body, so the open menu has to climb over it.
+		// No modal can be open at the same time: the backdrop covers everything that opens one.
+		&--open {
+			z-index: 3;
+		}
+
+		&--open &__panel {
+			visibility: visible;
+			transform: none;
+			transition: transform .3s ease;
+		}
+	}
+
+}

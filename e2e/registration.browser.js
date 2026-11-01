@@ -58,7 +58,7 @@ test('register, confirm by the emailed link, sign in', async ({ page, request })
   await expect(page.getByRole('heading', { name: 'Address confirmed' })).toBeVisible()
 
   await signIn(page, address, PASSWORD)
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 
 test('an unconfirmed address is told to confirm first', async ({ page }) => {
