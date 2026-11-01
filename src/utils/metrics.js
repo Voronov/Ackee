@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
-import client from 'prom-client'
+import client from '@prometheus-io/client'
 
 import {
   DROP_INVALID,
