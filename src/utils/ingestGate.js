@@ -1,4 +1,4 @@
-import { GraphQLError } from 'graphql'
+import { GraphQLError, Kind } from 'graphql'
 
 import * as customTracker from './customTracker.js'
 import { serves } from './roles.js'
@@ -34,9 +34,12 @@ export const plugin = {
 
     return {
       didResolveOperation({ operation }) {
-        const fields = (operation?.selectionSet?.selections ?? []).map((selection) => selection.name?.value)
+        // Only plain fields: a fragment at the root carries a name the client chooses
+        const allowed = (operation?.selectionSet?.selections ?? []).every(
+          (selection) => selection.kind === Kind.FIELD && FIELDS.has(selection.name.value) === true,
+        )
 
-        if (fields.every((field) => FIELDS.has(field)) === false) {
+        if (allowed === false) {
           throw new GraphQLError('This process takes views only', {
             extensions: { code: 'FORBIDDEN', http: { status: 403 } },
           })

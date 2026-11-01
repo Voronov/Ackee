@@ -94,6 +94,24 @@ test.serial('an ingest process takes the events of the tracker', async (t) => {
   restore()
 })
 
+test.serial('an ingest process refuses a report hidden in a fragment', async (t) => {
+  const restore = mockedEnv({ ACKEE_ROLE: 'ingest' })
+
+  const queries = [
+    // The name of the fragment matches an allowed field
+    'query { ...createRecord } fragment createRecord on Query { domains { id } }',
+    'query { ... on Query { domains { id } } }',
+  ]
+
+  for (const query of queries) {
+    const { json } = await api(base, { query }, t.context.token.id)
+    t.regex(json.errors[0].message, /views only/, query)
+    t.is(json.data, undefined, query)
+  }
+
+  restore()
+})
+
 test.serial('an api process serves everything the app needs', async (t) => {
   const restore = mockedEnv({ ACKEE_ROLE: 'api' })
 
