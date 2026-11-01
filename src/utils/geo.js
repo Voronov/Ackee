@@ -41,7 +41,9 @@ export const countryOf = async (ip) => {
   if (isEnabled() === false || ip == null || ip === '') return null
 
   try {
-    const code = (await open()).get(plain(ip))?.country_code
+    const entry = (await open()).get(plain(ip))
+    // The bundled file keeps the code flat. GeoLite2 and DB-IP Lite use the GeoIP2 layout.
+    const code = entry?.country_code ?? entry?.country?.iso_code
 
     return typeof code === 'string' && /^[A-Z]{2}$/.test(code) ? code : null
   } catch {
