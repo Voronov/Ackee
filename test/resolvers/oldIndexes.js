@@ -31,6 +31,16 @@ test.serial('a second start finds nothing to drop', async (t) => {
   t.false(await dropOldRecordIndexes())
 })
 
+test.serial('processes that start together drop the index once and keep running', async (t) => {
+  await Record.collection.createIndex({ domainId: 1 })
+
+  // The api, ingest and worker processes on the same old database
+  const results = await Promise.all([dropOldRecordIndexes(), dropOldRecordIndexes(), dropOldRecordIndexes()])
+
+  t.true(results.includes(true))
+  t.false((await indexNames()).includes('domainId_1'))
+})
+
 test.serial('a database without records yet is left alone', async (t) => {
   await Record.collection.drop()
 
