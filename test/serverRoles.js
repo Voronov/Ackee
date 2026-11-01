@@ -60,6 +60,40 @@ test.serial('an ingest process serves the tracker and its views, and nothing els
   restore()
 })
 
+test.serial('an ingest process takes the events of the tracker', async (t) => {
+  const restore = mockedEnv({ ACKEE_ROLE: 'ingest' })
+
+  // Without a token, as the tracker and the autotracking send them
+  const { json: created } = await api(base, {
+    query: gql`
+      mutation createAction($eventId: ID!, $input: CreateActionInput!) {
+        createAction(eventId: $eventId, input: $input) {
+          payload {
+            id
+          }
+        }
+      }
+    `,
+    variables: { eventId: t.context.event.id, input: { key: 'click', value: 1 } },
+  })
+  t.is(created.errors, undefined)
+
+  const { json: updated } = await api(base, {
+    query: gql`
+      mutation updateAction($id: ID!, $input: UpdateActionInput!) {
+        updateAction(id: $id, input: $input) {
+          success
+        }
+      }
+    `,
+    variables: { id: created.data.createAction.payload.id, input: { key: 'click', value: 2 } },
+  })
+  t.is(updated.errors, undefined)
+  t.true(updated.data.updateAction.success)
+
+  restore()
+})
+
 test.serial('an api process serves everything the app needs', async (t) => {
   const restore = mockedEnv({ ACKEE_ROLE: 'api' })
 

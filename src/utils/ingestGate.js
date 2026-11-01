@@ -25,8 +25,8 @@ export const gate = (request, response, next) => {
   response.status(404).send('Not found')
 }
 
-// The views of the tracker, and the query of the health check
-const FIELDS = new Set(['createRecord', 'updateRecord', '__typename'])
+// The views and the events of the tracker, and the query of the health check
+const FIELDS = new Set(['createRecord', 'updateRecord', 'createAction', 'updateAction', '__typename'])
 
 export const plugin = {
   requestDidStart() {
