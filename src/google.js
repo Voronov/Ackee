@@ -3,13 +3,13 @@ import { createRequire } from 'node:module'
 
 import express from 'express'
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
-import { getClientIp } from 'request-ip'
 
 import { ROLE_OWNER } from './constants/roles.js'
 import * as auditLog from './database/auditLog.js'
 import * as tokens from './database/tokens.js'
 import * as users from './database/users.js'
 import OAuthState from './models/OAuthState.js'
+import * as clientIp from './utils/clientIp.js'
 import config from './utils/config.js'
 import { on as ignoreCookieOn } from './utils/ignoreCookie.js'
 import signale from './utils/signale.js'
@@ -136,7 +136,7 @@ const router = express.Router()
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
-  keyGenerator: (request) => ipKeyGenerator(getClientIp(request) ?? ''),
+  keyGenerator: (request) => ipKeyGenerator(clientIp.ofExpress(request) ?? ''),
   handler: (request, response) =>
     response.status(429).send(page('Too many requests', 'Wait a few minutes and try again.')),
 })

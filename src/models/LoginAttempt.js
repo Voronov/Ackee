@@ -9,6 +9,8 @@ const schema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // The address alone, for the limit over all clients
+  address: String,
   created: {
     type: Date,
     required: true,
@@ -17,6 +19,7 @@ const schema = new mongoose.Schema({
 })
 
 schema.index({ key: 1 })
+schema.index({ address: 1 })
 schema.index({ created: 1 }, { expireAfterSeconds: LOGIN_WINDOW / 1000 })
 
 export default mongoose.model('LoginAttempt', schema)

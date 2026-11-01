@@ -26,6 +26,8 @@ export default new Proxy(
         ingestConsumer: process.env.ACKEE_INGEST_CONSUMER || undefined,
         // Touches of one address per minute, 0 is off
         updateRecordLimit: count(process.env.ACKEE_UPDATE_RECORD_LIMIT, 3000),
+        // Proxies in front of Ackee whose X-Forwarded-For entries are trusted. 0 reads the socket.
+        trustProxy: count(process.env.ACKEE_TRUST_PROXY, 0),
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
         username: process.env.ACKEE_USERNAME,

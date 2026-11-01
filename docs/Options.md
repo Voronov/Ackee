@@ -175,7 +175,15 @@ ACKEE_INGEST_CONSUMER=ackee-1
 
 To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
 
-## Touch limit
+## Trusted proxies
+
+```
+ACKEE_TRUST_PROXY=1
+```
+
+The number of reverse proxies in front of Ackee, like nginx or Caddy (see [SSL and HTTPS](SSL%20and%20HTTPS.md)). The address of a client is taken from `X-Forwarded-For`, counting this many entries from the right; everything left of them was written by the client and is ignored, and so are `X-Client-IP`, `CF-Connecting-IP` and similar headers. The default `0` takes the address of the connection. The sign-in limit, the link limits and the touch limit count per address, so without this setting behind a proxy every visitor looks like the proxy. In a serverless function the last `X-Forwarded-For` entry is used, the one the platform adds.
+
+Failed sign-ins are limited to 5 per account and address and to 50 per account from all addresses in 15 minutes.
 
 ```
 ACKEE_UPDATE_RECORD_LIMIT=3000
