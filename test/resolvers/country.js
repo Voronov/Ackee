@@ -2,8 +2,11 @@ import test from 'ava'
 import listen from 'test-listen'
 import mockedEnv from 'mocked-env'
 
+import * as users from '../../src/database/users.js'
 import Domain from '../../src/models/Domain.js'
+import Membership from '../../src/models/Membership.js'
 import Record from '../../src/models/Record.js'
+import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
 import { api } from '../_utils.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from './_utils.js'
@@ -42,7 +45,7 @@ const view = async (domainId, ip, browser = 'Mozilla/5.0 (test)') => {
 
 const switchOn = (t) => Domain.updateOne({ id: t.context.domain.id }, { collectCountry: true })
 
-const updateDomain = (t, input) =>
+const updateDomain = (t, input, tokenId = t.context.token.id) =>
   api(
     base,
     {
@@ -57,7 +60,7 @@ const updateDomain = (t, input) =>
       `,
       variables: { id: t.context.domain.id, input },
     },
-    t.context.token.id,
+    tokenId,
   )
 
 test.serial('without ACKEE_GEO no view gets a country, whatever the domain asks for', async (t) => {
@@ -134,6 +137,28 @@ test.serial('the owner turns it on and off through updateDomain, and a rename le
   const off = await updateDomain(t, { title: 'Renamed', collectCountry: false })
   t.false(off.json.data.updateDomain.payload.collectCountry)
   t.false((await Domain.findOne({ id: t.context.domain.id }).lean()).collectCountry)
+})
+
+// Review of #71: the switch is the owner's decision about personal data, not an editor's
+test.serial('an editor may rename the domain but not turn the country on or off', async (t) => {
+  const { user } = await users.add({ email: `editor-${Date.now()}@example.com`, password: 'sufficiently-long' })
+  await Membership.create({ userId: user.id, workspaceId: t.context.workspace.id, role: 'EDITOR' })
+  const editor = (await Token.create({ userId: user.id })).id
+  const canManage = async (tokenId) =>
+    (await api(base, { query: `{ domain(id: "${t.context.domain.id}") { canManageCountry } }` }, tokenId)).json.data
+      .domain.canManageCountry
+
+  const refused = await updateDomain(t, { title: 'Example', collectCountry: true }, editor)
+  t.regex(refused.json.errors[0].message, /owner/i)
+  t.falsy((await Domain.findOne({ id: t.context.domain.id }).lean()).collectCountry)
+
+  // The same value is no change, so the dialog of an editor still saves a rename
+  const renamed = await updateDomain(t, { title: 'Renamed', collectCountry: false }, editor)
+  t.is(renamed.json.errors, undefined)
+  t.is((await Domain.findOne({ id: t.context.domain.id }).lean()).title, 'Renamed')
+
+  t.false(await canManage(editor))
+  t.true(await canManage(t.context.token.id))
 })
 
 test.serial('countryAvailable tells whether the instance can do it, before anyone signs in', async (t) => {

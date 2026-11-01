@@ -53,6 +53,21 @@ const ModalDomainEdit = (props) => {
     props.closeModal()
   }
 
+  // Only an owner may change it, so the others see the state as text (review of #71)
+  const countrySwitch =
+    props.canManageCountry === true
+      ? h(
+          'label',
+          { className: 'checkbox' },
+          h('input', { type: 'checkbox', checked: collectCountry, onChange: toggleCountry }),
+          ' Read the country from the address of each visit',
+        )
+      : h(
+          Text,
+          { type: 'p', className: 'color-secondary' },
+          `${collectCountry ? 'On' : 'Off'}. Only an owner of the workspace can change this.`,
+        )
+
   const titleId = shortId()
   const idId = shortId()
   const embedId = shortId()
@@ -161,12 +176,7 @@ const ModalDomainEdit = (props) => {
       h(Label, {}, 'Country of visitors'),
 
       countryAvailable.value === true
-        ? h(
-            'label',
-            { className: 'checkbox' },
-            h('input', { type: 'checkbox', checked: collectCountry, onChange: toggleCountry }),
-            ' Read the country from the address of each visit',
-          )
+        ? countrySwitch
         : h(Text, { type: 'p', className: 'color-secondary' }, 'Not offered by this Ackee instance (ACKEE_GEO).'),
 
       h(
@@ -230,6 +240,7 @@ const ModalDomainEdit = (props) => {
 
 ModalDomainEdit.propTypes = {
   addModal: PropTypes.func,
+  canManageCountry: PropTypes.bool,
   collectCountry: PropTypes.bool,
   ingestKey: PropTypes.string,
   ...commonModalProps,

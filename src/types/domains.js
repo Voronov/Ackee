@@ -29,6 +29,10 @@ export default gql`
     """
     collectCountry: Boolean
     """
+    Whether the viewer may turn collectCountry on or off. Only an owner may.
+    """
+    canManageCountry: Boolean!
+    """
     Facts about a domain. Usually simple data that can be represented in one value.
     """
     facts(source: StatisticsSource = ACKEE): Facts!
