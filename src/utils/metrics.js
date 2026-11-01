@@ -213,9 +213,18 @@ export const httpMiddleware = (request, response, next) => {
 // The GraphQL root field is a fine enough label to separate reads from writes, and coarse
 // enough not to blow up cardinality. A document with several root fields is one series,
 // "multiple": a label made of their combination would let a client mint series at will.
-const rootFields = (operation) => {
+// Only a Field node whose name the schema knows becomes a label. A fragment spread carries
+// the name of the fragment, which the client makes up, so it counts as unknown.
+const rootFields = (operation, schema) => {
+  const known = schema?.getRootType(operation?.operation)?.getFields() ?? {}
   const selections = operation?.selectionSet?.selections ?? []
-  const names = [...new Set(selections.map((selection) => selection.name?.value).filter(Boolean))]
+  const names = [
+    ...new Set(
+      selections.map((selection) =>
+        selection.kind === 'Field' && Object.hasOwn(known, selection.name.value) ? selection.name.value : 'unknown',
+      ),
+    ),
+  ]
 
   if (names.length === 0) return 'unknown'
 
@@ -236,9 +245,9 @@ export const apolloPlugin = {
     let operation = 'unknown'
 
     return {
-      didResolveOperation({ operation: parsed }) {
+      didResolveOperation({ operation: parsed, schema }) {
         operation = parsed.operation
-        field = rootFields(parsed)
+        field = rootFields(parsed, schema)
       },
       willSendResponse({ errors }) {
         const seconds = Number(process.hrtime.bigint() - started) / 1e9
