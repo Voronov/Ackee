@@ -1,6 +1,5 @@
 import express from 'express'
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
-import { getClientIp } from 'request-ip'
 
 import * as auditLog from './database/auditLog.js'
 import * as invitations from './database/invitations.js'
@@ -9,6 +8,7 @@ import * as tokens from './database/tokens.js'
 import * as userTokens from './database/userTokens.js'
 import * as users from './database/users.js'
 import * as workspaces from './database/workspaces.js'
+import * as clientIp from './utils/clientIp.js'
 import { verify as verifyPassword } from './utils/password.js'
 import signale from './utils/signale.js'
 
@@ -73,7 +73,7 @@ const router = express.Router()
 const linkLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
-  keyGenerator: (request) => ipKeyGenerator(getClientIp(request) ?? ''),
+  keyGenerator: (request) => ipKeyGenerator(clientIp.ofExpress(request) ?? ''),
   handler: (request, response) =>
     response.status(429).send(message('Too many requests', 'Wait a few minutes and open the link again.')),
 })

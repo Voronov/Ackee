@@ -1,18 +1,16 @@
-import { getClientIp } from 'request-ip'
-
+import * as clientIp from './clientIp.js'
 import config from './config.js'
 import createDate from './createDate.js'
 import { isSet } from './ignoreCookie.js'
 import resolveViewer from './viewer.js'
 
 export const createServerlessContext = (request) => {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip')
   const headers = Object.fromEntries(request.headers)
-  return createContext(ip, headers)
+  return createContext(clientIp.ofFetch(request), headers)
 }
 
 export const createExpressContext = ({ req }) => {
-  return createContext(getClientIp(req), req.headers)
+  return createContext(clientIp.ofExpress(req), req.headers)
 }
 
 const createContext = async (ip, headers) => {
