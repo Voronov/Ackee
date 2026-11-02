@@ -10,6 +10,7 @@ import config from './utils/config.js'
 import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
+import * as ingestGate from './utils/ingestGate.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
 import google from './google.js'
 import autotrackLoader from './autotrack/loader.js'
@@ -97,7 +98,7 @@ const server = http.createServer(app)
 
 const apolloServer = createApolloServer({
   formatError: handleGraphError,
-  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin], // eslint-disable-line new-cap
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin, ingestGate.plugin], // eslint-disable-line new-cap
 })
 
 // Apply CORS middleware
@@ -107,6 +108,9 @@ app.use(attachCorsHeaders)
 app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
+
+// An ingest process serves the tracker and nothing else (ACKEE-19)
+app.use(ingestGate.gate)
 
 // Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
 app.get('/metrics', metrics.handler)

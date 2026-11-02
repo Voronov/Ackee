@@ -217,6 +217,25 @@ ACKEE_INGEST_CONSUMER=ackee-1
 
 To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
 
+## Process roles
+
+One process does everything by default: it serves the UI and the reports, takes the views of the tracker, and does the background work (the worker of the [ingest queue](#ingest-queue), the rollups, the GA4 sync). `ACKEE_ROLE` lets an administrator run these parts as processes of their own, so the traffic of the tracker, the reports and the background work no longer compete in one process. Without the variable nothing changes.
+
+```
+ACKEE_ROLE=all
+```
+
+| Role     | Serves                                                                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `all`    | Everything, as before. The default.                                                                                                                                            |
+| `api`    | The whole HTTP server: UI, reports, the pages of email links, the live feed, sign-in with Google, the tracker. No background work.                                             |
+| `ingest` | The tracker and what it calls: `/tracker.js`, `/t/<id>.js`, and `/api` for `createRecord` and `updateRecord` only. Any other path or operation is refused. No background work. |
+| `worker` | The background work: the worker of the ingest queue, the rollups, the GA4 sync. It listens on `ACKEE_PORT` only for the health check and `/metrics`.                           |
+
+Every process needs the same `ACKEE_MONGODB`, and with the queue the same `ACKEE_INGEST_QUEUE`; give each worker an `ACKEE_INGEST_CONSUMER` of its own. A worker needs no reverse proxy. An `ingest` process takes the tracker's traffic from the proxy, for example by a host name of its own (`collect.example.com` in the snippet) or by the absence of the `Authorization` header, which the tracker never sends. Each `api` and `ingest` process has its own `/metrics`; the counters of the queue worker are on the worker's.
+
+A value other than these four stops the process at start.
+
 ## Trusted proxies
 
 ```
@@ -226,6 +245,8 @@ ACKEE_TRUST_PROXY=1
 The number of reverse proxies in front of Ackee, like nginx or Caddy (see [SSL and HTTPS](SSL%20and%20HTTPS.md)). The address of a client is taken from `X-Forwarded-For`, counting this many entries from the right; everything left of them was written by the client and is ignored, and so are `X-Client-IP`, `CF-Connecting-IP` and similar headers. The default `0` takes the address of the connection. The sign-in limit, the link limits and the touch limit count per address, so without this setting behind a proxy every visitor looks like the proxy. In a serverless function the last `X-Forwarded-For` entry is used, the one the platform adds.
 
 Failed sign-ins are limited to 5 per account and address and to 50 per account from all addresses in 15 minutes.
+
+## Touch limit
 
 ```
 ACKEE_UPDATE_RECORD_LIMIT=3000
