@@ -41,6 +41,8 @@ services:
       ACKEE_GA4_API_URL: http://google:4000
       # Sites named after their domain may send events, like on the stands (tracking rules test)
       ACKEE_AUTO_ORIGIN: 'true'
+      # The country of visitors can be turned on per domain (countries test)
+      ACKEE_GEO: country
       ACKEE_SMTP_HOST: mailpit
       ACKEE_SMTP_PORT: '1025'
       ACKEE_SMTP_FROM: ackee@localhost

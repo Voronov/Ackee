@@ -14,6 +14,7 @@ export const GA4_DIMENSIONS = {
   browsers: 'browser',
   sizes: 'screenResolution',
   languages: 'language',
+  countries: 'country',
 }
 
 // The first sync reaches back this far. GA4 keeps standard reports longer, but a first sync of

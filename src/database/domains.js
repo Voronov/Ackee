@@ -27,6 +27,7 @@ const response = (entry) => ({
   title: entry.title,
   ingestKey: entry.ingestKey,
   strictIngest: entry.strictIngest,
+  collectCountry: entry.collectCountry,
   workspaceId: entry.workspaceId,
   created: entry.created,
   updated: entry.updated,
@@ -121,6 +122,7 @@ export const update = async (id, data, workspaceIds) => {
           // Left alone when the caller does not mention it, so editing a title cannot
           // turn strict mode off by accident.
           ...(data.strictIngest == null ? {} : { strictIngest: data.strictIngest }),
+          ...(data.collectCountry == null ? {} : { collectCountry: data.collectCountry }),
           updated: Date.now(),
         },
       },
