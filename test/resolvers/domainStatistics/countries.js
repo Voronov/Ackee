@@ -113,3 +113,42 @@ test('a view without a country is left out, like for the other reports', async (
     ],
   )
 })
+
+test('every country comes with its two-letter code for the map, whatever the sorting', async (t) => {
+  const statistics = await getStats({
+    base,
+    token: t.context.token.id,
+    domainId: t.context.domain.id,
+    fragment: `
+			top: countries(sorting: TOP, range: LAST_6_MONTHS) { value code }
+			newest: countries(sorting: NEW, range: LAST_6_MONTHS) { value code }
+			recent: countries(sorting: RECENT, range: LAST_6_MONTHS, limit: 1) { value code }
+		`,
+  })
+
+  t.deepEqual(statistics.top, [
+    { value: 'Ukraine', code: 'UA' },
+    { value: 'United States', code: 'US' },
+  ])
+  t.deepEqual(
+    statistics.newest.toSorted((a, b) => a.code.localeCompare(b.code)),
+    [
+      { value: 'Ukraine', code: 'UA' },
+      { value: 'United States', code: 'US' },
+    ],
+  )
+  t.deepEqual(statistics.recent, [{ value: 'United States', code: 'US' }])
+})
+
+test('an unknown code is shown as it is and still comes as the code', async (t) => {
+  await Record.updateMany({ domainId: t.context.domain.id }, { country: 'XX' })
+
+  const statistics = await getStats({
+    base,
+    token: t.context.token.id,
+    domainId: t.context.domain.id,
+    fragment: 'countries(sorting: TOP, range: LAST_6_MONTHS) { value code count }',
+  })
+
+  t.deepEqual(statistics.countries, [{ value: 'XX', code: 'XX', count: 14 }])
+})

@@ -5,7 +5,7 @@ import useCountries from '../../api/hooks/countries/useCountries.js'
 import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
-import RendererList from '../renderers/RendererList.js'
+import RendererCountries from '../renderers/RendererCountries.js'
 
 const RouteCountries = (props) => {
   const domains = useShownDomains()
@@ -23,7 +23,7 @@ const RouteCountries = (props) => {
           range: props.filters.range,
         },
       ],
-      renderer: RendererList,
+      renderer: RendererCountries,
       rendererProps: {
         sorting: props.filters.sorting,
         range: props.filters.range,

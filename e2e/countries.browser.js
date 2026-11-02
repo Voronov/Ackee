@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { VISITOR, createAccount, createDomain, graphql } from './_helpers.js'
+import { VISITOR, createAccount, createDomain, graphql, reachingOut } from './_helpers.js'
 
 const ACKEE = process.env.E2E_URL ?? 'http://localhost:3000'
 
@@ -89,6 +89,37 @@ test('the country of a visitor is reported only after the owner turned it on in 
     await visitor.close()
 
     await page.goto('/#/insights/countries')
-    await expect(page.getByText('Netherlands')).toBeVisible()
+    await expect(page.getByText('Netherlands', { exact: true })).toBeVisible()
+  })
+
+  await test.step('the report shows a map with the country of the visit, drawn from Ackee alone', async () => {
+    const requests = []
+    page.on('request', (request) => requests.push(request.url()))
+    await page.reload()
+
+    const map = page.getByRole('img', { name: 'Map of 1 country' })
+    await expect(map).toBeVisible()
+    await expect(map.locator('path[data-code="NL"]')).toHaveClass(/map__country--visited/)
+    await expect(map.locator('.map__country--visited')).toHaveCount(1)
+
+    // No tiles, fonts or scripts from elsewhere: the map comes with the page
+    const origin = new URL(page.url()).origin
+    expect(requests.filter((url) => url.startsWith('data:') === false && new URL(url).origin !== origin)).toEqual([])
+  })
+
+  await test.step('the map fits the width of a phone', async () => {
+    await page.goto('/#/insights/countries')
+    for (const width of [390, 360]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(page.getByRole('img', { name: 'Map of 1 country' })).toBeVisible()
+      expect(await reachingOut(page), `the countries at ${width} px`).toEqual([])
+    }
+  })
+
+  await test.step('newest countries have no counts to colour by, so the list stays alone', async () => {
+    await page.getByRole('button', { name: 'Top', exact: true }).click()
+    await page.getByRole('button', { name: /new entries only/i }).click()
+    await expect(page.getByText('Netherlands', { exact: true })).toBeVisible()
+    await expect(page.getByRole('img', { name: /^Map of/ })).toHaveCount(0)
   })
 })

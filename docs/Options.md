@@ -79,7 +79,12 @@ same goes for turning strict mode on.
 Off by default. With it on, Ackee looks up the country of each visit from the address the
 request came from, on this server and nowhere else, and stores the two-letter code
 ([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)) with the view. The
-address itself is not stored, as before. The report is "Countries" under Insights.
+address itself is not stored, as before. The report is "Countries" under Insights: for the
+top countries a map above the list, coloured by the number of views. The map comes with Ackee
+and loads nothing from elsewhere. Its outlines are [Natural Earth](https://www.naturalearthdata.com)
+1:110m, public domain, made by `scripts/world-map.js`. Ukraine is drawn with Crimea. The API
+gives the code of each country as `code`. Google Analytics names countries without a code, so
+there `code` is `null` and its report shows the list alone.
 
 ```
 ACKEE_GEO=country

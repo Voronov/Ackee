@@ -164,3 +164,27 @@ export const joinByInvitation = async (browser, link, address) => {
 
   return page
 }
+
+// The elements that reach past the right edge of the screen, except the ones that sit in
+// something that scrolls sideways, like the bar of the header. The width of the document says
+// nothing: the page hides what does not fit.
+export const reachingOut = (page) =>
+  page.evaluate(() => {
+    const scrolls = (element) => {
+      for (let node = element.parentElement; node != null; node = node.parentElement) {
+        const { overflowX } = getComputedStyle(node)
+        if (overflowX === 'auto' || overflowX === 'scroll') return true
+      }
+
+      return false
+    }
+
+    return [...document.querySelectorAll('body *')]
+      .filter(
+        (element) =>
+          element.getClientRects().length > 0 &&
+          element.getBoundingClientRect().right > window.innerWidth + 1 &&
+          scrolls(element) === false,
+      )
+      .map((element) => `${element.tagName.toLowerCase()}.${String(element.className.baseVal ?? element.className)}`)
+  })

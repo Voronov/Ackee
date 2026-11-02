@@ -87,9 +87,9 @@ const views = (type, interval) => `views(type: ${type}, interval: ${interval}, l
 const durations = (interval) => `durations(interval: ${interval}, limit: 30) { id value count }`
 const top = (report, type, range, limit = 100) =>
   `${report}(sorting: TOP, type: ${type}, range: ${range}, limit: ${limit}) { id value count }`
-// Reports with no type to pick, like countries
+// Reports with no type to pick, like countries. The code of a country comes from the group too.
 const plainTop = (report, range, limit = 100) =>
-  `${report}(sorting: TOP, range: ${range}, limit: ${limit}) { id value count }`
+  `${report}(sorting: TOP, range: ${range}, limit: ${limit}) { id value code count }`
 
 const ranges = ['LAST_24_HOURS', 'LAST_7_DAYS', 'LAST_30_DAYS', 'LAST_6_MONTHS']
 
