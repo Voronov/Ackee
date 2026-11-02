@@ -1,8 +1,17 @@
 import test from 'ava'
+import { buildSchema, parse } from 'graphql'
 
 import { stats as queueStats } from '../../src/queue/redis.js'
 import { stats as workerStats } from '../../src/queue/worker.js'
-import { apolloPlugin, handler, httpMiddleware, isEnabled, registry } from '../../src/utils/metrics.js'
+import {
+  MAXIMUM_PENDING_COMMANDS,
+  apolloPlugin,
+  handler,
+  httpMiddleware,
+  instrumentMongo,
+  isEnabled,
+  registry,
+} from '../../src/utils/metrics.js'
 
 const fakeResponse = () => {
   const listeners = []
@@ -94,15 +103,20 @@ test.serial('an unknown route collapses into other', async (t) => {
   t.true((await registry.metrics()).includes('route="other"'))
 })
 
+const schema = buildSchema('type Query { domain: String, domains: String, events: String }')
+
+// Runs a document through the plugin as Apollo would after it has validated it
+const measure = async (source) => {
+  const hooks = await apolloPlugin.requestDidStart()
+  const operation = parse(source).definitions.find((definition) => definition.kind === 'OperationDefinition')
+  await hooks.didResolveOperation({ operation, schema })
+  await hooks.willSendResponse({})
+}
+
 test.serial('the Apollo plugin measures by root field', async (t) => {
   process.env.ACKEE_METRICS_TOKEN = 'secret'
 
-  const hooks = await apolloPlugin.requestDidStart()
-
-  await hooks.didResolveOperation({
-    operation: { operation: 'query', selectionSet: { selections: [{ name: { value: 'domain' } }] } },
-  })
-  await hooks.willSendResponse({})
+  await measure('query { domain }')
 
   t.true((await registry.metrics()).includes('field="domain"'))
 })
@@ -182,6 +196,62 @@ test.serial('a live stream is left out of the request durations', (t) => {
 
   t.true(called)
   t.is(target.listeners.length, 0)
+})
+
+test.serial('a document with several root fields is one series, multiple', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  await measure('query { domains events domains }')
+
+  const text = await registry.metrics()
+  t.true(text.includes('field="multiple"'))
+  // Not the combination: a client could mint a series per subset of the schema
+  t.false(text.includes('field="domains,events"'))
+})
+
+test.serial('a fragment on the root does not name a series', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  // The client makes up the name of a fragment, so it must not become a label
+  await measure('query { ...X1 } fragment X1 on Query { __typename }')
+  await measure('query { ... on Query { domain } }')
+
+  const text = await registry.metrics()
+  t.false(text.includes('field="X1"'))
+  t.true(text.includes('field="unknown"'))
+})
+
+test.serial('a root field the schema does not know is unknown', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  await measure('query { __typename }')
+
+  t.false((await registry.metrics()).includes('field="__typename"'))
+})
+
+test.serial('commands the driver never finishes do not pile up', async (t) => {
+  process.env.ACKEE_METRICS_TOKEN = 'secret'
+
+  // The driver as the code sees it: something to listen to
+  const listeners = {}
+  const client = { on: (name, listener) => (listeners[name] = listener), emit: (name, event) => listeners[name](event) }
+  instrumentMongo(client)
+
+  const series =
+    'ackee_mongodb_command_duration_seconds_count{app="ackee",command="find",collection="pending",outcome="ok"}'
+  const before = await lineOf(series)
+
+  for (let id = 1; id <= MAXIMUM_PENDING_COMMANDS + 1; id++) {
+    client.emit('commandStarted', { requestId: id, commandName: 'find', command: { find: 'pending' } })
+  }
+
+  // The oldest was dropped to make room, so its late finish counts nothing
+  client.emit('commandSucceeded', { requestId: 1 })
+  t.is(await lineOf(series), before)
+
+  // A command still remembered is measured as usual
+  client.emit('commandSucceeded', { requestId: MAXIMUM_PENDING_COMMANDS + 1 })
+  t.not(await lineOf(series), before)
 })
 
 // The Grafana dashboards (deploy/grafana) query these names and labels. A change of the client

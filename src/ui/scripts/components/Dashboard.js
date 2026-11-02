@@ -23,6 +23,7 @@ import {
 } from '../hooks/useSource.js'
 
 import RouteBrowsers from './routes/RouteBrowsers.js'
+import RouteCountries from './routes/RouteCountries.js'
 import RouteDevices from './routes/RouteDevices.js'
 import RouteDomain from './routes/RouteDomain.js'
 import RouteDurations from './routes/RouteDurations.js'
@@ -50,6 +51,7 @@ const routeComponents = {
   [routes.BROWSERS]: RouteBrowsers,
   [routes.SIZES]: RouteSizes,
   [routes.LANGUAGES]: RouteLanguages,
+  [routes.COUNTRIES]: RouteCountries,
   [routes.LIVE]: RouteLive,
   [routes.SETTINGS]: RouteSettings,
 }
@@ -67,6 +69,7 @@ const PICKS_DOMAIN = new Set([
   routes.BROWSERS,
   routes.SIZES,
   routes.LANGUAGES,
+  routes.COUNTRIES,
 ])
 
 // Pages that show reports, so the source switch belongs on them (ACKEE-21). Events are Ackee's own.

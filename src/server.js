@@ -69,7 +69,7 @@ const attachCorsHeaders = async (request, response, next) => {
   if (matchingOrigin != null) {
     response.setHeader('Access-Control-Allow-Origin', matchingOrigin)
     response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
-    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Time-Zone')
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Time-Zone, X-Ackee-Key')
     response.setHeader('Access-Control-Allow-Credentials', 'true')
     response.setHeader('Access-Control-Max-Age', '3600')
   }

@@ -211,13 +211,30 @@ export const httpMiddleware = (request, response, next) => {
 }
 
 // The GraphQL root field is a fine enough label to separate reads from writes, and coarse
-// enough not to blow up cardinality.
-const rootFields = (operation) => {
+// enough not to blow up cardinality. A document with several root fields is one series,
+// "multiple": a label made of their combination would let a client mint series at will.
+// Only a Field node whose name the schema knows becomes a label. A fragment spread carries
+// the name of the fragment, which the client makes up, so it counts as unknown.
+const rootFields = (operation, schema) => {
+  const known = schema?.getRootType(operation?.operation)?.getFields() ?? {}
   const selections = operation?.selectionSet?.selections ?? []
-  const names = selections.map((selection) => selection.name?.value).filter(Boolean)
+  const names = [
+    ...new Set(
+      selections.map((selection) =>
+        selection.kind === 'Field' && Object.hasOwn(known, selection.name.value) ? selection.name.value : 'unknown',
+      ),
+    ),
+  ]
 
-  return names.length === 0 ? 'unknown' : [...new Set(names)].toSorted().join(',')
+  if (names.length === 0) return 'unknown'
+
+  return names.length === 1 ? names[0] : 'multiple'
 }
+
+// Commands the driver started and has not finished yet, at most. The driver should always
+// finish a command one way or the other; if it ever does not, the oldest entry is dropped
+// here rather than kept for good, and its late finish counts nothing.
+export const MAXIMUM_PENDING_COMMANDS = 10_000
 
 export const apolloPlugin = {
   requestDidStart() {
@@ -228,9 +245,9 @@ export const apolloPlugin = {
     let operation = 'unknown'
 
     return {
-      didResolveOperation({ operation: parsed }) {
+      didResolveOperation({ operation: parsed, schema }) {
         operation = parsed.operation
-        field = rootFields(parsed)
+        field = rootFields(parsed, schema)
       },
       willSendResponse({ errors }) {
         const seconds = Number(process.hrtime.bigint() - started) / 1e9
@@ -251,6 +268,8 @@ export const instrumentMongo = (client) => {
   client.on('commandStarted', (event) => {
     // The collection has to be read here: the success and failure events carry no command body.
     const collection = event.command?.[event.commandName]
+
+    if (started.size >= MAXIMUM_PENDING_COMMANDS) started.delete(started.keys().next().value)
 
     started.set(event.requestId, {
       time: process.hrtime.bigint(),

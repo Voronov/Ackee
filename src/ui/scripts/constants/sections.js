@@ -20,6 +20,7 @@ export const AUDIENCE = {
     { key: routes.BROWSERS, label: 'Browsers', path: '/insights/browsers' },
     { key: routes.SIZES, label: 'Sizes', path: '/insights/sizes' },
     { key: routes.LANGUAGES, label: 'Languages', path: '/insights/languages' },
+    { key: routes.COUNTRIES, label: 'Countries', path: '/insights/countries' },
   ],
 }
 

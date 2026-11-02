@@ -44,7 +44,9 @@ PORT=3000
 
 Every domain has an ingest key. The embed code carries it after the domain id, separated by
 a dot, and the tracker passes the whole value through untouched – so nothing about the
-tracker had to change.
+tracker had to change. Your own code that sends events without the tracker passes the key
+in the `X-Ackee-Key` header; Ackee's own [CORS headers](CORS%20headers.md) allow it, and a
+reverse proxy that sets them itself has to list it too.
 
 The key is **not a secret**: it sits in a script tag on a public page, and anyone who opens
 that page can read it. What it buys is a higher bar. Without it, a domain id found in
@@ -71,6 +73,48 @@ Rotate a key that is being misused with `rotateIngestKey`. The old one stops wor
 so update the snippet on your site first. With the [ingest queue](#ingest-queue) and more than
 one Ackee process, the other processes keep accepting the old key for up to a minute; the
 same goes for turning strict mode on.
+
+## Country of visitors
+
+Off by default. With it on, Ackee looks up the country of each visit from the address the
+request came from, on this server and nowhere else, and stores the two-letter code
+([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)) with the view. The
+address itself is not stored, as before. The report is "Countries" under Insights.
+
+```
+ACKEE_GEO=country
+```
+
+That alone changes nothing. The owner of a domain has to turn it on for that domain as well,
+in the dialog of the domain under Settings, or through the API:
+
+```graphql
+mutation {
+  updateDomain(id: "…", input: { title: "example.com", collectCountry: true }) {
+    success
+  }
+}
+```
+
+> ⚠️ The country of a person is personal data, and the address it is read from even more so.
+> Looking it up is processing under the GDPR: you need a lawful basis and a line in the privacy
+> policy of the site, see [Privacy Policy](Privacy%20Policy.md). The country is wrong for anyone
+> behind a VPN or a proxy. Keep this off unless you need it.
+
+The database comes with Ackee: `@ip-location-db/geo-whois-asn-country-mmdb` from npm, built
+from the public WHOIS and ASN registrations and published as CC0, so nothing is owed for it. It
+is read into memory once (about 8 MB), and a lookup takes a fraction of a millisecond. A new
+version of the package brings new data, and Dependabot proposes it like any other dependency.
+Another database in the same format, such as MaxMind's GeoLite2 or DB-IP Lite under their own
+licences, goes in with:
+
+```
+ACKEE_GEO_DATABASE=/path/to/country.mmdb
+```
+
+A private or unknown address gives no country, and such views are left out of the report. The
+country is removed from the earlier views of the same visitor like the other
+[personal data](Anonymization.md#personal-data).
 
 ## Username and password
 
@@ -173,7 +217,15 @@ ACKEE_INGEST_CONSUMER=ackee-1
 
 To turn the queue off, wait until `ackee_ingest_queue_length` is `0`, then remove the variable and restart. Events still in the stream are only written by a process that has the queue on.
 
-## Touch limit
+## Trusted proxies
+
+```
+ACKEE_TRUST_PROXY=1
+```
+
+The number of reverse proxies in front of Ackee, like nginx or Caddy (see [SSL and HTTPS](SSL%20and%20HTTPS.md)). The address of a client is taken from `X-Forwarded-For`, counting this many entries from the right; everything left of them was written by the client and is ignored, and so are `X-Client-IP`, `CF-Connecting-IP` and similar headers. The default `0` takes the address of the connection. The sign-in limit, the link limits and the touch limit count per address, so without this setting behind a proxy every visitor looks like the proxy. In a serverless function the last `X-Forwarded-For` entry is used, the one the platform adds.
+
+Failed sign-ins are limited to 5 per account and address and to 50 per account from all addresses in 15 minutes.
 
 ```
 ACKEE_UPDATE_RECORD_LIMIT=3000
@@ -222,21 +274,21 @@ curl -H 'Authorization: Bearer <token>' https://ackee.example.com/metrics
 
 Exposed series, next to the Node.js defaults. No label names a workspace or a domain. Live streams are left out of `ackee_http_request_duration_seconds`, as they last for hours.
 
-| Metric                                     | What it answers                                                                                     |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                 |
-| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field — separates the read profile from the write profile |
-| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself           |
-| `ackee_ingest_queue_length`                | Views in the [ingest queue](#ingest-queue) not written to MongoDB yet, `0` without the queue        |
-| `ackee_ingest_queue_oldest_age_seconds`    | How long the oldest view in the ingest queue has waited                                             |
-| `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                            |
-| `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                    |
-| `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                |
-| `ackee_live_connections`                   | Open [live](#live-feed) streams of this process                                                     |
-| `ackee_live_watched_domains`               | Domains the live feed of this process polls for                                                     |
-| `ackee_live_polls_total`                   | Queries of the live feed by `outcome` (`ok`, `gap`, `error`); one per tick, however many watch      |
-| `ackee_live_visits_sent_total`             | Views sent to live streams, counted once per stream                                                 |
-| `ackee_live_rejected_total`                | Live streams refused or ended, by `reason`                                                          |
+| Metric                                     | What it answers                                                                                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ackee_http_request_duration_seconds`      | How long requests take, by method, route and status                                                                                          |
+| `ackee_graphql_operation_duration_seconds` | How long GraphQL operations take, by root field (`multiple` for a document with several) — separates the read profile from the write profile |
+| `ackee_mongodb_command_duration_seconds`   | How long database commands take, by command and collection, measured by the driver itself                                                    |
+| `ackee_ingest_queue_length`                | Views in the [ingest queue](#ingest-queue) not written to MongoDB yet, `0` without the queue                                                 |
+| `ackee_ingest_queue_oldest_age_seconds`    | How long the oldest view in the ingest queue has waited                                                                                      |
+| `ackee_ingest_queue_processed_total`       | Views the ingest worker of this process wrote, by `type`                                                                                     |
+| `ackee_ingest_queue_dropped_total`         | Views the ingest worker gave up on, by `reason`; each is also logged as an error                                                             |
+| `ackee_ingest_fallback_total`              | Views written directly because the queue was `unavailable` or `full`                                                                         |
+| `ackee_live_connections`                   | Open [live](#live-feed) streams of this process                                                                                              |
+| `ackee_live_watched_domains`               | Domains the live feed of this process polls for                                                                                              |
+| `ackee_live_polls_total`                   | Queries of the live feed by `outcome` (`ok`, `gap`, `error`); one per tick, however many watch                                               |
+| `ackee_live_visits_sent_total`             | Views sent to live streams, counted once per stream                                                                                          |
+| `ackee_live_rejected_total`                | Live streams refused or ended, by `reason`                                                                                                   |
 
 ## CORS headers
 
@@ -263,6 +315,8 @@ As opposed to manually configuring CORS domains, you can also automatically add 
 ```
 ACKEE_AUTO_ORIGIN=true
 ```
+
+A port in the origin is fine: a site developed at `http://example.com:8080` matches the domain `example.com`.
 
 ## Sign in with Google
 

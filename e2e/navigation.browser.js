@@ -95,7 +95,7 @@ test('the tabs of Traffic and Audience switch the report and the address', async
 
   await navigation(page).getByRole('link', { name: 'Audience' }).click()
   const audience = page.getByRole('tablist', { name: 'Audience' })
-  await expect(audience.getByRole('tab')).toHaveText(['Systems', 'Devices', 'Browsers', 'Sizes', 'Languages'])
+  await expect(audience.getByRole('tab')).toHaveText(['Systems', 'Devices', 'Browsers', 'Sizes', 'Languages', 'Countries'])
   await expect(traffic).toHaveCount(0)
 
   await audience.getByRole('tab', { name: 'Languages' }).click()

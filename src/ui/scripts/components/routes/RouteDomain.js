@@ -12,6 +12,7 @@ import { SYSTEMS_TYPE_WITH_VERSION } from '../../../../constants/systems.js'
 import { VIEWS_TYPE_UNIQUE } from '../../../../constants/views.js'
 
 import useBrowsers from '../../api/hooks/browsers/useBrowsers.js'
+import useCountries from '../../api/hooks/countries/useCountries.js'
 import useDevices from '../../api/hooks/devices/useDevices.js'
 import useDurations from '../../api/hooks/durations/useDurations.js'
 import useActiveVisitors from '../../api/hooks/facts/useActiveVisitors.js'
@@ -193,6 +194,23 @@ const RouteDomain = (props) => {
       headline: 'Languages',
       onMore: () => props.setRoute('/insights/languages'),
       hook: useLanguages,
+      hookArgs: [
+        domainId,
+        {
+          sorting: SORTINGS_TOP,
+          range: RANGES_LAST_24_HOURS,
+        },
+      ],
+      renderer: RendererList,
+      rendererProps: {
+        sorting: SORTINGS_TOP,
+        range: RANGES_LAST_24_HOURS,
+      },
+    }),
+    h(CardStatistics, {
+      headline: 'Countries',
+      onMore: () => props.setRoute('/insights/countries'),
+      hook: useCountries,
       hookArgs: [
         domainId,
         {
