@@ -6,6 +6,8 @@
 	flex-direction: column;
 	height: 100vh;
 	border-right: 1px solid $border;
+	// What the shades of the domains are drawn over
+	--navigation-background: #{$black};
 	// Above the filter bar, below the modals and the context menus
 	z-index: 2;
 
@@ -111,8 +113,27 @@
 		list-style: none;
 	}
 
+	// Takes the height left between the reports and Settings, and scrolls when the domains need more.
+	// A faint shade marks an edge with more domains behind it: the covers move with the list and hide
+	// the shade once its end is reached.
+	&__domains {
+		$shade: 1.5em;
+
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		background:
+			linear-gradient(var(--navigation-background) 40%, transparent) top / 100% $shade*2,
+			linear-gradient(transparent, var(--navigation-background) 60%) bottom / 100% $shade*2,
+			radial-gradient(farthest-side at 50% 0, rgba($white, .16), transparent) top / 100% $shade,
+			radial-gradient(farthest-side at 50% 100%, rgba($white, .16), transparent) bottom / 100% $shade;
+		background-repeat: no-repeat;
+		background-attachment: local, local, scroll, scroll;
+	}
+
 	&__heading {
-		margin: math.div($gutter, 1.5) 0 math.div($gutter, 4);
+		margin: 0 0 math.div($gutter, 4);
 		padding: 0 math.div($gutter, 1.5);
 		font-size: .75em;
 		letter-spacing: .08em;
@@ -202,6 +223,7 @@
 			padding-top: $gutter;
 			width: min(280px, 85vw);
 			background: $card;
+			--navigation-background: #{$card};
 			box-shadow: $shadow;
 			visibility: hidden;
 			transform: translateX(-100%);

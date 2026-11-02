@@ -173,32 +173,33 @@ const Navigation = (props) => {
         'ul',
         { className: 'navigation__list' },
         item('Overview', '/', props.routeKey === routes.OVERVIEW, 'o'),
-        props.domains.length > 0 &&
-          h(
-            'li',
-            { key: 'domains' },
-            h('div', { id: 'navigation-domains', className: 'navigation__heading' }, 'Domains'),
-            h(
-              'ul',
-              { 'className': 'navigation__list', 'aria-labelledby': 'navigation-domains' },
-              props.domains.map((domain, index) =>
-                h(Item, {
-                  key: domain.id,
-                  label: domain.title,
-                  title: domain.title,
-                  path: `/domains/${domain.id}`,
-                  active: props.route === `/domains/${domain.id}`,
-                  hotkey: whenBelow(index, 10),
-                  onClick: close,
-                }),
-              ),
-            ),
-          ),
         item(TRAFFIC.label, TRAFFIC.tabs[0].path, section === TRAFFIC, TRAFFIC.tabs[0].hotkey),
         item('Events', '/insights/events', props.routeKey === routes.EVENTS, 'e'),
         item('Live', '/insights/live', props.routeKey === routes.LIVE, 'l'),
         item(AUDIENCE.label, AUDIENCE.tabs[0].path, section === AUDIENCE),
       ),
+      // The domains scroll on their own, so a long list pushes neither the reports nor Settings away
+      props.domains.length > 0 &&
+        h(
+          'div',
+          { className: 'navigation__domains' },
+          h('div', { id: 'navigation-domains', className: 'navigation__heading' }, 'Domains'),
+          h(
+            'ul',
+            { 'className': 'navigation__list', 'aria-labelledby': 'navigation-domains' },
+            props.domains.map((domain, index) =>
+              h(Item, {
+                key: domain.id,
+                label: domain.title,
+                title: domain.title,
+                path: `/domains/${domain.id}`,
+                active: props.route === `/domains/${domain.id}`,
+                hotkey: whenBelow(index, 10),
+                onClick: close,
+              }),
+            ),
+          ),
+        ),
       h(
         'ul',
         { className: 'navigation__list navigation__list--end' },

@@ -95,7 +95,14 @@ test('the tabs of Traffic and Audience switch the report and the address', async
 
   await navigation(page).getByRole('link', { name: 'Audience' }).click()
   const audience = page.getByRole('tablist', { name: 'Audience' })
-  await expect(audience.getByRole('tab')).toHaveText(['Systems', 'Devices', 'Browsers', 'Sizes', 'Languages', 'Countries'])
+  await expect(audience.getByRole('tab')).toHaveText([
+    'Systems',
+    'Devices',
+    'Browsers',
+    'Sizes',
+    'Languages',
+    'Countries',
+  ])
   await expect(traffic).toHaveCount(0)
 
   await audience.getByRole('tab', { name: 'Languages' }).click()
@@ -191,4 +198,40 @@ test('on a phone the navigation is a menu over the content', async ({ page, requ
   ).toBe(true)
   await page.getByRole('tab', { name: 'Pages' }).click()
   await expect(page).toHaveURL(at('/insights/pages'))
+})
+
+test('with many domains the reports and Settings stay in sight and the domains scroll', async ({ page, request }) => {
+  await createAccount(page, request, 'many-domains')
+  const domains = []
+  for (let index = 1; index <= 15; index++) domains.push(await createDomain(page, `site-${index}.test`))
+  const last = domains.at(-1)
+
+  for (const { width, height, menu } of [
+    { width: 1440, height: 900, menu: false },
+    { width: 390, height: 844, menu: true },
+  ]) {
+    await page.setViewportSize({ width, height })
+    await page.goto('/#/insights/views')
+    // The domains were made through the API, the navigation reads them when the page loads
+    await page.reload()
+    if (menu === true) await page.getByRole('button', { name: 'Menu' }).click()
+    await expect(navigation(page).getByRole('link', { name: /^site-\d+\.test$/ })).toHaveCount(domains.length)
+
+    for (const name of ['Overview', 'Traffic', 'Events', 'Live', 'Audience', 'Settings']) {
+      await expect(navigation(page).getByRole('link', { name, exact: true }), `${name} at ${width} px`).toBeInViewport({
+        ratio: 1,
+      })
+    }
+
+    // The last domain is below the edge of the list, and the list scrolls to it
+    const link = navigation(page).getByRole('link', { name: last.title, exact: true })
+    await expect(link, `the last domain at ${width} px`).not.toBeInViewport()
+    await link.scrollIntoViewIfNeeded()
+    await link.click()
+    await expect(page).toHaveURL(at(`/domains/${last.id}`))
+
+    // Only the list moved, Settings is where it was
+    if (menu === true) await page.getByRole('button', { name: 'Menu' }).click()
+    await expect(navigation(page).getByRole('link', { name: 'Settings' })).toBeInViewport({ ratio: 1 })
+  }
 })
