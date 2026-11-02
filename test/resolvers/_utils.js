@@ -20,7 +20,8 @@ const mongoDb = MongoMemoryServer.create()
 
 export const connectToDatabase = async () => {
   const dbUrl = (await mongoDb).getUri()
-  return connect(dbUrl)
+  // Command events stay on: test/resolvers/live.js counts the queries of the live feed
+  return connect(dbUrl, { monitorCommands: true })
 }
 
 export const fillDatabase = async (t) => {
