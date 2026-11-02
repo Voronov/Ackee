@@ -6,6 +6,8 @@ However, we recommend to mention Ackee in your privacy policy. Let your visitors
 
 > ⚠️ Make sure to ask your users before activating the `detailed` mode of Ackee. The detailed mode tracks more data and also includes data [we're considering as personal data](Anonymization.md#personal-data). In this case it's highly recommended to add Ackee to your privacy policy.
 
+> ⚠️ The same goes for the [country of visitors](Options.md#country-of-visitors). It is read from the address of the visitor, which is personal data, and stored with the view as a two-letter code. Mention it in your privacy policy before turning it on for a domain.
+
 ## HTML privacy policy example
 
 ```html

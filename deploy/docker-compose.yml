@@ -135,6 +135,8 @@ services:
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_METRICS_TOKEN:-}
       ACKEE_GA4_SYNC_SCHEDULE: '*/10 * * * *'
+      # One reverse proxy on the host in front of the stand (ACKEE-94)
+      ACKEE_TRUST_PROXY: '1'
     depends_on:
       mongo:
         condition: service_healthy
@@ -161,6 +163,8 @@ services:
       # Prometheus reads /metrics with this token. Each stand has its own.
       ACKEE_METRICS_TOKEN: ${ACKEE_DEV_METRICS_TOKEN:-}
       ACKEE_GA4_SYNC_SCHEDULE: '*/10 * * * *'
+      # One reverse proxy on the host in front of the stand (ACKEE-94)
+      ACKEE_TRUST_PROXY: '1'
       # Views go through the queue in Redis (ADR-006) when this is set, for example redis://redis:6379.
       # Empty keeps the direct write.
       ACKEE_INGEST_QUEUE: ${ACKEE_DEV_INGEST_QUEUE:-}

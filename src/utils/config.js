@@ -26,8 +26,14 @@ export default new Proxy(
         ingestConsumer: process.env.ACKEE_INGEST_CONSUMER || undefined,
         // Touches of one address per minute, 0 is off
         updateRecordLimit: count(process.env.ACKEE_UPDATE_RECORD_LIMIT, 3000),
+        // Proxies in front of Ackee whose X-Forwarded-For entries are trusted. 0 reads the socket.
+        trustProxy: count(process.env.ACKEE_TRUST_PROXY, 0),
         allowOrigin: process.env.ACKEE_ALLOW_ORIGIN,
         autoOrigin: process.env.ACKEE_AUTO_ORIGIN === 'true',
+        // Country of visitors from their address (ACKEE-100): 'country' turns it on for the
+        // domains whose owner asked for it. Another .mmdb file than the bundled one, optionally.
+        geo: process.env.ACKEE_GEO || undefined,
+        geoDatabase: process.env.ACKEE_GEO_DATABASE || undefined,
         username: process.env.ACKEE_USERNAME,
         password: process.env.ACKEE_PASSWORD,
         // Closed unless switched on, so an update never opens an install to strangers (ADR-002).

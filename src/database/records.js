@@ -7,6 +7,7 @@ const response = (entry) => ({
   siteLocation: entry.siteLocation,
   siteReferrer: entry.siteReferrer,
   siteLanguage: entry.siteLanguage,
+  country: entry.country,
   source: entry.source,
   screenWidth: entry.screenWidth,
   screenHeight: entry.screenHeight,
@@ -32,6 +33,7 @@ const fields = (data) => ({
   siteLocation: data.siteLocation,
   siteReferrer: data.siteReferrer,
   siteLanguage: data.siteLanguage,
+  country: data.country,
   source: data.source,
   screenWidth: data.screenWidth,
   screenHeight: data.screenHeight,
@@ -91,6 +93,7 @@ export const update = async (id, updated = Date.now()) => {
 const anonymized = {
   clientId: null,
   siteLanguage: null,
+  country: null,
   screenWidth: null,
   screenHeight: null,
   screenColorDepth: null,

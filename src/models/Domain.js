@@ -35,6 +35,13 @@ const schema = new mongoose.Schema({
     required: true,
     default: false,
   },
+  // Whether views of this domain carry the country of the visitor, read from their address
+  // (ACKEE-100). Off until the owner turns it on; needs ACKEE_GEO on the instance as well.
+  collectCountry: {
+    type: Boolean,
+    required: true,
+    default: false,
+  },
   // What the site collects besides page views, set up here rather than in its code (ACKEE-25).
   // Served to the site by /t/<id>.js, see autotrack/loader.js.
   tracking: {

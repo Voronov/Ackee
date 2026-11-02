@@ -41,9 +41,13 @@ services:
       ACKEE_GA4_API_URL: http://google:4000
       # Sites named after their domain may send events, like on the stands (tracking rules test)
       ACKEE_AUTO_ORIGIN: 'true'
+      # The country of visitors can be turned on per domain (countries test)
+      ACKEE_GEO: country
       ACKEE_SMTP_HOST: mailpit
       ACKEE_SMTP_PORT: '1025'
       ACKEE_SMTP_FROM: ackee@localhost
+      # The tests send X-Forwarded-For like a proxy would, to be a client of their own
+      ACKEE_TRUST_PROXY: '1'
     depends_on: [mongo, mailpit, google]
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/']
@@ -68,6 +72,7 @@ services:
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_METRICS_TOKEN: e2e-metrics-token
       ACKEE_UPDATE_RECORD_LIMIT: '5'
+      ACKEE_TRUST_PROXY: '1'
     depends_on:
       ackee:
         condition: service_healthy

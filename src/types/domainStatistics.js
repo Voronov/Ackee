@@ -233,6 +233,25 @@ export default gql`
     created: DateTime
   }
 
+  type Country {
+    """
+    Country identifier.
+    """
+    id: ID!
+    """
+    Name of the country in English, or the code when unknown.
+    """
+    value: String!
+    """
+    Amount of occurrences.
+    """
+    count: UnsignedInt
+    """
+    Identifies the date and time when the object was created.
+    """
+    created: DateTime
+  }
+
   type Language {
     """
     Language identifier.
@@ -363,6 +382,17 @@ export default gql`
       """
       limit: Int = 30
     ): [Language!]
+    """
+    Countries your visitors come from, when the domain collects them (ACKEE-100).
+    """
+    countries(
+      sorting: Sorting!
+      range: Range = LAST_7_DAYS
+      """
+      Number of entries to return.
+      """
+      limit: Int = 30
+    ): [Country!]
   }
 
   type Query {

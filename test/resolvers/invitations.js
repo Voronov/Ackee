@@ -383,6 +383,20 @@ test.serial('a new account from an invitation needs a long enough password', asy
   t.is((await form('/invitation', { token, password: 'sufficiently-long' })).status, 200)
 })
 
+test.serial('an address too long for a mail server is refused', async (t) => {
+  const owner = await account('owner-long@example.com')
+
+  // RFC 5321 allows 64 characters before the @; a longer one cannot receive the link
+  const { json } = await invite(owner.call, {
+    workspaceId: owner.workspace.id,
+    email: `${'a'.repeat(300)}@example.com`,
+    role: 'VIEWER',
+  })
+
+  t.regex(json.errors[0].message, /looks invalid/i)
+  t.is(await Invitation.countDocuments({ workspaceId: owner.workspace.id }), 0)
+})
+
 test.serial('a link that is not ours never reaches the page', async (t) => {
   const { status, body } = await form('/invitation?token=%3Cscript%3E')
 

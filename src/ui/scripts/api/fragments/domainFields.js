@@ -6,5 +6,7 @@ export default gql`
     title
     ingestKey
     strictIngest
+    collectCountry
+    canManageCountry
   }
 `

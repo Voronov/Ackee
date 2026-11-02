@@ -7,6 +7,7 @@ import * as ingestQueue from '../queue/redis.js'
 import matchesOrigin from '../utils/matchesOrigin.js'
 import identifier from '../utils/identifier.js'
 import config from '../utils/config.js'
+import * as geo from '../utils/geo.js'
 import KnownError from '../utils/KnownError.js'
 import normalizeUrl from '../utils/normalizeUrl.js'
 import touchLimit from '../utils/touchLimit.js'
@@ -117,7 +118,9 @@ export default {
       }
 
       const clientId = await identifier(ip, userAgent, domain.id)
-      const data = polish({ ...input, clientId, domainId: domain.id })
+      // Only the code is kept, never the address, and only for a domain whose owner turned it on
+      const country = domain.collectCountry === true ? await geo.countryOf(ip) : undefined
+      const data = polish({ ...input, clientId, domainId: domain.id, country })
 
       const entry = ingestQueue.isEnabled() === true ? await enqueueRecord(data) : await store(data)
 
