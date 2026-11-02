@@ -14,7 +14,7 @@ When a site wants to send data to a different domain it needs the permissions to
 ```
 Access-Control-Allow-Origin: https://example.com
 Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, Time-Zone
+Access-Control-Allow-Headers: Content-Type, Authorization, Time-Zone, X-Ackee-Key
 Access-Control-Allow-Credentials: true
 Access-Control-Max-Age: 3600
 ```
@@ -37,10 +37,10 @@ Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS
 
 ### Headers
 
-The `Access-Control-Allow-Headers` header is used in response to a preflight request to indicate which HTTP headers can be used when making the actual request.
+The `Access-Control-Allow-Headers` header is used in response to a preflight request to indicate which HTTP headers can be used when making the actual request. `X-Ackee-Key` carries the [ingest key](Options.md#ingest-key) of a domain when your own code sends events instead of the tracker.
 
 ```
-Access-Control-Allow-Headers: Content-Type, Authorization, Time-Zone
+Access-Control-Allow-Headers: Content-Type, Authorization, Time-Zone, X-Ackee-Key
 ```
 
 ### Credentials

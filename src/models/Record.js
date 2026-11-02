@@ -33,6 +33,11 @@ const schema = new mongoose.Schema({
     minlength: 2,
     maxlength: 2,
   },
+  // ISO 3166-1 alpha-2, from the address of the visitor when the owner asked for it (ACKEE-100)
+  country: {
+    type: String,
+    match: /^[A-Z]{2}$/,
+  },
   source: {
     type: String,
     maxlength: 500,

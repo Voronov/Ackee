@@ -8,6 +8,7 @@ export const ROLLUP_DIMENSIONS = {
   devices: ['deviceManufacturer', 'deviceName'],
   browsers: ['browserName', 'browserVersion'],
   sizes: ['browserWidth', 'browserHeight', 'screenWidth', 'screenHeight'],
+  countries: ['country'],
 }
 
 // The days of the backfill are built one at a time, so a single aggregation stays small.

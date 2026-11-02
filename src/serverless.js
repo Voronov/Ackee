@@ -30,7 +30,7 @@ const buildCorsHeaders = (allowedOrigin) => {
   return {
     'access-control-allow-origin': allowedOrigin,
     'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
-    'access-control-allow-headers': 'Content-Type, Authorization, Time-Zone',
+    'access-control-allow-headers': 'Content-Type, Authorization, Time-Zone, X-Ackee-Key',
     'access-control-allow-credentials': 'true',
     'access-control-max-age': '3600',
   }

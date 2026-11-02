@@ -168,6 +168,11 @@ query getDomainsStatistics {
         count
         created
       }
+      countries(sorting: TOP) {
+        id
+        count
+        created
+      }
       browsers(sorting: TOP, type: WITH_VERSION) {
         id
         count

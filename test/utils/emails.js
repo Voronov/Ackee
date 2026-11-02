@@ -1,7 +1,7 @@
 import test from 'ava'
 import mockedEnv from 'mocked-env'
 
-import { sendInvitation, sendPasswordReset, sendVerification } from '../../src/utils/emails.js'
+import { sendAlreadyRegistered, sendInvitation, sendPasswordReset, sendVerification } from '../../src/utils/emails.js'
 import signale from '../../src/utils/signale.js'
 
 // In development mode the mailer logs the text part, which is enough to read what was sent.
@@ -40,6 +40,14 @@ test.serial('the invitation email names the workspace and who invited', async (t
 
   t.true(text.includes('owner@example.com invited you to the workspace "Agency"'))
   t.true(text.includes('https://ackee.example.com/invitation?token=abc'))
+})
+
+test.serial('the note about a taken address links to the sign-in page, without a token', async (t) => {
+  const text = await capture(() => sendAlreadyRegistered('owner@example.com'))
+
+  t.true(text.includes('You already have an Ackee account'))
+  t.true(text.includes('Sign in: https://ackee.example.com/'))
+  t.false(text.includes('token='))
 })
 
 test.serial('a token cannot change the link', async (t) => {

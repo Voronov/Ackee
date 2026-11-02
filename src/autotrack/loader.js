@@ -3,10 +3,10 @@ import path from 'node:path'
 
 import express from 'express'
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
-import { getClientIp } from 'request-ip'
 
 import * as tracking from '../database/tracking.js'
 import Domain from '../models/Domain.js'
+import * as clientIp from '../utils/clientIp.js'
 import config from '../utils/config.js'
 import autotrack from './client.js'
 
@@ -51,7 +51,7 @@ const router = express.Router()
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 1000,
-  keyGenerator: (request) => ipKeyGenerator(getClientIp(request) ?? ''),
+  keyGenerator: (request) => ipKeyGenerator(clientIp.ofExpress(request) ?? ''),
   handler: (request, response) => response.status(429).type('text/javascript').send('/* Too many requests */\n'),
 })
 

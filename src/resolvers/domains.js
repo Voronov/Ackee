@@ -1,5 +1,6 @@
-import { DOMAINS_MANAGE, REPORTS_READ } from '../constants/permissions.js'
+import { DOMAINS_MANAGE, GTM_MANAGE, REPORTS_READ } from '../constants/permissions.js'
 import * as auditLog from '../database/auditLog.js'
+import * as geo from '../utils/geo.js'
 import * as domains from '../database/domains.js'
 import * as ga4 from '../database/ga4.js'
 import * as records from '../database/records.js'
@@ -7,15 +8,20 @@ import * as rollups from '../database/rollups.js'
 import blockDemoMode from '../middlewares/blockDemoMode.js'
 import requireAuth from '../middlewares/requireAuth.js'
 import KnownError from '../utils/KnownError.js'
-import { domainScope, workspacesWith } from '../utils/permissions.js'
+import { can, domainScope, workspacesWith } from '../utils/permissions.js'
 import pipe from '../utils/pipe.js'
 import validated from '../utils/validated.js'
+
+// The country is personal data, so it is the owner's decision, not an editor's (review of #71).
+// The owner-only permission of #36 is reused: a new one would leave Role overrides without owners.
+const COUNTRY_MANAGE = GTM_MANAGE
 
 export default {
   Domain: {
     // The source travels with the domain to every report below (ACKEE-21)
     facts: (parent, { source }) => ({ ...parent, source }),
     statistics: (parent, { source }) => ({ ...parent, source }),
+    canManageCountry: (parent, args, { viewer }) => can(viewer, COUNTRY_MANAGE, parent.workspaceId),
   },
   Query: {
     // The limit is in the query, not a check afterwards: another workspace's domain is not
@@ -26,6 +32,8 @@ export default {
     domains: pipe(requireAuth, (parent, args, { viewer }) => {
       return domains.all(domainScope(viewer, REPORTS_READ))
     }),
+    // No requireAuth: it says nothing about the data, only what the instance offers
+    countryAvailable: () => geo.isEnabled(),
   },
   Mutation: {
     createDomain: pipe(requireAuth, blockDemoMode, async (parent, { input }, { viewer }) => {
@@ -45,6 +53,16 @@ export default {
       }
     }),
     updateDomain: pipe(requireAuth, blockDemoMode, async (parent, { id, input }, { viewer }) => {
+      if (input.collectCountry != null) {
+        const current = await domains.get(id, domainScope(viewer, DOMAINS_MANAGE))
+
+        const changes = current != null && input.collectCountry !== (current.collectCountry === true)
+
+        if (changes && can(viewer, COUNTRY_MANAGE, current.workspaceId) === false) {
+          throw new KnownError('Only an owner can change the country of visitors')
+        }
+      }
+
       const entry = await validated(domains.update(id, input, domainScope(viewer, DOMAINS_MANAGE)))
 
       // The same answer for a domain that does not exist and one the viewer may not change.
