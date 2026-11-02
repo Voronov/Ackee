@@ -57,6 +57,7 @@
     "@as-integrations/express5": "^1.1.2",
     "@graphql-tools/merge": "^9.2.4",
     "@ip-location-db/geo-whois-asn-country-mmdb": "^2.3.2026061719",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@prometheus-io/client": "^0.16.1",
     "@redis/client": "^6.3.0",
     "@simplewebauthn/browser": "^14.0.0",
@@ -80,7 +81,8 @@
     "normalize-url": "^9.0.1",
     "sanitize-filename": "^1.6.4",
     "signale": "^1.4.0",
-    "uuid": "^13.0.2"
+    "uuid": "^13.0.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@apollo/client": "^4.2.12",
