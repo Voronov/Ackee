@@ -87,7 +87,7 @@ test('rules set up in Ackee collect clicks, views, forms, links, downloads and s
   await page.getByPlaceholder(/email/i).fill(address)
   await page.getByPlaceholder(/password/i).fill(PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 
   const created = await graphql(
     page,
@@ -212,7 +212,7 @@ test('a page that forges document.currentScript gets no tracking instead of trac
   await page.getByPlaceholder(/email/i).fill(address)
   await page.getByPlaceholder(/password/i).fill(PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 
   const created = await graphql(
     page,

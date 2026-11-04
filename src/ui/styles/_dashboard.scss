@@ -1,0 +1,11 @@
+.dashboard {
+
+	display: grid;
+	grid-template-columns: $navigationWidth minmax(0, 1fr);
+	align-items: start;
+
+	@media (max-width: $compact) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+}

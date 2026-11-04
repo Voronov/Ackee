@@ -56,7 +56,7 @@ test('add a passkey in the settings, sign out, sign in with it', async ({ page, 
   await page.getByPlaceholder(/password/i).fill(PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
 
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   page.once('dialog', (dialog) => dialog.accept('Test key'))
   await page.getByRole('button', { name: 'Add passkey' }).click()
   await expect(page.getByRole('button', { name: /Test key/ })).toBeVisible()
@@ -64,8 +64,8 @@ test('add a passkey in the settings, sign out, sign in with it', async ({ page, 
   await page.getByRole('button', { name: 'Sign Out' }).click()
   await page.getByText('Sign in with a passkey').click()
 
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
+  await page.getByRole('link', { name: 'Settings' }).click()
   // The sign-in used the key: its row no longer says "never used"
   await expect(page.getByRole('button', { name: /Test key/ })).not.toContainText('never used')
 })

@@ -33,7 +33,7 @@ test('a new user goes from registration to the first report, and another user se
   })
 
   const { id, embedCode } = await test.step('add the domain under Settings and copy its embed code', async () => {
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await page.getByRole('link', { name: 'Settings' }).click()
     await page.getByRole('button', { name: 'New domain' }).click()
     await page.getByPlaceholder('Domain title').fill('journey.test')
     await page.getByRole('button', { name: 'Add', exact: true }).click()
@@ -72,7 +72,7 @@ test('a new user goes from registration to the first report, and another user se
     await createAccount(stranger, request, 'journey-stranger')
 
     await expect(stranger.getByText(/no domain yet/i)).toBeVisible()
-    await stranger.getByRole('button', { name: 'Settings' }).click()
+    await stranger.getByRole('link', { name: 'Settings' }).click()
     await expect(stranger.getByRole('button', { name: 'New domain' })).toBeVisible()
     await expect(stranger.getByRole('button', { name: /journey\.test/ })).toHaveCount(0)
 

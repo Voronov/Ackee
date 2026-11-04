@@ -83,7 +83,7 @@ test('a member removed by the owner loses the reports', async ({ browser, page, 
   page.on('dialog', (dialog) => dialog.accept())
   // The list of the owner does not know yet that the invitation was used
   await page.reload()
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: new RegExp(`${address}.*VIEWER`) }).click()
   await expect(page.getByRole('button', { name: new RegExp(`${address}.*VIEWER`) })).toHaveCount(0)
 

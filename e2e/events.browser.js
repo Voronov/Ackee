@@ -4,7 +4,7 @@ import { API, createAccount, graphql } from './_helpers.js'
 
 test('an event is created in the settings and its actions are summed in the insights', async ({ page, request }) => {
   await createAccount(page, request, 'events')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
 
   await page.getByRole('button', { name: 'New event' }).click()
   await page.getByPlaceholder('Event title').fill('Order value')

@@ -10,8 +10,13 @@
 	width: 100%;
 	max-width: $maxWidth;
 
-	@media (max-width: 800px) {
+	@media (max-width: $compactContent) {
 		--columns: 1;
+	}
+
+	// Focused by the code after a page is picked in the menu, not by the visitor
+	&:focus {
+		outline: none;
 	}
 
 	&__spacer {

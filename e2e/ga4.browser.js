@@ -17,7 +17,7 @@ const key = () =>
 const connect = async (page, title, propertyId) => {
   // The domain was made through the API, the open page does not know it yet
   await page.reload()
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: new RegExp(title.replaceAll('.', String.raw`\.`)) }).click()
   await page.getByRole('button', { name: /Google Analytics/ }).click()
   await page.getByPlaceholder('123456789').fill(propertyId)
@@ -52,7 +52,7 @@ test('a domain is connected to a Google Analytics property, which is synced and 
   // The dialog of the domain is under the one of Google Analytics
   await page.getByRole('button', { name: 'Close' }).last().click()
   await page.getByRole('button', { name: 'Close' }).last().click()
-  await page.getByRole('button', { name: 'Overview' }).click()
+  await page.getByRole('link', { name: 'Overview' }).click()
   const source = page.getByRole('combobox')
   await expect(source.locator('option')).toHaveText(['Ackee', 'Google Analytics', 'Ackee and Google Analytics'])
 

@@ -67,7 +67,7 @@ export const createAccount = async (page, request, name) => {
   await page.context().setExtraHTTPHeaders({})
 
   await signIn(page, address)
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 
   return address
 }
@@ -137,7 +137,7 @@ export const invitationLink = (request, address) =>
 
 // The owner invites an address from the settings. The role is VIEWER, EDITOR or OWNER.
 export const invite = async (page, address, role = 'VIEWER') => {
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Invite member' }).click()
   await page.getByPlaceholder('name@example.com').fill(address)
   await page.getByLabel('Role').selectOption(role)
@@ -160,7 +160,7 @@ export const joinByInvitation = async (browser, link, address) => {
   await context.setExtraHTTPHeaders({})
 
   await signIn(page, address)
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 
   return page
 }
