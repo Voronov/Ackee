@@ -172,6 +172,8 @@ query getDomainsStatistics {
       }
       countries(sorting: TOP) {
         id
+        value
+        code
         count
         created
       }

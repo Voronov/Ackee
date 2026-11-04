@@ -20,6 +20,8 @@ const get = dimension(
     [COUNTRIES_TYPE]: {
       fields: ['country'],
       format: (id) => countryName(id.country),
+      // The map of the report colours countries by code: names differ between Node and browsers
+      details: (id) => ({ code: id.country }),
     },
   },
   'countries',

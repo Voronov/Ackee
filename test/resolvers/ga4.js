@@ -259,6 +259,9 @@ test.serial('reports read GA4 when asked, in the shape of Ackee reports', async 
         recent: pages(sorting: RECENT) {
           value
         }
+        countries(sorting: TOP, range: LAST_7_DAYS) {
+          code
+        }
       }
       own: statistics {
         views(interval: DAILY, type: TOTAL, limit: 7) {
@@ -291,6 +294,8 @@ test.serial('reports read GA4 when asked, in the shape of Ackee reports', async 
     [60_000, 60_000, 60_000],
   )
   t.deepEqual(ga.recent, [])
+  // GA4 names countries without a code, so the map has nothing to colour and the list stays
+  t.deepEqual(ga.countries, [{ code: null }])
   t.deepEqual(
     own.views.map((entry) => entry.count),
     [0, 0, 0, 0, 0, 0, 0],

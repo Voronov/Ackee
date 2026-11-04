@@ -243,6 +243,10 @@ export default gql`
     """
     value: String!
     """
+    ISO 3166-1 alpha-2 code of the country. Null when the source has no code, like GA4.
+    """
+    code: String
+    """
     Amount of occurrences.
     """
     count: UnsignedInt

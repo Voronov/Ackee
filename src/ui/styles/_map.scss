@@ -1,0 +1,43 @@
+.map {
+
+	padding-top: $gutter;
+
+	&__svg {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	&__country {
+		fill: $dimmed;
+		fill-rule: evenodd;
+		stroke: $card;
+		stroke-width: .5;
+
+		&--visited {
+			fill: rgba($primary, var(--shade));
+			transition: fill .3s ease;
+
+			&:hover {
+				fill: $white;
+			}
+		}
+	}
+
+	&__legend {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: math.div($gutter, 2);
+		margin-top: math.div($gutter, 2);
+		font-size: .8em;
+	}
+
+	&__scale {
+		width: 80px;
+		height: 6px;
+		border-radius: 100px;
+		background: linear-gradient(90deg, rgba($primary, var(--min-shade)), $primary);
+	}
+
+}

@@ -15,9 +15,10 @@ import { coverage as rollupCoverage } from './rollups.js'
  * Every type of the dimension says which record fields it groups by and how a group
  * is shown. `or` groups records that have any of the fields instead of all of them.
  * `dimension` names the rollup of the dimension (constants/rollups.js), which answers TOP.
+ * `details` adds fields of the group to an entry, next to the shown value.
  */
 export default (types, dimension) => async (ids, sorting, type, range, limit, dateDetails) => {
-  const { fields, format, or } = types[type]
+  const { fields, format, details, or } = types[type]
 
   const dimensionFields = ROLLUP_DIMENSIONS[dimension] ?? []
   const isRolledUp = sorting === SORTINGS_TOP && fields.every((field) => dimensionFields.includes(field))
@@ -43,6 +44,7 @@ export default (types, dimension) => async (ids, sorting, type, range, limit, da
       value,
       count: entry.count,
       created: entry.created,
+      ...details?.(entry._id),
     }
   })
 }

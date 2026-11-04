@@ -5,6 +5,7 @@ export default gql`
     countries(sorting: $sorting, range: $range) {
       id
       value
+      code
       count
       created
     }
