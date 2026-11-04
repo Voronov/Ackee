@@ -52,7 +52,7 @@ const contextFor = (viewer, headers) => ({
 
 // Runs one of the fixed queries. A GraphQL error becomes a plain error, which the SDK answers
 // as a failed tool call rather than a failed request.
-const executor = (viewer, headers) => async (query, variables) => {
+export const executor = (viewer, headers) => async (query, variables) => {
   const server = await apolloServer()
   const { body } = await server.executeOperation({ query, variables }, { contextValue: contextFor(viewer, headers) })
   const result = body.kind === 'single' ? body.singleResult : undefined
@@ -66,7 +66,7 @@ const executor = (viewer, headers) => async (query, variables) => {
 // Without a domain the call reads every workspace of the viewer, so each one gets an entry.
 // An unknown or foreign domain also goes to every workspace of the viewer: the attempt must
 // leave a trace, but not in the workspace that owns the domain.
-const workspacesOf = async (viewer, domainIds) => {
+export const workspacesOf = async (viewer, domainIds) => {
   const own = viewer.memberships.map((membership) => membership.workspaceId)
   if (domainIds.length === 0) return own
 
