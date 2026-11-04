@@ -5,10 +5,12 @@ import * as routes from '../constants/routes.js'
 import { sectionOf } from '../constants/sections.js'
 import useHotkey from '../hooks/useHotkey.js'
 import useRoute from '../hooks/useRoute.js'
+import useScope, { isScoped } from '../hooks/useScope.js'
 
 import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
 import Navigation from './Navigation.js'
+import ScopeBar from './ScopeBar.js'
 import SourceSelect from './SourceSelect.js'
 import Tabs from './Tabs.js'
 
@@ -85,6 +87,7 @@ const Dashboard = (props) => {
   const domains = useDomains()
   const ga4Connected = useGa4Connected()
   const sourceMode = useSourceMode()
+  const scope = useScope()
 
   useHotkey('o', () => props.setRoute('/'))
   useHotkey('v', () => props.setRoute('/insights/views'))
@@ -106,8 +109,9 @@ const Dashboard = (props) => {
     addModal: props.addModal,
     filters: props.filters,
   })
-  // Without a GA4 connection everything reads Ackee, so there is nothing to switch
-  const showsSource = ga4Connected.value === true && READS_SOURCE.has(currentRoute.key)
+  // Without a GA4 connection everything reads Ackee, so there is nothing to switch. Nor is there
+  // with filters or a period: GA4 keeps whole properties by day (ACKEE-24).
+  const showsSource = ga4Connected.value === true && READS_SOURCE.has(currentRoute.key) && isScoped(scope) === false
   const section = sectionOf(currentRoute.key)
 
   return h(
@@ -132,6 +136,7 @@ const Dashboard = (props) => {
         h(Tabs, { label: section.label, tabs: section.tabs, routeKey: currentRoute.key, setRoute: props.setRoute }),
       PICKS_DOMAIN.has(currentRoute.key) &&
         h(DomainSelect, { domains: domains.value, loaded: domains.status.isInitializing !== true }),
+      READS_SOURCE.has(currentRoute.key) && h(ScopeBar),
       showsSource && h(SourceSelect),
       showsSource &&
         sourceMode !== SOURCE_ACKEE &&

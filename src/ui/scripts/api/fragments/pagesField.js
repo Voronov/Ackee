@@ -6,6 +6,10 @@ export default gql`
       id
       value
       count
+      filter {
+        field
+        value
+      }
       created
     }
   }

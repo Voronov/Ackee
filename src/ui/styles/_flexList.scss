@@ -57,6 +57,48 @@
 		}
 	}
 
+	// A row that filters the reports by its entry (ACKEE-24): the button takes the row,
+	// the arrow next to it opens the address
+	&__filter {
+		display: flex;
+		flex: 1 1 auto;
+		align-items: center;
+		align-self: stretch;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+		transition: color .3s ease;
+
+		&:hover,
+		&:focus-visible {
+			color: $white;
+		}
+
+		&:focus-visible {
+			outline: 2px solid $primary;
+			outline-offset: -2px;
+		}
+	}
+
+	&__open {
+		flex: 0 0 auto;
+		padding: 0 math.div($gutter, 2);
+		color: inherit;
+		text-decoration: none;
+		opacity: .6;
+
+		&:hover,
+		&:focus-visible {
+			opacity: 1;
+			color: $white;
+		}
+	}
+
 	&__column {
 		display: grid;
 		grid-auto-flow: column;

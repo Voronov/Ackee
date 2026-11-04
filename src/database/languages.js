@@ -5,6 +5,7 @@ import { SORTINGS_NEW, SORTINGS_RECENT, SORTINGS_TOP } from '../constants/sortin
 import Record from '../models/Record.js'
 import languageCodes from '../utils/languageCodes.js'
 import recursiveId from '../utils/recursiveId.js'
+import { applyScope } from '../utils/scope.js'
 
 const get = async (ids, sorting, range, limit, dateDetails) => {
   const aggregation = (() => {
@@ -12,6 +13,7 @@ const get = async (ids, sorting, range, limit, dateDetails) => {
     if (sorting === SORTINGS_NEW) return aggregateNewRecords(ids, ['siteLanguage'], limit)
     if (sorting === SORTINGS_RECENT) return aggregateRecentRecords(ids, ['siteLanguage'], limit)
   })()
+  applyScope(aggregation, dateDetails)
 
   const enhanceId = (id) => {
     return languageCodes[id.siteLanguage] || id.siteLanguage

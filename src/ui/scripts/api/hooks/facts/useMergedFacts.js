@@ -7,8 +7,8 @@ import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchMergedFacts($domainId: ID, $source: StatisticsSource) {
-    facts(domainId: $domainId, source: $source) {
+  query fetchMergedFacts($domainId: ID, $source: StatisticsSource, $filters: [FilterInput!]) {
+    facts(domainId: $domainId, source: $source, filters: $filters) {
       ...factsFields
     }
   }

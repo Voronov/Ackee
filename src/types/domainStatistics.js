@@ -45,6 +45,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   enum ReferrerType {
@@ -79,6 +83,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   type Duration {
@@ -125,6 +133,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   enum DeviceType {
@@ -155,6 +167,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   enum BrowserType {
@@ -185,6 +201,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   enum SizeType {
@@ -254,6 +274,10 @@ export default gql`
     Identifies the date and time when the object was created.
     """
     created: DateTime
+    """
+    The condition this entry stands for, to pass back as filters.
+    """
+    filter: [FilterCondition!]
   }
 
   type Language {
@@ -403,6 +427,11 @@ export default gql`
     """
     Statistics of all domains combined, or of the one given. Usually data that needs to be represented in a list or chart.
     """
-    statistics(domainId: ID, source: StatisticsSource = ACKEE): DomainStatistics!
+    statistics(
+      domainId: ID
+      source: StatisticsSource = ACKEE
+      filters: [FilterInput!]
+      period: PeriodInput
+    ): DomainStatistics!
   }
 `

@@ -1,21 +1,18 @@
 import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
-import enhanceUrl from '../../enhancers/enhanceUrl.js'
+import ListRow from './ListRow.js'
 
 const Row = (props) => {
-  const hasUrl = props.url != null
-
-  const rootType = hasUrl === true ? 'a' : 'div'
-  const rootProps = hasUrl === true ? { href: enhanceUrl(props.url).href, target: '_blank', rel: 'noopener' } : {}
-
   return h(
-    rootType,
+    ListRow,
     {
       className: 'flexList__row flexList__row--has-hover',
-      onMouseEnter: props.onEnter,
-      onMouseLeave: props.onLeave,
-      ...rootProps,
+      url: props.url,
+      filter: props.filter,
+      label: props.text,
+      onEnter: props.onEnter,
+      onLeave: props.onLeave,
     },
     h(
       'div',

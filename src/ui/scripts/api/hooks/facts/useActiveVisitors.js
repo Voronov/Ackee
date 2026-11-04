@@ -5,10 +5,10 @@ import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchActiveVisitors($id: ID!, $source: StatisticsSource) {
+  query fetchActiveVisitors($id: ID!, $source: StatisticsSource, $filters: [FilterInput!]) {
     domain(id: $id) {
       id
-      facts(source: $source) {
+      facts(source: $source, filters: $filters) {
         id
         activeVisitors
       }

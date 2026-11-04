@@ -13,8 +13,10 @@ const QUERY = gql`
     $range: Range
     $domainId: ID
     $source: StatisticsSource
+    $filters: [FilterInput!]
+    $period: PeriodInput
   ) {
-    statistics(domainId: $domainId, source: $source) {
+    statistics(domainId: $domainId, source: $source, filters: $filters, period: $period) {
       id
       ...referrersField
     }

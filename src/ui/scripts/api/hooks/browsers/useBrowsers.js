@@ -6,10 +6,18 @@ import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchBrowsers($id: ID!, $sorting: Sorting!, $type: BrowserType!, $range: Range, $source: StatisticsSource) {
+  query fetchBrowsers(
+    $id: ID!
+    $sorting: Sorting!
+    $type: BrowserType!
+    $range: Range
+    $source: StatisticsSource
+    $filters: [FilterInput!]
+    $period: PeriodInput
+  ) {
     domain(id: $id) {
       id
-      statistics(source: $source) {
+      statistics(source: $source, filters: $filters, period: $period) {
         id
         ...browsersField
       }

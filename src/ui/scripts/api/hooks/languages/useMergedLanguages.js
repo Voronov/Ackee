@@ -7,8 +7,15 @@ import useSource from '../../../hooks/useSource.js'
 import useQuery from '../../utils/useQuery.js'
 
 const QUERY = gql`
-  query fetchMergedLanguages($sorting: Sorting!, $range: Range, $domainId: ID, $source: StatisticsSource) {
-    statistics(domainId: $domainId, source: $source) {
+  query fetchMergedLanguages(
+    $sorting: Sorting!
+    $range: Range
+    $domainId: ID
+    $source: StatisticsSource
+    $filters: [FilterInput!]
+    $period: PeriodInput
+  ) {
+    statistics(domainId: $domainId, source: $source, filters: $filters, period: $period) {
       id
       ...languagesField
     }

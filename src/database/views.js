@@ -9,16 +9,28 @@ import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
+import { applyScope, hasFilters, limitOf } from '../utils/scope.js'
 import { coverage as rollupCoverage } from './rollups.js'
 
-const get = async (ids, type, interval, limit, dateDetails) => {
+const get = async (ids, type, interval, askedLimit, dateDetails) => {
   const unique = type === VIEWS_TYPE_UNIQUE
-  const coverage = await rollupCoverage(dateDetails.includeFnByInterval(interval)(limit), dateDetails.userTimeZone)
+  const limit = limitOf(dateDetails, interval, askedLimit)
+  // Rollups count whole domains, a filtered report reads records (ACKEE-24)
+  const coverage =
+    hasFilters(dateDetails) === true
+      ? undefined
+      : await rollupCoverage(
+          dateDetails.includeFnByInterval(interval)(limit),
+          dateDetails.userTimeZone,
+          dateDetails.end,
+        )
 
   const aggregation = (() => {
     if (coverage != null) return aggregateRolledViews(ids, unique, interval, dateDetails, coverage)
-    if (type === VIEWS_TYPE_UNIQUE) return aggregateViews(ids, true, interval, limit, dateDetails)
-    if (type === VIEWS_TYPE_TOTAL) return aggregateViews(ids, false, interval, limit, dateDetails)
+    if (type === VIEWS_TYPE_UNIQUE)
+      return applyScope(aggregateViews(ids, true, interval, limit, dateDetails), dateDetails)
+    if (type === VIEWS_TYPE_TOTAL)
+      return applyScope(aggregateViews(ids, false, interval, limit, dateDetails), dateDetails)
   })()
 
   const enhance = (entries) => {
