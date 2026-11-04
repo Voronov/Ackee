@@ -1,20 +1,25 @@
 import { startOfDay } from 'date-fns'
 import { getTimezoneOffset } from 'date-fns-tz'
 
+import aggregateDimensionDayRollups from '../aggregations/aggregateDimensionDayRollups.js'
 import aggregateDimensionRollups from '../aggregations/aggregateDimensionRollups.js'
 import aggregateViewRollups from '../aggregations/aggregateViewRollups.js'
 import { DURATIONS_LIMIT } from '../constants/durations.js'
 import { ROLLUP_CHUNK_HOURS, ROLLUP_DIMENSIONS, ROLLUP_LEASE } from '../constants/rollups.js'
+import DimensionDayRollup from '../models/DimensionDayRollup.js'
 import DimensionRollup from '../models/DimensionRollup.js'
 import Record from '../models/Record.js'
 import RollupState from '../models/RollupState.js'
 import ViewRollup from '../models/ViewRollup.js'
-import { hour } from '../utils/times.js'
+import { day, hour } from '../utils/times.js'
 
 const STATE_ID = 'records'
 
 export const floorHour = (date) => new Date(Math.floor(date.getTime() / hour) * hour)
 export const ceilHour = (date) => new Date(Math.ceil(date.getTime() / hour) * hour)
+// Days in UTC, as the hours of the rollups are
+export const floorDay = (date) => new Date(Math.floor(date.getTime() / day) * day)
+export const ceilDay = (date) => new Date(Math.ceil(date.getTime() / day) * day)
 
 // The end of the hours whose records can no longer change. Until a visit is over its duration
 // grows, and until the salt changes at midnight (utils/salt.js, server time) a new visit can
@@ -47,7 +52,13 @@ export const coverage = async (start, timeZone) => {
 
   if (timeZone != null && isWholeHourZone(timeZone, [from, state.until]) === false) return
 
-  return { start, from, until: state.until }
+  // The whole days of [from, until) that have daily rollups. Hourly rollups cover the rest.
+  // until may have been moved back by hand (ADR-005), then the days past it do not count.
+  const daysUntil = state.daysUntil == null ? null : new Date(Math.min(state.daysUntil, floorDay(state.until)))
+  const days = { from: ceilDay(from), until: daysUntil }
+  const hasDays = days.until != null && days.from < days.until
+
+  return { start, from, until: state.until, ...(hasDays === true && { days }) }
 }
 
 const buildRange = async (from, to) => {
@@ -60,6 +71,11 @@ const buildRange = async (from, to) => {
   for (const [dimension, fields] of Object.entries(ROLLUP_DIMENSIONS)) {
     await Record.aggregate(aggregateDimensionRollups(dimension, fields, from, to)).allowDiskUse(true)
   }
+}
+
+const buildDays = async (from, to) => {
+  await DimensionDayRollup.deleteMany({ day: { $gte: from, $lt: to } })
+  await DimensionRollup.aggregate(aggregateDimensionDayRollups(from, to)).allowDiskUse(true)
 }
 
 const acquireLease = async () => {
@@ -94,14 +110,23 @@ export const rollUp = async (now = new Date(), pendingSince) => {
 
   try {
     const target = sealedUntil(now, pendingSince)
-    let until = state.until
+    let { from, until } = state
 
     if (until == null) {
       const oldest = await Record.findOne().sort({ created: 1 }).select('created').lean()
-      const from = oldest == null ? target : new Date(Math.min(floorHour(oldest.created).getTime(), target.getTime()))
+      from = oldest == null ? target : new Date(Math.min(floorHour(oldest.created).getTime(), target.getTime()))
 
       await RollupState.updateOne({ _id: STATE_ID }, { $set: { from, until: from } })
       until = from
+    }
+
+    // A day is summed only from hours that are built. When until moved back (hours built again),
+    // the days from there on are summed again too, and until then the reports read their hours.
+    const daysFrom = ceilDay(from)
+    let daysUntil = state.daysUntil ?? daysFrom
+    if (daysUntil > floorDay(until)) {
+      daysUntil = new Date(Math.max(floorDay(until).getTime(), daysFrom.getTime()))
+      await RollupState.updateOne({ _id: STATE_ID, lockedUntil: lease }, { $set: { daysUntil } })
     }
 
     while (until < target) {
@@ -120,7 +145,23 @@ export const rollUp = async (now = new Date(), pendingSince) => {
       until = next
     }
 
-    return RollupState.findById(STATE_ID).select('from until').lean()
+    const daysTarget = floorDay(until)
+
+    while (daysUntil < daysTarget) {
+      const next = new Date(Math.min(daysUntil.getTime() + ROLLUP_CHUNK_HOURS * hour, daysTarget.getTime()))
+
+      await buildDays(daysUntil, next)
+      const renewed = new Date(Date.now() + ROLLUP_LEASE)
+      const { matchedCount } = await RollupState.updateOne(
+        { _id: STATE_ID, lockedUntil: lease },
+        { $set: { daysUntil: next, lockedUntil: renewed } },
+      )
+      if (matchedCount === 0) return
+      lease = renewed
+      daysUntil = next
+    }
+
+    return RollupState.findById(STATE_ID).select('from until daysUntil').lean()
   } finally {
     await releaseLease(lease)
   }
@@ -129,4 +170,5 @@ export const rollUp = async (now = new Date(), pendingSince) => {
 export const del = async (domainId) => {
   await ViewRollup.deleteMany({ domainId })
   await DimensionRollup.deleteMany({ domainId })
+  await DimensionDayRollup.deleteMany({ domainId })
 }
