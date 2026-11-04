@@ -9,7 +9,7 @@ test('a forgotten password is changed by the emailed link, and the old one stops
   request,
 }) => {
   const address = await createAccount(page, request, 'reset')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Sign Out' }).click()
 
   await expect(page.getByText('Sign in with a passkey')).toBeVisible()
@@ -31,12 +31,12 @@ test('a forgotten password is changed by the emailed link, and the old one stops
   await page.goto('/')
   await fillCredentials(page, address, NEW_PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
-  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 
 test('a permanent token works for the API until it is deleted', async ({ page, request }) => {
   await createAccount(page, request, 'token')
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
 
   await page.getByRole('button', { name: 'New permanent token' }).click()
   await page.getByPlaceholder('Permanent token title').fill('ci-script')

@@ -74,7 +74,7 @@ test('the country of a visitor is reported only after the owner turned it on in 
   await test.step('the owner turns it on in the dialog of the domain, next to the warning', async () => {
     // The domain was made through the API, so the list of the owner needs a fresh load
     await page.reload()
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await page.getByRole('link', { name: 'Settings' }).click()
     await page.getByRole('button', { name: /shop\.test/ }).click()
     await expect(page.getByText(/personal data/i)).toBeVisible()
     await page.getByLabel(/read the country from the address/i).check()

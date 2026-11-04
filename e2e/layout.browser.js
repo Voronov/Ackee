@@ -38,14 +38,21 @@ test('every page opens without an error in the console', async ({ page, request 
   expect(errors).toEqual([])
 })
 
-test('the pages and the dialogs fit the width of a phone', async ({ page, request }) => {
+test('the pages fit a tablet next to the navigation, and the pages and the dialogs a phone', async ({
+  page,
+  request,
+}) => {
   await createAccount(page, request, 'layout-phone')
   await createDomain(page, 'a-domain-with-a-name-that-is-longer-than-a-phone-is-wide.example.com')
-  await page.setViewportSize({ width: 390, height: 844 })
 
-  for (const route of ROUTES) {
-    await open(page, route)
-    expect(await reachingOut(page), `/#/${route} reaches past the screen`).toEqual([])
+  // A tablet keeps the navigation on the left, a phone has the menu
+  for (const width of [820, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+
+    for (const route of ROUTES) {
+      await open(page, route)
+      expect(await reachingOut(page), `/#/${route} reaches past the screen at ${width} px`).toEqual([])
+    }
   }
 
   // The dialogs of the settings are the widest things in it

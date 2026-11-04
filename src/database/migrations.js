@@ -34,7 +34,12 @@ export const dropOldRecordIndexes = async () => {
 
   if (indexes.some((index) => index.name === 'domainId_1') === false) return false
 
-  await Record.collection.dropIndex('domainId_1')
-
-  return true
+  // Other processes start at the same time and may drop it first
+  return Record.collection.dropIndex('domainId_1').then(
+    () => true,
+    (error) => {
+      if (error.code === 27) return false
+      throw error
+    },
+  )
 }

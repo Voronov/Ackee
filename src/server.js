@@ -10,12 +10,14 @@ import config from './utils/config.js'
 import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
 import * as customTracker from './utils/customTracker.js'
+import * as ingestGate from './utils/ingestGate.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
 import google from './google.js'
 import autotrackLoader from './autotrack/loader.js'
 import live from './live/router.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
+import mcp from './mcp/server.js'
 import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
 
@@ -97,7 +99,7 @@ const server = http.createServer(app)
 
 const apolloServer = createApolloServer({
   formatError: handleGraphError,
-  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin], // eslint-disable-line new-cap
+  plugins: [ApolloServerPluginDrainHttpServer({ httpServer: server }), metrics.apolloPlugin, ingestGate.plugin], // eslint-disable-line new-cap
 })
 
 // Apply CORS middleware
@@ -107,6 +109,9 @@ app.use(attachCorsHeaders)
 app.options('/{*path}', (request, response) => {
   response.sendStatus(204)
 })
+
+// An ingest process serves the tracker and nothing else (ACKEE-19)
+app.use(ingestGate.gate)
 
 // Prometheus. Answers 404 until ACKEE_METRICS_TOKEN is set.
 app.get('/metrics', metrics.handler)
@@ -137,6 +142,19 @@ app.use(
     context: createExpressContext,
   }),
 )
+
+// Read-only MCP endpoint for AI assistants (ACKEE-27, ADR-008). Its own JSON parser: the
+// one above is mounted on /api only.
+app.post('/mcp', express.json(), mcp)
+
+// Stateless, so there is no stream to open with GET and no session to end with DELETE. A GET
+// would hold a stream open forever, so every other method gets 405, as in the SDK example.
+app.all('/mcp', (request, response) => {
+  response
+    .status(405)
+    .set('Allow', 'POST')
+    .json({ jsonrpc: '2.0', error: { code: -32_000, message: 'Method not allowed.' }, id: null })
+})
 
 // Handle 404 errors for unmatched routes (must be after Apollo middleware)
 app.use((request, response) => {

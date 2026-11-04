@@ -49,7 +49,7 @@ test('an editor manages the domains but does not invite', async ({ browser, page
   expect((await invitation()).errors).toBeDefined()
 
   // The editor does not see the members of the workspace in the settings
-  await guest.getByRole('button', { name: 'Settings' }).click()
+  await guest.getByRole('link', { name: 'Settings' }).click()
   await expect(guest.getByRole('button', { name: 'Invite member' })).toHaveCount(0)
 
   await guest.context().close()
@@ -60,7 +60,7 @@ test('a second owner invites like the first one', async ({ browser, page, reques
 
   expect((await invitation()).errors).toBeUndefined()
 
-  await guest.getByRole('button', { name: 'Settings' }).click()
+  await guest.getByRole('link', { name: 'Settings' }).click()
   // One card for the workspace of their own, one for the shared one
   await expect(guest.getByRole('button', { name: 'Invite member' })).toHaveCount(2)
 
@@ -74,7 +74,7 @@ test('an invitation limited to a domain gives only that domain', async ({ browse
 
   const address = newAddress('limited')
   await page.reload()
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Invite member' }).click()
   await page.getByPlaceholder('name@example.com').fill(address)
   await page.getByLabel('Role').selectOption('VIEWER')

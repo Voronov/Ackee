@@ -24,6 +24,14 @@ $radius: 10px;
 $innerRadius: 8px;
 $cardContentHeight: 300px;
 $rowHeight: 32px;
+$navigationWidth: 240px;
+
+// Breakpoints ------------------------------------------------- //
+// Up to this width the navigation is a menu over the content. The menu reads the same width from
+// COMPACT_QUERY in src/ui/scripts/constants/compact.js, keep both equal.
+$compact: 800px;
+// Above $compact the navigation takes its width from the content, so the content narrows as early
+$compactContent: $compact + $navigationWidth;
 
 // Properties -------------------------------------------------- //
 $shadow: 0 2px 10px rgba(0, 0, 0, .12);

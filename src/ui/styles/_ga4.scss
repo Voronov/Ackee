@@ -25,7 +25,7 @@
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: $gutter;
 
-	@media (max-width: 800px) {
+	@media (max-width: $compactContent) {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
@@ -41,7 +41,7 @@
 		}
 	}
 
-	@media (min-width: 801px) {
+	@media (min-width: $compactContent + 1) {
 		// Half a page is too narrow for three facts in a row
 		.facts {
 			--columns: 2;

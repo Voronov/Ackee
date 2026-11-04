@@ -22,6 +22,8 @@ export default new Proxy(
         // Redis of the ingest queue (ADR-006). Empty counts as unset, so a blank line in an
         // env file keeps the queue off.
         ingestQueue: process.env.ACKEE_INGEST_QUEUE || undefined,
+        // What this process does (ACKEE-19): all, api, ingest or worker, see utils/roles.js
+        role: process.env.ACKEE_ROLE || 'all',
         // Name of this process in the consumer group of the queue, the host name when unset
         ingestConsumer: process.env.ACKEE_INGEST_CONSUMER || undefined,
         // Touches of one address per minute, 0 is off

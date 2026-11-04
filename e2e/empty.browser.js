@@ -24,7 +24,7 @@ test('the events page says so when there is no event, and shows the events when 
   await page.goto('/#/insights/events')
   await expect(page.getByText(/no event yet/i)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'New event' }).click()
   await page.getByPlaceholder('Event title').fill('Order value')
   await page.getByRole('button', { name: 'Add', exact: true }).click()
@@ -39,7 +39,7 @@ test('the two links in the dialog of a domain are on lines of their own', async 
   await createAccount(page, request, 'empty-links')
   await createDomain(page, 'shop.test')
   await page.reload()
-  await page.getByRole('button', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('button', { name: /shop\.test/ }).click()
 
   const rules = await page.getByRole('button', { name: /Tracking rules/ }).boundingBox()

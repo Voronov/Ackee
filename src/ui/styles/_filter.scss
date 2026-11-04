@@ -8,8 +8,13 @@
 	z-index: 2;
 	pointer-events: none;
 
-	@media (max-width: 800px) {
+	@media (max-width: $compactContent) {
 		font-size: .9em;
+	}
+
+	// Centered over the content, not over the navigation next to it
+	@media (min-width: $compact + 1) {
+		padding-left: $navigationWidth;
 	}
 
 	&__bar {
