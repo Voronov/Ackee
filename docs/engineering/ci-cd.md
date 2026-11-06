@@ -132,3 +132,15 @@ docker rm -f ackee-test-redis
 `ackee-deploy` перезапускає лише `ackee-<стенд>` (`--no-deps`), тож змінні й ліміти доходять самі, а новий сервіс (наприклад `redis-queue`) треба підняти руками: `docker compose up -d <service>`. Черга подій на dev вмикається змінною `ACKEE_DEV_INGEST_QUEUE=redis://redis:6379` у `/opt/ackee/.env` (порожня змінна лишає прямий запис), після чого `docker compose up -d --no-deps ackee-dev`. Скрипт на сервері оновлюється вручну (один раз): `sudo install -m 755 deploy/ackee-deploy /usr/local/bin/ackee-deploy`. Нові змінні в `.env` (ключі, токени) теж вручну.
 
 Чекліст, якщо скрипт на сервері старий: скопіювати `deploy/docker-compose.yml` у `/opt/ackee`, `docker compose config -q`, `docker compose up -d`.
+
+### Бекапи
+
+`deploy/ackee-backup` щоночі знімає `ackee_live` у `/opt/ackee/backups`, тримає 14 архівів і перевіряє кожен через `mongorestore --dryRun`. Скрипт не запускається, якщо вільно менше 2 ГБ. Результат кожного запуску є в `/var/log/ackee-backup.log`: час, потім `OK` або `FAILED`.
+
+Встановлення: скопіювати скрипт у `/usr/local/bin/ackee-backup` і додати `/etc/cron.d/ackee-backup`:
+
+```cron
+30 3 * * * root /usr/local/bin/ackee-backup >> /var/log/ackee-backup.log 2>&1
+```
+
+Команда відновлення записана на початку скрипта. Архіви лежать на тому самому диску, що й база, тож вони захищають від помилки, але не від втрати сервера.
