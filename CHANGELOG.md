@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
 
+### Fixed
+
+- Charts count the calendar days, months and years of the viewer: a change of the clocks no longer moves numbers to another day, and rows are labelled with the viewer's date
+- Monthly and yearly charts of a period start with the period, and NEW lists of a period show when an entry was really first seen
+
 ## [4.0.0-rc.1] - 2026-11-06
 
 ### Added
