@@ -90,7 +90,7 @@
 		padding: 0 math.div($gutter, 2);
 		color: inherit;
 		text-decoration: none;
-		opacity: .6;
+		opacity: var(--faded);
 
 		&:hover,
 		&:focus-visible {
@@ -156,7 +156,7 @@
 	}
 
 	&__row:hover &__obscured {
-		opacity: .6;
+		opacity: var(--faded);
 	}
 
 }

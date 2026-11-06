@@ -16,7 +16,7 @@
 	margin: 0;
 	text-align: right;
 	font-size: 0.85em;
-	opacity: 0.6;
+	opacity: var(--faded);
 }
 
 .sourceSplit {
@@ -71,7 +71,7 @@
 	&__title {
 		margin: 0;
 		font-size: 1em;
-		opacity: 0.6;
+		opacity: var(--faded);
 	}
 }
 
