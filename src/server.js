@@ -9,6 +9,7 @@ import path from 'node:path'
 import config from './utils/config.js'
 import createApolloServer from './utils/createApolloServer.js'
 import { createExpressContext } from './utils/createContext.js'
+import { directivesFor } from './utils/contentSecurityPolicy.js'
 import * as customTracker from './utils/customTracker.js'
 import * as ingestGate from './utils/ingestGate.js'
 import findMatchingOrigin from './utils/findMatchingOrigin.js'
@@ -82,15 +83,20 @@ const attachCorsHeaders = async (request, response, next) => {
 
 const app = express()
 
-// Disable the X-Powered-By header and set other security headers
-app.use(
+// Disable the X-Powered-By header and set other security headers. The policy needs the inline
+// scripts of the generated UI, so it waits for the file.
+const securityHeaders = files.get('index.html').then((file) =>
   helmet({
     // Allow the tracker and UI assets to be loaded cross-origin
     crossOriginResourcePolicy: false,
-    // The generated UI contains an inline configuration script.
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: { useDefaults: false, directives: directivesFor(String(file)) },
   }),
 )
+
+app.use(async (request, response, next) => {
+  const headers = await securityHeaders
+  headers(request, response, next)
+})
 
 // Response timing has to cover every route, so it goes before them.
 app.use(metrics.httpMiddleware)
