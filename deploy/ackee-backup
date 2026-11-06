@@ -1,0 +1,35 @@
+#!/bin/sh
+# Dumps the database of live every night (/etc/cron.d/ackee-backup).
+#
+# A dump goes to its final name only after mongorestore has read it to the end, so a file in
+# the folder is one that can be restored. The last good dumps stay when a run fails.
+# Restore: docker exec -i ackee-mongo mongorestore --archive --gzip --drop --nsInclude='ackee_live.*' < <file>
+set -eu
+
+DIR=${ACKEE_BACKUP_DIR:-/opt/ackee/backups}
+KEEP=${ACKEE_BACKUP_KEEP:-14}
+# A dump must never be the thing that fills the disk of the stands.
+MIN_FREE_MB=${ACKEE_BACKUP_MIN_FREE_MB:-2048}
+
+log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+
+mkdir -p "$DIR"
+chmod 700 "$DIR"
+
+free=$(df -Pm "$DIR" | awk 'NR == 2 { print $4 }')
+if [ "$free" -lt "$MIN_FREE_MB" ]; then
+  log "FAILED: only $free MB free, need $MIN_FREE_MB"
+  exit 1
+fi
+
+file="$DIR/ackee_live-$(date -u +%Y%m%d-%H%M%S).archive.gz"
+trap 'status=$?; rm -f "$file.tmp"; [ "$status" = 0 ] || log "FAILED: exit $status"' EXIT
+
+docker exec ackee-mongo mongodump --quiet --db ackee_live --archive --gzip > "$file.tmp"
+docker exec -i ackee-mongo mongorestore --quiet --archive --gzip --dryRun --nsInclude='ackee_live.*' < "$file.tmp"
+
+mv "$file.tmp" "$file"
+log "OK: $file, $(du -m "$file" | cut -f1) MB"
+
+# Keep the newest dumps.
+find "$DIR" -maxdepth 1 -name 'ackee_live-*.archive.gz' | sort -r | tail -n +"$((KEEP + 1))" | xargs -r rm --
