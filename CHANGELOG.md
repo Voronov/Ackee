@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
 
+### Fixed
+
+- A click on a referrer filters by its source and referrer, so the reports show the count of the row
+
 ## [4.0.0-rc.1] - 2026-11-06
 
 ### Added

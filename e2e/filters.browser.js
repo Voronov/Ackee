@@ -31,7 +31,7 @@ test('a click on a referrer filters every report, and the filter stays on other 
 
   await page.getByRole('button', { name: /news\.example/ }).click()
   // The referrer as Ackee keeps it
-  await expect(page).toHaveURL(/\?filter=SITE_REFERRER%3Ahttps%3A%2F%2Fnews\.example$/)
+  await expect(page).toHaveURL(/\?filter=SOURCE&filter=SITE_REFERRER%3Ahttps%3A%2F%2Fnews\.example$/)
   await expect(filters(page)).toContainText('Referrer')
   await expect(filters(page)).toContainText('https://news.example')
   await expect(page.locator('main')).not.toContainText('search.example')
@@ -43,7 +43,7 @@ test('a click on a referrer filters every report, and the filter stays on other 
 
   // The navigation keeps it as well
   await navigation(page).getByRole('link', { name: 'Overview' }).click()
-  await expect(page).toHaveURL(/#\/\?filter=SITE_REFERRER/)
+  await expect(page).toHaveURL(/#\/\?filter=SOURCE&filter=SITE_REFERRER/)
   await expect(filters(page)).toContainText('https://news.example')
 
   // A second click narrows further, Back undoes it, × removes the rest
