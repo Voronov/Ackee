@@ -416,7 +416,9 @@ curl -H "Authorization: Bearer <token>" -OJ \
 | `pages`, `languages`, `countries`                      | `sorting` (TOP), `range`, `limit`                                          |
 | `referrers`, `systems`, `devices`, `browsers`, `sizes` | `sorting` (TOP), `type`, `range`, `limit`                                  |
 
-Without `domainId` the report covers all domains the token can read.
+Without `domainId` the report covers all domains the token can read. `source=GA4` reads the days synced from Google Analytics.
+
+`from` and `to` (YYYY-MM-DD, at most 3660 days, the `Time-Zone` of the request) replace `range`, and a chart then shows the whole period, whatever its `limit`. `filter=FIELD:value`, which can be repeated, narrows the report to the views with that value, and `filter=FIELD` to the views without the field. The fields are those of `FilterField`. Google Analytics has neither filters nor periods, so asking for them with `source=GA4` is `400`.
 
 - CSV is UTF-8 with a byte order mark, so Excel shows Cyrillic and other scripts. The first row names the columns, and lines end with CRLF. `delimiter=semicolon` is there for an Excel whose list separator is `;`.
 - A value that starts with `=`, `+`, `-` or `@` gets a `'` in front, so Excel never runs it as a formula: values of the lists come from visitors.

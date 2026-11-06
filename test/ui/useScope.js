@@ -1,7 +1,7 @@
 import test from 'ava'
 
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../../src/constants/intervals.js'
-import { isPeriod, parse, periodLabel, periodUnits } from '../../src/ui/scripts/hooks/useScope.js'
+import { exportParameters, isPeriod, parse, periodLabel, periodUnits } from '../../src/ui/scripts/hooks/useScope.js'
 
 const LONGEST = { from: '2016-10-30', to: '2026-11-06' }
 const TOO_LONG = { from: '2016-10-29', to: '2026-11-06' }
@@ -36,4 +36,15 @@ test('the bars of a period are named from its end', (t) => {
   t.is(periodLabel(period, INTERVALS_MONTHLY, 1), '2026-02')
   t.is(periodLabel(period, INTERVALS_MONTHLY, 3), '2025-12')
   t.is(periodLabel(period, INTERVALS_YEARLY, 1), '2025')
+})
+
+test('the scope goes to the export as it stands in the address', (t) => {
+  const scope = parse('?filter=SITE_REFERRER&filter=COUNTRY:UA&from=2026-10-01&to=2026-10-31')
+
+  t.deepEqual(exportParameters(scope), {
+    filter: ['SITE_REFERRER', 'COUNTRY:UA'],
+    from: '2026-10-01',
+    to: '2026-10-31',
+  })
+  t.deepEqual(exportParameters(parse('')), { filter: [], from: undefined, to: undefined })
 })

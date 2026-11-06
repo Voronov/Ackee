@@ -67,8 +67,8 @@ const queryOf = (name, report, given) => {
   const args = present.map((arg) => `${arg}: $${arg}`)
   const fields = report.chart === true ? 'value count' : [LIST, report.extra].filter(Boolean).join(' ')
 
-  return `query export($domainId: ID, $source: StatisticsSource, ${variables.join(', ')}) {
-    statistics(domainId: $domainId, source: $source) { entries: ${report.field}(${args.join(', ')}) { ${fields} } }
+  return `query export($domainId: ID, $source: StatisticsSource, $filters: [FilterInput!], $period: PeriodInput, ${variables.join(', ')}) {
+    statistics(domainId: $domainId, source: $source, filters: $filters, period: $period) { entries: ${report.field}(${args.join(', ')}) { ${fields} } }
   }`
 }
 
@@ -95,6 +95,23 @@ const variablesOf = (report, query) => {
   return Object.fromEntries(
     report.args.filter((arg) => variables[arg] !== undefined).map((arg) => [arg, variables[arg]]),
   )
+}
+
+// The filters and the period of the dashboard, written as in its address (ACKEE-24): filter=FIELD:value,
+// or filter=FIELD for the views without the field. With a period the server takes the length of
+// a chart from the period, not from the limit.
+const scopeOf = ({ filter, from, to }) => {
+  const entries = filter == null ? [] : [filter].flat()
+
+  const filters = entries.map((entry) => {
+    const index = entry.indexOf(':')
+    return index === -1 ? { field: entry } : { field: entry.slice(0, index), value: entry.slice(index + 1) }
+  })
+
+  if (from == null && to == null) return { filters }
+  if (typeof from !== 'string' || typeof to !== 'string') throw new Error('A period needs both from and to')
+
+  return { filters, period: { from, to } }
 }
 
 // Values of the lists come from the tracker, so anyone can set them. A cell that starts like a
@@ -144,7 +161,7 @@ export default async (request, response) => {
 
   try {
     const given = variablesOf(report, request.query)
-    const variables = { domainId, ...given, ...(source == null ? {} : { source }) }
+    const variables = { domainId, ...given, ...scopeOf(request.query), ...(source == null ? {} : { source }) }
     const data = await executor(viewer, request.headers)(queryOf(name, report, given), variables)
     const entries = data.statistics.entries ?? []
     const filename = `ackee-${name}${source === SOURCE_GA4 ? '-ga4' : ''}-${new Date().toISOString().slice(0, 10)}.${format}`
