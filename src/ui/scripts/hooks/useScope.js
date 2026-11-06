@@ -1,7 +1,8 @@
-import { useSyncExternalStore } from 'react'
+import { createContext, useContext, useSyncExternalStore } from 'react'
 
-import { PERIOD_MAX_DAYS } from '../../../constants/filters.js'
+import { FILTER_FIELDS, FILTER_VALUE_MAX_LENGTH, FILTERS_MAX, PERIOD_MAX_DAYS } from '../../../constants/filters.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../../../constants/intervals.js'
+import isDay from '../../../utils/isDay.js'
 import getHistory from '../utils/history.js'
 
 /*
@@ -13,14 +14,16 @@ import getHistory from '../utils/history.js'
  * A filter without a colon has no value: the views without that field.
  */
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/
-
 const daysOf = ({ from, to }) =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1
 
 // The rule of the server. A chart has one bar per day, so a longer period would crash the page.
 export const isPeriod = ({ from, to }) =>
-  DAY.test(from) && DAY.test(to) && from <= to && daysOf({ from, to }) <= PERIOD_MAX_DAYS
+  isDay(from) && isDay(to) && from <= to && daysOf({ from, to }) <= PERIOD_MAX_DAYS
+
+// The rule of the server too. A value it refuses would end on the failure page.
+export const isFilter = ({ field, value }) =>
+  Object.hasOwn(FILTER_FIELDS, field) && (value == null || value.length <= FILTER_VALUE_MAX_LENGTH)
 
 export const parse = (search) => {
   const parameters = new URLSearchParams(search)
@@ -36,7 +39,7 @@ export const parse = (search) => {
   const to = parameters.get('to')
   const period = isPeriod({ from, to }) ? { from, to } : null
 
-  return { filters, period }
+  return { filters: filters.filter(isFilter).slice(0, FILTERS_MAX), period }
 }
 
 const filterText = ({ field, value }) => (value == null ? field : `${field}:${value}`)
@@ -127,4 +130,12 @@ export const periodLabel = (period, interval, offset) => {
   if (interval === INTERVALS_YEARLY) return String(date.getUTCFullYear() - offset)
 }
 
-export default () => useSyncExternalStore(subscribe, read, read)
+// The scope below instead of the address: a dialog keeps the one of the bar it was opened from
+export const ScopeContext = createContext(null)
+
+export default () => {
+  const pinned = useContext(ScopeContext)
+  const current = useSyncExternalStore(subscribe, read, read)
+
+  return pinned ?? current
+}

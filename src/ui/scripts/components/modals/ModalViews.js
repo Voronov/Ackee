@@ -50,7 +50,7 @@ const ModalViews = (props) => {
         h(CurrentStatus, status, chartLabel(props.index)),
       ),
       h(PresentationCounterList, {
-        items: value[props.index],
+        items: value[props.index] ?? [],
         formatter: formatCount,
       }),
     ),
@@ -77,6 +77,8 @@ ModalViews.propTypes = {
   interval: PropTypes.string.isRequired,
   type: PropTypes.string.isRequired,
   limit: PropTypes.number.isRequired,
+  source: PropTypes.string.isRequired,
+  scope: PropTypes.object.isRequired,
 }
 
 export default ModalViews

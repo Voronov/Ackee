@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- A chart dialog keeps the source, filters and period of its bar, and a link with a period or filter the server refuses opens the reports without it
+
 ### Security
 
 - A Content Security Policy: only the scripts of the page run, and it connects only to its own origin

@@ -2,6 +2,8 @@ import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
 import * as modals from '../../constants/modals.js'
+import { ScopeContext } from '../../hooks/useScope.js'
+import { SourceContext } from '../../hooks/useSource.js'
 
 import Modal from './Modal.js'
 import ModalDomainAdd from './ModalDomainAdd.js'
@@ -46,11 +48,20 @@ const Modals = (props) => {
     return h(
       Modal,
       { key: modalId, visible: true, ...commonProps },
-      h(modalComponents[modalData.type], {
-        ...commonProps,
-        ...extraProps,
-        ...modalData.props,
-      }),
+      // Modals sit outside the providers of the reports, so a chart hands over what its bar shows
+      h(
+        SourceContext.Provider,
+        { value: modalData.props?.source },
+        h(
+          ScopeContext.Provider,
+          { value: modalData.props?.scope },
+          h(modalComponents[modalData.type], {
+            ...commonProps,
+            ...extraProps,
+            ...modalData.props,
+          }),
+        ),
+      ),
     )
   })
 }

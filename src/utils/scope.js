@@ -10,18 +10,14 @@ import { fromZonedTime } from 'date-fns-tz'
 import { FILTER_FIELDS, FILTER_VALUE_MAX_LENGTH, FILTERS_MAX, PERIOD_MAX_DAYS } from '../constants/filters.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import createDate from './createDate.js'
+import isDay from './isDay.js'
 import KnownError from './KnownError.js'
-
-const DAY = /^\d{4}-\d{2}-\d{2}$/
 
 // A day as the viewer names it, YYYY-MM-DD. The date of the server's zone only does the arithmetic.
 const parseDay = (value) => {
-  const date = new Date(`${value}T00:00:00`)
-  if (DAY.test(value) === false || Number.isNaN(date.getTime()) || format(date, 'yyyy-MM-dd') !== value) {
-    throw new KnownError(`Invalid day '${value}', expected YYYY-MM-DD`)
-  }
+  if (isDay(value) === false) throw new KnownError(`Invalid day '${value}', expected YYYY-MM-DD`)
 
-  return date
+  return new Date(`${value}T00:00:00`)
 }
 
 const startOfDayIn = (date, timeZone) => fromZonedTime(`${format(date, 'yyyy-MM-dd')}T00:00:00`, timeZone)

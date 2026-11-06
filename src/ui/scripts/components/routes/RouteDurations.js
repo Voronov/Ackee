@@ -6,12 +6,16 @@ import { MODALS_DURATIONS } from '../../constants/modals.js'
 import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 import useDurations from '../../api/hooks/durations/useDurations.js'
 import useMergedDurations from '../../api/hooks/durations/useMergedDurations.js'
+import useScope from '../../hooks/useScope.js'
+import useSource from '../../hooks/useSource.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
 import RendererDurations from '../renderers/RendererDurations.js'
 
 const RouteDurations = (props) => {
   const domains = useShownDomains()
+  const source = useSource()
+  const scope = useScope()
 
   return h(
     Fragment,
@@ -34,6 +38,8 @@ const RouteDurations = (props) => {
             index,
             interval: props.filters.interval,
             limit: 14,
+            source,
+            scope,
           }),
       },
     }),

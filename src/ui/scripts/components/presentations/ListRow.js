@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
 import enhanceUrl from '../../enhancers/enhanceUrl.js'
-import { addFilters } from '../../hooks/useScope.js'
+import { addFilters, isFilter } from '../../hooks/useScope.js'
 
 /*
  * The row of a list. An entry with a filter (ACKEE-24) is a button that narrows every report to
@@ -13,7 +13,8 @@ const ListRow = (props) => {
   const href = props.url == null ? undefined : enhanceUrl(props.url).href
   const hover = { onMouseEnter: props.onEnter, onMouseLeave: props.onLeave }
 
-  if (props.filter == null) {
+  // A value the server refuses, like a very long address, is no filter
+  if (props.filter == null || props.filter.every(isFilter) === false) {
     const link = href == null ? {} : { href, target: '_blank', rel: 'noopener' }
     return h(
       href == null ? (props.as ?? 'div') : 'a',
