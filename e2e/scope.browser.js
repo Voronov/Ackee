@@ -150,3 +150,94 @@ test('date fields that differ from the applied period say so', async ({ page, re
   await expect(page).toHaveURL(new RegExp(`from=${day(-7)}`))
   await expect(note).toHaveCount(0)
 })
+
+test('a failed report keeps the session, and the way out clears the scope', async ({ page, request }) => {
+  await seed(page, request, 'scope-failed-report')
+  await page.route('**/api', (route) =>
+    route.request().postData()?.includes('fetchMergedViews')
+      ? route.fulfill({ json: { errors: [{ message: 'A report failed' }] } })
+      : route.continue(),
+  )
+  await page.goto('/#/insights/views?filter=COUNTRY:UA')
+  await page.reload()
+  await expect(oops(page)).toBeVisible()
+
+  await page.unrouteAll()
+  await page.getByRole('button', { name: 'Reload Ackee' }).click()
+  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible()
+  await expect(oops(page)).toHaveCount(0)
+  await expect(page).not.toHaveURL(/filter=/)
+})
+
+test('an invalid token still ends on the login', async ({ page, request }) => {
+  await seed(page, request, 'scope-invalid-token')
+  await page.evaluate(() => {
+    const key = Object.keys(localStorage).find((name) => name.startsWith('ackee_token_'))
+    localStorage.setItem(key, JSON.stringify('no-such-token'))
+  })
+  await page.reload()
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
+})
+
+test('a refused value leaves the address without a history entry', async ({ page, request }) => {
+  await seed(page, request, 'scope-address')
+  await page.goto('/#/insights/views')
+  await expect(page.locator('main')).toContainText('shop.test')
+
+  await page.goto('/#/insights/views?filter=FOO:bar&filter=COUNTRY:UA&from=2026-02-01&to=2026-02-31')
+  await expect(page).toHaveURL(/#\/insights\/views\?filter=COUNTRY%3AUA$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/insights\/views$/)
+})
+
+test('date fields go back to the applied period when they lose the focus', async ({ page, request }) => {
+  await seed(page, request, 'scope-blur')
+  const from = filters(page).getByLabel('From')
+  const note = filters(page).getByRole('status')
+
+  await page.goto(`/#/insights/views?${MONTH}`)
+  await expect(from).toHaveValue(day(-30))
+
+  await from.fill('')
+  await from.blur()
+  await expect(from).toHaveValue(day(-30))
+  await expect(note).toContainText('both days')
+
+  await from.fill('2000-01-01')
+  await from.blur()
+  await expect(from).toHaveValue(day(-30))
+  await expect(note).toContainText('at most 3660 days')
+  await expect(page).toHaveURL(new RegExp(MONTH))
+
+  await from.fill(day(-7))
+  await expect(page).toHaveURL(new RegExp(`from=${day(-7)}`))
+  await expect(note).toHaveCount(0)
+})
+
+test('a period can be picked one day after the other', async ({ page, request }) => {
+  await seed(page, request, 'scope-picked')
+  const from = filters(page).getByLabel('From')
+  const to = filters(page).getByLabel('To')
+
+  await page.goto('/#/insights/views')
+  await from.fill(day(-7))
+  await to.focus()
+  await expect(from).toHaveValue(day(-7))
+
+  await to.fill(day(0))
+  await expect(page).toHaveURL(new RegExp(`from=${day(-7)}&to=${day(0)}`))
+})
+
+test('the dialog of a selected domain lists that domain only', async ({ page, request }) => {
+  const domain = await seed(page, request, 'scope-selected')
+  await createDomain(page, 'other.test')
+  await sendView(request, domain, '/', { visitor: 2 })
+  await page.reload()
+
+  await page.goto('/#/insights/views')
+  await page.locator('#domain-select').selectOption({ label: 'shop.test' })
+  await clickBar(page, 0)
+  await expect(modal(page).locator('.flexList')).toContainText('shop.test')
+  await expect(modal(page).locator('.flexList')).not.toContainText('other.test')
+})

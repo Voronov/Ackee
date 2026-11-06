@@ -21,7 +21,6 @@ const Main = (props) => {
   if (hasErrors === true)
     return h(OverlayFailure, {
       errors,
-      reset: props.reset,
     })
 
   return h(

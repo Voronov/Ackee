@@ -78,6 +78,34 @@ test('a domain is connected to a Google Analytics property, which is synced and 
   await expect(page.getByText('datum-shop.pages.dev/cart/')).toHaveCount(0)
 })
 
+test('the dialog of a bar in one half of the side-by-side view reads the source of that half', async ({
+  page,
+  request,
+}) => {
+  await createAccount(page, request, 'ga4-split')
+  const domain = await createDomain(page, 'datum-shop.pages.dev')
+
+  await connect(page, domain.title, '123456789')
+  await expect(page.getByText(/Synced from/)).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('button', { name: 'Close' }).last().click()
+  await page.getByRole('button', { name: 'Close' }).last().click()
+  await page.getByRole('link', { name: 'Overview' }).click()
+  await page.getByRole('combobox').selectOption({ label: 'Ackee and Google Analytics' })
+
+  const halves = page.locator('.sourceSplit__half')
+  const modal = page.locator('.modal')
+  // Yesterday: Google has counted it and Ackee has no view. The axis lies over the bars.
+  const clickBar = (half) =>
+    half.locator('.barChart').first().locator('.barChart__column').nth(1).dispatchEvent('click')
+
+  await clickBar(halves.nth(1))
+  await expect(modal.locator('.flexList')).toContainText(/[1-9]\d*x/)
+  await modal.getByRole('button', { name: 'Close' }).click()
+
+  await clickBar(halves.nth(0))
+  await expect(modal.locator('.flexList')).toContainText('0x')
+})
+
 test('disconnecting a domain from Google Analytics removes its days and the source switch', async ({
   page,
   request,

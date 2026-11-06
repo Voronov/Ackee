@@ -92,6 +92,19 @@ export const setPeriod = (period) => update((scope) => ({ ...scope, period }))
 
 export const clearScope = () => update(() => ({ filters: [], period: null }))
 
+// Takes what parse dropped out of the address. Replaces the entry, so Back does not return to it.
+export const cleanAddress = () => {
+  const history = getHistory()
+  const { pathname, search } = history.location
+  const parameters = new URLSearchParams(search)
+  const { filters, period } = parse(search)
+
+  const droppedPeriod = period == null && (parameters.has('from') || parameters.has('to'))
+  if (droppedPeriod || filters.length < parameters.getAll('filter').length) {
+    history.replace({ pathname, search: serialize({ filters, period }) })
+  }
+}
+
 // Keeps the filters and the period on a link to another page
 export const withScope = (href) => `${href}${hasDocument() === true ? getHistory().location.search : ''}`
 

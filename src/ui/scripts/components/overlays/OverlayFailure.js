@@ -11,8 +11,8 @@ import Text from '../Text.js'
 import Textarea from '../Textarea.js'
 
 const OverlayFailure = (props) => {
+  // Keeps the session: a token that really failed ends on the login before this page
   const onClick = () => {
-    props.reset()
     globalThis.location.hash = ''
     globalThis.location.reload()
   }
@@ -86,7 +86,6 @@ const OverlayFailure = (props) => {
 
 OverlayFailure.propTypes = {
   errors: PropTypes.array.isRequired,
-  reset: PropTypes.func.isRequired,
 }
 
 export default OverlayFailure
