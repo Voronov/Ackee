@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto'
 
-const INLINE_SCRIPT = /<script>(.*?)<\/script>/gsu
-
 const hashOf = (code) => `'sha256-${createHash('sha256').update(code).digest('base64')}'`
 
-const inlineScripts = (html) => [...html.matchAll(INLINE_SCRIPT)].map(([, code]) => hashOf(code))
+// Reads pages Ackee writes itself, where an inline script is always a plain <script> tag
+const inlineScripts = (html) =>
+  html
+    .split('<script>')
+    .slice(1)
+    .map((part) => hashOf(part.split('</script>')[0]))
 
 // The UI is one static file, so hashes allow its inline scripts and nothing injected later.
 // Styles stay inline: React sets style attributes and the pages of src/pages.js have a style tag.
