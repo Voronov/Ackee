@@ -51,6 +51,13 @@ const ScopeBar = () => {
     setNote('')
   }, [scope.period])
 
+  // It explains why a field went back, and has nothing left to say after that
+  useEffect(() => {
+    if (note === '') return
+    const timer = setTimeout(() => setNote(''), 5000)
+    return () => clearTimeout(timer)
+  }, [note])
+
   const apply = (nextFrom, nextTo) => {
     setNote('')
     if (nextFrom === '' && nextTo === '') return setPeriod(null)
