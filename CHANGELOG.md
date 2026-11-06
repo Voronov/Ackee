@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Texts of the dark theme keep a contrast of 4.5:1
 - A click on a referrer filters by its source and referrer, so the reports show the count of the row
 - Charts count the calendar days, months and years of the viewer: a change of the clocks no longer moves numbers to another day, and rows are labelled with the viewer's date
 - Monthly and yearly charts of a period start with the period, and NEW lists of a period show when an entry was really first seen
