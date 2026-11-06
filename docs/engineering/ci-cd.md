@@ -14,7 +14,7 @@
 
 | Job              | Що робить                                                                                                        | Чому                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux і macOS                     | Linux – там працює образ, macOS – там пише команда        |
+| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux; macOS лише вручну          | Linux – там працює образ, macOS – там пише команда        |
 | Coverage         | `npm run test:coverage`, пороги в `.c8rc.json`; Redis – service container `redis:7.4-alpine`, `ACKEE_TEST_REDIS` | Падіння покриття нижче порогу – це регресія, а не шум     |
 | Dependency audit | `npm audit --omit=dev --audit-level=high`                                                                        | Висока вразливість у тому, що їде в образ, зупиняє збірку |
 
