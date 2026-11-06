@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The list of referrers shows the icons of the sites again
 - A chart dialog keeps the source, filters, period and domain of its bar, and a link with a period or filter the server refuses opens the reports without it and drops it from the address
 - The error page reloads the dashboard without signing out
 - Date fields go back to the applied period when they lose the focus

@@ -32,6 +32,10 @@ test('blocks inline handlers and foreign connections', (t) => {
   t.deepEqual(directives.objectSrc, ["'none'"])
 })
 
+test('loads the icons of referring sites over https', (t) => {
+  t.deepEqual(directivesFor('').imgSrc, ["'self'", 'data:', 'https:'])
+})
+
 test('a page made per request runs only its own script', (t) => {
   t.is(scriptOnlyPolicy('<script>one()</script>'), `default-src 'none'; script-src ${hash('one()')}`)
 })
