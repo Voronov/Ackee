@@ -26,6 +26,8 @@ import useMergedReferrers from '../../api/hooks/referrers/useMergedReferrers.js'
 import useMergedSizes from '../../api/hooks/sizes/useMergedSizes.js'
 import useMergedSystems from '../../api/hooks/systems/useMergedSystems.js'
 import useMergedViews from '../../api/hooks/views/useMergedViews.js'
+import useScope from '../../hooks/useScope.js'
+import useSource from '../../hooks/useSource.js'
 
 import CardFacts from '../cards/CardFacts.js'
 import CardStatistics from '../cards/CardStatistics.js'
@@ -39,6 +41,8 @@ import RendererViews from '../renderers/RendererViews.js'
 const RouteOverview = (props) => {
   const domains = useDomains()
   useMergedActiveVisitors()
+  const source = useSource()
+  const scope = useScope()
 
   return h(
     Fragment,
@@ -77,6 +81,8 @@ const RouteOverview = (props) => {
             interval: INTERVALS_DAILY,
             type: VIEWS_TYPE_UNIQUE,
             limit: 14,
+            source,
+            scope,
           }),
       },
     }),
@@ -99,6 +105,8 @@ const RouteOverview = (props) => {
             index,
             interval: INTERVALS_DAILY,
             limit: 14,
+            source,
+            scope,
           }),
       },
     }),

@@ -6,6 +6,7 @@ import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
 import server from '../../src/server.js'
 import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
+import { isPeriod } from '../../src/ui/scripts/hooks/useScope.js'
 import { day, hour } from '../../src/utils/times.js'
 import { api } from '../_utils.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase, gql } from './_utils.js'
@@ -296,6 +297,28 @@ test.serial('a wrong period or too many filters are refused', async (t) => {
   t.regex(await message({ period: { from: '2026-02-30', to: '2026-03-01' } }), /Invalid day/)
   t.regex(await message({ period: { from: '2026-03-02', to: '2026-03-01' } }), /ends before it starts/)
   t.regex(await message({ filters: Array.from({ length: 11 }, () => CART) }), /At most 10 filters/)
+})
+
+test.serial('the interface and the server agree on which periods exist', async (t) => {
+  const fields =
+    'pages(sorting: TOP) { value } views(interval: DAILY, type: UNIQUE) { count } monthly: views(interval: MONTHLY, type: TOTAL) { count } durations(interval: DAILY) { count } referrers(sorting: TOP, type: WITH_SOURCE) { value } systems(sorting: TOP, type: WITH_VERSION) { value }'
+
+  for (const period of [
+    { from: '2026-02-01', to: '2026-02-28' },
+    { from: '2026-02-01', to: '2026-02-31' },
+    { from: '2024-02-29', to: '2024-02-29' },
+    { from: '1900-02-29', to: '1900-03-01' },
+    { from: '2026-04-01', to: '2026-04-31' },
+    { from: '0000-01-01', to: '0000-01-31' },
+    { from: '0001-01-01', to: '0001-01-31' },
+    { from: '9999-12-01', to: '9999-12-30' },
+    { from: '9999-12-01', to: '9999-12-31' },
+    { from: '2016-10-30', to: '2026-11-06' },
+    { from: '2016-10-29', to: '2026-11-06' },
+  ]) {
+    const { errors } = await statistics(t, fields, { period })
+    t.is(isPeriod(period), errors == null, `${period.from} ${period.to}: ${errors?.[0].message}`)
+  }
 })
 
 test.serial('Google Analytics 4 has nothing to filter', async (t) => {

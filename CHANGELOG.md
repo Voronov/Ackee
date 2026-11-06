@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- A chart dialog keeps the source, filters, period and domain of its bar, and a link with a period or filter the server refuses opens the reports without it and drops it from the address
+- The error page reloads the dashboard without signing out
+- Date fields go back to the applied period when they lose the focus
 - The nightly backup fails on a cut or an almost empty dump, needs room for the next dump before it starts, and removes what a killed run left
 
 ### Security

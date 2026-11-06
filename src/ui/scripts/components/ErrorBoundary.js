@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import { Component, createElement as h } from 'react'
 
 import OverlayFailure from './overlays/OverlayFailure.js'
@@ -18,16 +17,11 @@ const ErrorBoundary = class extends Component {
     if (hasError === true) {
       return h(OverlayFailure, {
         errors: [this.state.error],
-        reset: this.props.reset,
       })
     }
 
     return this.props.children
   }
-}
-
-ErrorBoundary.propTypes = {
-  reset: PropTypes.func.isRequired,
 }
 
 export default ErrorBoundary

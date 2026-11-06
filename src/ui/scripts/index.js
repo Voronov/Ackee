@@ -59,7 +59,7 @@ const App = () => {
     { client },
     h(
       ErrorBoundary,
-      { reset },
+      {},
       h(Main, {
         key,
         reset,

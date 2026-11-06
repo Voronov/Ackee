@@ -1,11 +1,11 @@
-import { createElement as h } from 'react'
+import { createElement as h, useEffect } from 'react'
 
 import useDomains from '../api/hooks/domains/useDomains.js'
 import * as routes from '../constants/routes.js'
 import { sectionOf } from '../constants/sections.js'
 import useHotkey from '../hooks/useHotkey.js'
 import useRoute from '../hooks/useRoute.js'
-import useScope, { isScoped } from '../hooks/useScope.js'
+import useScope, { cleanAddress, isScoped } from '../hooks/useScope.js'
 
 import DomainSelect from './DomainSelect.js'
 import Modals from './modals/Modals.js'
@@ -88,6 +88,8 @@ const Dashboard = (props) => {
   const ga4Connected = useGa4Connected()
   const sourceMode = useSourceMode()
   const scope = useScope()
+
+  useEffect(cleanAddress, [scope])
 
   useHotkey('o', () => props.setRoute('/'))
   useHotkey('v', () => props.setRoute('/insights/views'))

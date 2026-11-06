@@ -8,12 +8,16 @@ import { MODALS_VIEWS } from '../../constants/modals.js'
 import useShownDomains from '../../api/hooks/domains/useShownDomains.js'
 import useMergedViews from '../../api/hooks/views/useMergedViews.js'
 import useViews from '../../api/hooks/views/useViews.js'
+import useScope from '../../hooks/useScope.js'
+import useSource from '../../hooks/useSource.js'
 
 import CardStatistics from '../cards/CardStatistics.js'
 import RendererViews from '../renderers/RendererViews.js'
 
 const RouteViews = (props) => {
   const domains = useShownDomains()
+  const source = useSource()
+  const scope = useScope()
 
   return h(
     Fragment,
@@ -41,6 +45,8 @@ const RouteViews = (props) => {
             interval: props.filters.interval,
             type: props.filters.viewsType,
             limit: 14,
+            source,
+            scope,
           }),
       },
     }),

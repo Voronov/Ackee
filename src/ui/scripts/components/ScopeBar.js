@@ -1,5 +1,6 @@
 import { createElement as h, useEffect, useState } from 'react'
 
+import { PERIOD_MAX_DAYS } from '../../../constants/filters.js'
 import useScope, { clearScope, isPeriod, isScoped, removeFilter, setPeriod } from '../hooks/useScope.js'
 
 const LABELS = {
@@ -19,8 +20,20 @@ const countries = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'cod
 
 const shown = ({ field, value }) => {
   if (value == null) return 'none'
-  if (field === 'COUNTRY') return countries.of(value)
-  return value
+  if (field !== 'COUNTRY') return value
+
+  // A link can hold anything, and only a well-formed code has a name
+  try {
+    return countries.of(value)
+  } catch {
+    return value
+  }
+}
+
+const problemOf = (from, to) => {
+  if (from === '' || to === '') return 'Pick both days to apply the period.'
+  if (from > to) return 'The period ends before it starts.'
+  return `A period has at most ${PERIOD_MAX_DAYS} days.`
 }
 
 // The filters and the period of the reports (ACKEE-24), above them. A filter comes from a click
@@ -29,16 +42,31 @@ const ScopeBar = () => {
   const scope = useScope()
   const [from, setFrom] = useState(scope.period?.from ?? '')
   const [to, setTo] = useState(scope.period?.to ?? '')
+  const [note, setNote] = useState('')
 
   // Back and forward change the address, the fields follow it
   useEffect(() => {
     setFrom(scope.period?.from ?? '')
     setTo(scope.period?.to ?? '')
+    setNote('')
   }, [scope.period])
 
   const apply = (nextFrom, nextTo) => {
+    setNote('')
     if (nextFrom === '' && nextTo === '') return setPeriod(null)
     if (isPeriod({ from: nextFrom, to: nextTo })) setPeriod({ from: nextFrom, to: nextTo })
+  }
+
+  const applied = scope.period == null ? '' : ` The reports still show ${scope.period.from} to ${scope.period.to}.`
+  const differs = from !== (scope.period?.from ?? '') || to !== (scope.period?.to ?? '')
+  const problem = `${problemOf(from, to)}${applied}`
+
+  // Not on every change, as a year being typed passes through values that are no period
+  const restore = (event) => {
+    if (differs === false || event.currentTarget.contains(event.relatedTarget)) return
+    setNote(problem)
+    setFrom(scope.period?.from ?? '')
+    setTo(scope.period?.to ?? '')
   }
 
   return h(
@@ -68,7 +96,7 @@ const ScopeBar = () => {
     ),
     h(
       'div',
-      { className: 'scopeBar__period' },
+      { className: 'scopeBar__period', onBlur: restore },
       h(
         'label',
         { className: 'scopeBar__day' },
@@ -102,6 +130,7 @@ const ScopeBar = () => {
       isScoped(scope) &&
         h('button', { type: 'button', className: 'scopeBar__clear link', onClick: clearScope }, 'Clear'),
     ),
+    (differs || note !== '') && h('p', { className: 'scopeBar__note', role: 'status' }, differs ? problem : note),
   )
 }
 
