@@ -17,7 +17,8 @@ export const directivesFor = (html) => ({
   scriptSrc: ["'self'", ...inlineScripts(html)],
   scriptSrcAttr: ["'none'"],
   styleSrc: ["'self'", "'unsafe-inline'"],
-  imgSrc: ["'self'", 'data:'],
+  // The list of referrers shows the icon of each site
+  imgSrc: ["'self'", 'data:', 'https:'],
   fontSrc: ["'self'", 'data:'],
   connectSrc: ["'self'"],
   objectSrc: ["'none'"],
