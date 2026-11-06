@@ -1,5 +1,3 @@
-import { toZonedTime } from 'date-fns-tz'
-
 import aggregateRolledViews from '../aggregations/aggregateRolledViews.js'
 import aggregateViews from '../aggregations/aggregateViews.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
@@ -20,7 +18,7 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
     hasFilters(dateDetails) === true
       ? undefined
       : await rollupCoverage(
-          dateDetails.includeFnByInterval(interval)(limit),
+          dateDetails.start ?? dateDetails.includeFnByInterval(interval)(limit),
           dateDetails.userTimeZone,
           dateDetails.end,
         )
@@ -39,12 +37,8 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
     const matchYear = [INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY].includes(interval)
 
     return createArray(limit).map((_, index) => {
+      // Database entries include the day, month and year in the timezone of the user, as this date does
       const date = dateDetails.lastFnByInterval(interval)(index)
-
-      // Database entries include the day, month and year in the
-      // timezone of the user. We therefore need to match it against a
-      // date in the timezone of the user.
-      const userZonedDate = toZonedTime(date, dateDetails.userTimeZone)
 
       // Find a entry that matches the date
       const entry = entries.find((entry) => {
@@ -52,7 +46,7 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
           matchDay === true ? entry._id.day : undefined,
           matchMonth === true ? entry._id.month : undefined,
           matchYear === true ? entry._id.year : undefined,
-          userZonedDate,
+          date,
         )
       })
 

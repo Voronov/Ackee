@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The nightly backup fails on a cut or an almost empty dump, needs room for the next dump before it starts, and removes what a killed run left
+
 ### Security
 
 - A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
@@ -13,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - A click on a referrer filters by its source and referrer, so the reports show the count of the row
+- Charts count the calendar days, months and years of the viewer: a change of the clocks no longer moves numbers to another day, and rows are labelled with the viewer's date
+- Monthly and yearly charts of a period start with the period, and NEW lists of a period show when an entry was really first seen
+- Export: ISO dates in CSV, 400 for a repeated parameter, source, filters and period in the audit log, 500 for an internal error, and the formula guard covers leading whitespace
 
 ## [4.0.0-rc.1] - 2026-11-06
 

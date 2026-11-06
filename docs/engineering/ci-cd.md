@@ -14,7 +14,7 @@
 
 | Job              | Що робить                                                                                                        | Чому                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux і macOS                     | Linux – там працює образ, macOS – там пише команда        |
+| Test             | `npm run build:pre`, потім `npm test` (ESLint, Prettier, AVA) на Node 24 і 26, Linux; macOS лише вручну          | Linux – там працює образ, macOS – там пише команда        |
 | Coverage         | `npm run test:coverage`, пороги в `.c8rc.json`; Redis – service container `redis:7.4-alpine`, `ACKEE_TEST_REDIS` | Падіння покриття нижче порогу – це регресія, а не шум     |
 | Dependency audit | `npm audit --omit=dev --audit-level=high`                                                                        | Висока вразливість у тому, що їде в образ, зупиняє збірку |
 
@@ -135,7 +135,7 @@ docker rm -f ackee-test-redis
 
 ### Бекапи
 
-`deploy/ackee-backup` щоночі знімає `ackee_live` у `/opt/ackee/backups`, тримає 14 архівів і перевіряє кожен через `mongorestore --dryRun`. Скрипт не запускається, якщо вільно менше 2 ГБ. Результат кожного запуску є в `/var/log/ackee-backup.log`: час, потім `OK` або `FAILED`.
+`deploy/ackee-backup` щоночі знімає `ackee_live` у `/opt/ackee/backups`, тримає 14 архівів і перевіряє кожен через `gzip -t`, мінімальний розмір і `mongorestore --dryRun`. Сам `--dryRun` обрізаний архів не ловить. Скрипт не запускається, якщо вільно менше 2 ГБ. Результат кожного запуску є в `/var/log/ackee-backup.log`: час, потім `OK` або `FAILED`.
 
 Встановлення: скопіювати скрипт у `/usr/local/bin/ackee-backup` і додати `/etc/cron.d/ackee-backup`:
 

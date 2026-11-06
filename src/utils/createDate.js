@@ -8,6 +8,7 @@ import {
   subMonths,
   subYears,
 } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import serverTimeZone from './timeZone.js'
 
@@ -53,17 +54,20 @@ export default (userTimeZone, currentDate = new Date()) => {
     includeYears: (years) => subHours(subYears(startOfYear(currentDate), years - 1), timeZoneToleranz),
   }
 
-  // Get the last-function that matches the interval
+  // The wall clock of the viewer, so a step back is a day of their calendar, not always 24 hours
+  const userZonedDate = toZonedTime(currentDate, safeTimeZone)
+
+  // Get the last-function that matches the interval. It returns a date in the zone of the viewer.
   const lastFnByInterval = (interval) => {
     switch (interval) {
       case INTERVALS_DAILY: {
-        return instance.lastDays
+        return (days) => subDays(userZonedDate, days)
       }
       case INTERVALS_MONTHLY: {
-        return instance.lastMonths
+        return (months) => subMonths(userZonedDate, months)
       }
       case INTERVALS_YEARLY: {
-        return instance.lastYears
+        return (years) => subYears(userZonedDate, years)
       }
       default: {
         throw new Error(`Unknown interval '${interval}'`)
