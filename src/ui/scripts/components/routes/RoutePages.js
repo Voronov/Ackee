@@ -13,6 +13,7 @@ const RoutePages = (props) => {
   return domains.value.map((domain) => {
     return h(CardStatistics, {
       key: domain.id,
+      exportReport: 'pages',
       headline: domain.title,
       onMore: () => props.setRoute(`/domains/${domain.id}`),
       hook: usePages,

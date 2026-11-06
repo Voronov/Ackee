@@ -400,6 +400,29 @@ mutation updateAction($id: ID!, $input: UpdateActionInput!) {
 }
 ```
 
+## Export
+
+`GET /export/<report>.<csv|json>` saves a report as a file, for Excel or a script. It takes the same token as the API, a permanent one too, in the `Authorization` header, and the `Time-Zone` header of the API.
+
+```sh
+curl -H "Authorization: Bearer <token>" -OJ \
+  "https://ackee.example.com/export/referrers.csv?domainId=<domainId>&type=WITH_SOURCE&range=LAST_30_DAYS"
+```
+
+| Report                                                 | Arguments, as in the API                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `views`                                                | `interval` (DAILY), `type` (TOTAL), `limit` (14)                           |
+| `durations`                                            | `interval` (DAILY), `limit` (14); the count is the average in milliseconds |
+| `pages`, `languages`, `countries`                      | `sorting` (TOP), `range`, `limit`                                          |
+| `referrers`, `systems`, `devices`, `browsers`, `sizes` | `sorting` (TOP), `type`, `range`, `limit`                                  |
+
+Without `domainId` the report covers all domains the token can read.
+
+- CSV is UTF-8 with a byte order mark, so Excel shows Cyrillic and other scripts. The first row names the columns, and lines end with CRLF. `delimiter=semicolon` is there for an Excel whose list separator is `;`.
+- A value that starts with `=`, `+`, `-` or `@` gets a `'` in front, so Excel never runs it as a formula: values of the lists come from visitors.
+- Without a token or with a wrong one, the answer is `401`. An unknown report or format is `404`, and so is a domain the token may not read, which gets the same answer as a domain that does not exist. A wrong argument is `400`.
+- Every export is written to the audit log of the workspace, failed ones too.
+
 ## Live feed
 
 New views of your domains as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html), outside of GraphQL. Send the token in the `Authorization` header, as for every other request. A token in the URL is ignored: URLs end up in logs.

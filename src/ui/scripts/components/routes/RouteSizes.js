@@ -13,6 +13,7 @@ const RouteSizes = (props) => {
   return domains.value.map((domain) => {
     return h(CardStatistics, {
       key: domain.id,
+      exportReport: 'sizes',
       headline: domain.title,
       onMore: () => props.setRoute(`/domains/${domain.id}`),
       hook: useSizes,

@@ -16,8 +16,34 @@
 	}
 
 	&__inner {
+		position: relative;
 		padding: $gutter*1.6 $gutter*1.5 $gutter*1.5;
 		width: 100%;
+	}
+
+	// A long headline stops before the buttons of the export
+	&__inner--export > .headline {
+		padding-right: 6em;
+	}
+
+	// CSV and JSON of the report, next to the headline (ACKEE-22)
+	&__export {
+		position: absolute;
+		top: $gutter*1.6;
+		right: $gutter*1.5;
+		display: flex;
+		align-items: center;
+		gap: math.div($gutter, 1.5);
+		font-size: .8em;
+		color: $light;
+	}
+
+	&__exportButton {
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		cursor: pointer;
 	}
 
 	&__group {

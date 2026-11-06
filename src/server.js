@@ -18,6 +18,7 @@ import live from './live/router.js'
 import pages from './pages.js'
 import KnownError from './utils/KnownError.js'
 import mcp from './mcp/server.js'
+import exportReport from './export.js'
 import * as metrics from './utils/metrics.js'
 import signale from './utils/signale.js'
 
@@ -155,6 +156,9 @@ app.all('/mcp', (request, response) => {
     .set('Allow', 'POST')
     .json({ jsonrpc: '2.0', error: { code: -32_000, message: 'Method not allowed.' }, id: null })
 })
+
+// Reports as CSV or JSON files for the token's viewer (ACKEE-22)
+app.get('/export/:file', exportReport)
 
 // Handle 404 errors for unmatched routes (must be after Apollo middleware)
 app.use((request, response) => {

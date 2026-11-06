@@ -13,6 +13,7 @@ const RouteBrowsers = (props) => {
   return domains.value.map((domain) => {
     return h(CardStatistics, {
       key: domain.id,
+      exportReport: 'browsers',
       headline: domain.title,
       onMore: () => props.setRoute(`/domains/${domain.id}`),
       hook: useBrowsers,

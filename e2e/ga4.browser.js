@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 
 import { expect, test } from '@playwright/test'
 
@@ -60,6 +61,18 @@ test('a domain is connected to a Google Analytics property, which is synced and 
   await source.selectOption({ label: 'Google Analytics' })
   await expect(page.getByText('datum-shop.pages.dev/cart/')).toBeVisible()
   await expect(page.getByText('google', { exact: true })).toBeVisible()
+
+  // A card saves the numbers it shows, not the ones of Ackee
+  await page.getByRole('link', { name: 'Traffic' }).click()
+  await page.getByRole('tab', { name: 'Pages' }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: `Download ${domain.title} as JSON` }).click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^ackee-pages-ga4-/)
+  const entries = JSON.parse(await readFile(await download.path(), 'utf8'))
+  expect(entries.map((entry) => entry.value)).toContain('https://datum-shop.pages.dev/cart/')
+  await page.getByRole('link', { name: 'Overview' }).click()
 
   await source.selectOption({ label: 'Ackee' })
   await expect(page.getByText('datum-shop.pages.dev/cart/')).toHaveCount(0)

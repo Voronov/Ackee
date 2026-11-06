@@ -5,12 +5,23 @@ import { createElement as h, useState } from 'react'
 import CurrentStatus from '../CurrentStatus.js'
 import Headline from '../Headline.js'
 import Text from '../Text.js'
+import useSource from '../../hooks/useSource.js'
+import downloadReport from '../../utils/downloadReport.js'
 
 const CardStatistics = (props) => {
   const { value, status } = props.hook(...props.hookArgs)
+  const source = useSource()
 
   // Use thin space as initial value to avoid that the label changes the height once rendered
   const [statusLabel, setStatusLabel] = useState(' ')
+  const [exportFailed, setExportFailed] = useState(false)
+
+  // The card of one domain saves its report with the same arguments and source as it shows (ACKEE-22)
+  const download = (format) => {
+    const [domainId, parameters] = props.hookArgs
+    setExportFailed(false)
+    downloadReport(props.exportReport, format, { domainId, source, ...parameters }).catch(() => setExportFailed(true))
+  }
 
   return h(
     'div',
@@ -22,7 +33,7 @@ const CardStatistics = (props) => {
     },
     h(
       'div',
-      { className: 'card__inner' },
+      { className: classNames({ 'card__inner': true, 'card__inner--export': props.exportReport != null }) },
       h(
         Headline,
         {
@@ -40,6 +51,25 @@ const CardStatistics = (props) => {
         },
         h(CurrentStatus, status, statusLabel),
       ),
+      props.exportReport != null &&
+        h(
+          'div',
+          { className: 'card__export' },
+          exportFailed === true && h('span', { role: 'status' }, 'Export failed'),
+          ...['csv', 'json'].map((format) =>
+            h(
+              'button',
+              {
+                'key': format,
+                'type': 'button',
+                'className': 'card__exportButton link',
+                'aria-label': `Download ${props.headline} as ${format.toUpperCase()}`,
+                'onClick': () => download(format),
+              },
+              format.toUpperCase(),
+            ),
+          ),
+        ),
       h(props.renderer, {
         ...props.rendererProps,
         items: value,
@@ -57,6 +87,7 @@ CardStatistics.propTypes = {
   hookArgs: PropTypes.array.isRequired,
   renderer: PropTypes.elementType.isRequired,
   rendererProps: PropTypes.object,
+  exportReport: PropTypes.string,
 }
 
 export default CardStatistics

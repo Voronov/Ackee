@@ -13,6 +13,7 @@ const RouteDevices = (props) => {
   return domains.value.map((domain) => {
     return h(CardStatistics, {
       key: domain.id,
+      exportReport: 'devices',
       headline: domain.title,
       onMore: () => props.setRoute(`/domains/${domain.id}`),
       hook: useDevices,
