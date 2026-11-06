@@ -8,7 +8,9 @@ export default (ids, coverage, project) => {
 
   const head = coverage.start == null ? { $lt: coverage.from } : { $gte: coverage.start, $lt: coverage.from }
 
-  match.$match.$or = [{ created: head }, { created: { $gte: coverage.until } }]
+  const tail = coverage.end == null ? { $gte: coverage.until } : { $gte: coverage.until, $lt: coverage.end }
+
+  match.$match.$or = [{ created: head }, { created: tail }]
 
   return {
     $unionWith: {

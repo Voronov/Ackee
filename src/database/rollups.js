@@ -42,23 +42,25 @@ const isWholeHourZone = (timeZone, dates) => {
 
 // Which part of a report window the rollups answer. Null means they cannot, and the report
 // reads records only. Otherwise rollups cover [from, until), records [start, from) and
-// everything from until on (stages/unionRecords.js).
-export const coverage = async (start, timeZone) => {
+// [until, end) (stages/unionRecords.js). Without an end the window goes on until now; a
+// period of the dashboard ends earlier (ACKEE-24).
+export const coverage = async (start, timeZone, end) => {
   const state = await RollupState.findById(STATE_ID).lean()
   if (state?.until == null) return
 
   const from = start == null || start < state.from ? state.from : ceilHour(start)
-  if (from >= state.until) return
+  const until = end == null || end > state.until ? state.until : floorHour(end)
+  if (from >= until) return
 
-  if (timeZone != null && isWholeHourZone(timeZone, [from, state.until]) === false) return
+  if (timeZone != null && isWholeHourZone(timeZone, [from, until]) === false) return
 
   // The whole days of [from, until) that have daily rollups. Hourly rollups cover the rest.
   // until may have been moved back by hand (ADR-005), then the days past it do not count.
-  const daysUntil = state.daysUntil == null ? null : new Date(Math.min(state.daysUntil, floorDay(state.until)))
+  const daysUntil = state.daysUntil == null ? null : new Date(Math.min(state.daysUntil, floorDay(until)))
   const days = { from: ceilDay(from), until: daysUntil }
   const hasDays = days.until != null && days.from < days.until
 
-  return { start, from, until: state.until, ...(hasDays === true && { days }) }
+  return { start, from, until, end, ...(hasDays === true && { days }) }
 }
 
 const buildRange = async (from, to) => {

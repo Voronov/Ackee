@@ -1,20 +1,17 @@
 import PropTypes from 'prop-types'
 import { createElement as h } from 'react'
 
-import enhanceUrl from '../../enhancers/enhanceUrl.js'
+import ListRow from './ListRow.js'
 import sumByProperty from '../../utils/sumByProperty.js'
 
 const Row = (props) => {
-  const hasUrl = props.url != null
-
-  const rootType = hasUrl === true ? 'a' : 'div'
-  const rootProps = hasUrl === true ? { href: enhanceUrl(props.url).href, target: '_blank', rel: 'noopener' } : {}
-
   return h(
-    rootType,
+    ListRow,
     {
       className: 'flexList__row',
-      ...rootProps,
+      url: props.url,
+      filter: props.filter,
+      label: props.text,
     },
     h(
       'div',
@@ -62,6 +59,7 @@ const PresentationCounterList = (props) => {
           counterWidth,
           count: props.formatter(item.count),
           url: item.url,
+          filter: item.filter,
           text: item.text,
         }),
       ),

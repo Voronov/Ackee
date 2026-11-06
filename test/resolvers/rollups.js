@@ -131,20 +131,20 @@ const reports = [
 // Kolkata is half an hour off UTC, so its days split hours and the reports read records
 const timeZones = ['UTC', 'Europe/Kyiv', 'America/New_York', 'Asia/Kolkata']
 
-const fetchReports = async (t, timeZone) => {
+const fetchReports = async (t, timeZone, period) => {
   const { json } = await api(
     base,
     {
       query: gql`
-        query fetchStatistics($id: ID!) {
+        query fetchStatistics($id: ID!, $period: PeriodInput) {
           domain(id: $id) {
-            statistics {
+            statistics(period: $period) {
               ${reports.map((report, index) => `r${index}: ${report}`).join('\n')}
             }
           }
         }
       `,
-      variables: { id: t.context.domain.id },
+      variables: { id: t.context.domain.id, period },
     },
     t.context.token.id,
     { 'Time-Zone': timeZone },
@@ -160,6 +160,18 @@ const fetchAll = async (t) =>
 
 // Reports as they were read from records only, before any rollup existed
 let raw
+
+// Periods of the dashboard (ACKEE-24): one that ends days ago, so the rollups and the records
+// after it must be left out, and one that ends today
+const dayOf = (time) => new Date(time).toISOString().slice(0, 10)
+const periods = [
+  { from: dayOf(Date.now() - 40 * day), to: dayOf(Date.now() - 3 * day) },
+  { from: dayOf(Date.now() - 5 * day), to: dayOf(Date.now()) },
+]
+const periodZones = ['UTC', 'Europe/Kyiv', 'America/New_York']
+const fetchPeriods = (t) =>
+  Promise.all(periods.flatMap((period) => periodZones.map((zone) => fetchReports(t, zone, period))))
+let rawPeriods
 
 const sum = (entries) => entries.reduce((total, entry) => total + entry.count, 0)
 
@@ -198,6 +210,7 @@ test.serial('reports read records while there are no rollups', async (t) => {
   t.is(await RollupState.findById('records'), null)
 
   raw = await fetchAll(t)
+  rawPeriods = await fetchPeriods(t)
 
   t.true(sum(raw.UTC.r0) > 0)
 })
@@ -219,6 +232,22 @@ test.serial('numbers from rollups equal the numbers from records', async (t) => 
   for (const zone of timeZones) {
     for (const [index, report] of reports.entries()) {
       t.deepEqual(rolled[zone][`r${index}`], raw[zone][`r${index}`], `${zone}: ${report}`)
+    }
+  }
+})
+
+test.serial('numbers of a period from rollups equal the numbers from records', async (t) => {
+  const rolled = await fetchPeriods(t)
+
+  for (const [index, statistics] of rolled.entries()) {
+    const period = periods[Math.floor(index / periodZones.length)]
+    const zone = periodZones[index % periodZones.length]
+    for (const [key, entries] of Object.entries(statistics)) {
+      t.deepEqual(
+        entries,
+        rawPeriods[index][key],
+        `${period.from}..${period.to} ${zone}: ${reports[Number(key.slice(1))]}`,
+      )
     }
   }
 })

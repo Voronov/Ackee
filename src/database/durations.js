@@ -8,14 +8,24 @@ import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
+import { applyScope, hasFilters, limitOf } from '../utils/scope.js'
 import { coverage as rollupCoverage } from './rollups.js'
 
-const get = async (ids, interval, limit, dateDetails) => {
-  const coverage = await rollupCoverage(dateDetails.includeFnByInterval(interval)(limit), dateDetails.userTimeZone)
+const get = async (ids, interval, askedLimit, dateDetails) => {
+  const limit = limitOf(dateDetails, interval, askedLimit)
+  // Rollups count whole domains, a filtered report reads records (ACKEE-24)
+  const coverage =
+    hasFilters(dateDetails) === true
+      ? undefined
+      : await rollupCoverage(
+          dateDetails.includeFnByInterval(interval)(limit),
+          dateDetails.userTimeZone,
+          dateDetails.end,
+        )
 
   const aggregation = (() => {
     if (coverage != null) return aggregateRolledDurations(ids, interval, dateDetails, coverage)
-    return aggregateDurations(ids, interval, limit, dateDetails)
+    return applyScope(aggregateDurations(ids, interval, limit, dateDetails), dateDetails)
   })()
 
   const enhance = (entries) => {

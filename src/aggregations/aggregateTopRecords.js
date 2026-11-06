@@ -1,11 +1,6 @@
-import {
-  RANGES_LAST_24_HOURS,
-  RANGES_LAST_30_DAYS,
-  RANGES_LAST_6_MONTHS,
-  RANGES_LAST_7_DAYS,
-} from '../constants/ranges.js'
 import matchDomains from '../stages/matchDomains.js'
 import sortStable from '../stages/sortStable.js'
+import rangeStart from '../utils/rangeStart.js'
 
 export default (ids, properties, range, limit, dateDetails, or) => {
   const aggregation = [
@@ -33,21 +28,8 @@ export default (ids, properties, range, limit, dateDetails, or) => {
     aggregation[1].$group._id[property] = `$${property}`
   }
 
-  if (range === RANGES_LAST_24_HOURS) {
-    aggregation[0].$match.created = { $gte: dateDetails.lastHours(24) }
-  }
-
-  if (range === RANGES_LAST_7_DAYS) {
-    aggregation[0].$match.created = { $gte: dateDetails.lastDays(7) }
-  }
-
-  if (range === RANGES_LAST_30_DAYS) {
-    aggregation[0].$match.created = { $gte: dateDetails.lastDays(30) }
-  }
-
-  if (range === RANGES_LAST_6_MONTHS) {
-    aggregation[0].$match.created = { $gte: dateDetails.lastMonths(6) }
-  }
+  const start = rangeStart(range, dateDetails)
+  if (start != null) aggregation[0].$match.created = { $gte: start }
 
   return aggregation
 }

@@ -3,22 +3,24 @@ import { createElement as h, useCallback, useEffect, useState } from 'react'
 
 import { SORTINGS_NEW, SORTINGS_RECENT } from '../../../../constants/sortings.js'
 
+import useScope from '../../hooks/useScope.js'
 import rangeLabel from '../../utils/rangeLabel.js'
 import relativeDate from '../../utils/relativeDate.js'
 
 import PresentationIconList from '../presentations/PresentationIconList.js'
 
-const textLabel = (item, range, isRecent, isNew) => {
+const textLabel = (item, range, period, isRecent, isNew) => {
   if (item && item.date) return relativeDate(item.date)
   if (item && item.count) return `${item.count} ${item.count === 1 ? 'visit' : 'visits'}`
 
   if (isRecent) return 'Recent'
   if (isNew) return 'New'
 
-  return rangeLabel(range)
+  return rangeLabel(range, period)
 }
 
 const RendererReferrers = (props) => {
+  const scope = useScope()
   // Index of the active element
   const [active, setActive] = useState()
 
@@ -28,6 +30,7 @@ const RendererReferrers = (props) => {
   const label = textLabel(
     props.items[active],
     props.range,
+    scope.period,
     props.sorting === SORTINGS_RECENT,
     props.sorting === SORTINGS_NEW,
   )

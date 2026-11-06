@@ -212,6 +212,38 @@ query getDomainsStatistics {
 }
 ```
 
+### Filter the statistics and pick a period
+
+`statistics` and `facts` take `filters`, and `statistics` takes a `period` too. A filter keeps the views whose field has the value; several filters must all match. A filter without a `value` keeps the views that lack the field. An entry of `pages`, `referrers`, `systems`, `devices`, `browsers` and `countries` hands back its own conditions in `filter`, so a click on it can narrow the other reports to it.
+
+A period is two days in the time zone of the request (see [Time Zone](#time-zone)), both included. It replaces the `range` of the lists, and `views` and `durations` return its days, months or years instead of `limit` entries. Facts are about now and ignore the period.
+
+```graphql
+query getFilteredStatistics {
+  domain(id: "<domainId>") {
+    statistics(
+      filters: [{ field: SITE_REFERRER, value: "https://news.example" }]
+      period: { from: "2026-10-01", to: "2026-10-31" }
+    ) {
+      views(interval: DAILY, type: UNIQUE) {
+        value
+        count
+      }
+      pages(sorting: TOP) {
+        value
+        count
+        filter {
+          field
+          value
+        }
+      }
+    }
+  }
+}
+```
+
+Fields: `SITE_LOCATION`, `SITE_REFERRER`, `SOURCE`, `COUNTRY`, `BROWSER_NAME`, `BROWSER_VERSION`, `OS_NAME`, `OS_VERSION`, `DEVICE_MANUFACTURER`, `DEVICE_NAME`. At most 10 filters, a period of at most 3660 days. Filtered reports are read from the records, not from the rollups, so on a big domain they take longer. Statistics of Google Analytics 4 (`source: GA4`) cannot be filtered.
+
 ### Get events
 
 ```graphql

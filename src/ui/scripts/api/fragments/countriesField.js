@@ -7,6 +7,10 @@ export default gql`
       value
       code
       count
+      filter {
+        field
+        value
+      }
       created
     }
   }

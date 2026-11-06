@@ -7,11 +7,12 @@ import PresentationCounterList from '../presentations/PresentationCounterList.js
 import Text from '../Text.js'
 
 import useCombinedDurations from '../../api/hooks/durations/useCombinedDurations.js'
+import useChartLabel from '../../hooks/useChartLabel.js'
 import commonModalProps from '../../utils/commonModalProps.js'
 import formatDuration from '../../utils/formatDuration.js'
-import relativeFn from '../../utils/relativeFn.js'
 
 const ModalDurations = (props) => {
+  const chartLabel = useChartLabel(props.interval)
   const { value, status } = useCombinedDurations({
     interval: props.interval,
     limit: props.limit,
@@ -38,7 +39,7 @@ const ModalDurations = (props) => {
           type: 'div',
           spacing: false,
         },
-        h(CurrentStatus, status, relativeFn(props.interval)(props.index)),
+        h(CurrentStatus, status, chartLabel(props.index)),
       ),
       h(PresentationCounterList, {
         items: value[props.index],

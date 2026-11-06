@@ -19,8 +19,9 @@ const COUNTRY_MANAGE = GTM_MANAGE
 export default {
   Domain: {
     // The source travels with the domain to every report below (ACKEE-21)
-    facts: (parent, { source }) => ({ ...parent, source }),
-    statistics: (parent, { source }) => ({ ...parent, source }),
+    // So do the filters and the period of the dashboard (ACKEE-24)
+    facts: (parent, { source, filters }) => ({ ...parent, source, filters }),
+    statistics: (parent, { source, filters, period }) => ({ ...parent, source, filters, period }),
     canManageCountry: (parent, args, { viewer }) => can(viewer, COUNTRY_MANAGE, parent.workspaceId),
   },
   Query: {
