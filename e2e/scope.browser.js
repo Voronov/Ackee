@@ -191,6 +191,18 @@ test('a refused value leaves the address without a history entry', async ({ page
   await expect(page).toHaveURL(/#\/insights\/views$/)
 })
 
+test('the note about a date that went back goes away by itself', async ({ page, request }) => {
+  await seed(page, request, 'scope-note')
+  await page.goto(`/#/insights/views?${MONTH}`)
+  await page.reload()
+
+  const from = filters(page).getByLabel('From')
+  await from.fill('')
+  await from.blur()
+  await expect(filters(page).getByRole('status')).toBeVisible()
+  await expect(filters(page).getByRole('status')).toHaveCount(0, { timeout: 8000 })
+})
+
 test('date fields go back to the applied period when they lose the focus', async ({ page, request }) => {
   await seed(page, request, 'scope-blur')
   const from = filters(page).getByLabel('From')
