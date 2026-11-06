@@ -135,7 +135,7 @@ docker rm -f ackee-test-redis
 
 ### Бекапи
 
-`deploy/ackee-backup` щоночі знімає `ackee_live` у `/opt/ackee/backups`, тримає 14 архівів і перевіряє кожен через `mongorestore --dryRun`. Скрипт не запускається, якщо вільно менше 2 ГБ. Результат кожного запуску є в `/var/log/ackee-backup.log`: час, потім `OK` або `FAILED`.
+`deploy/ackee-backup` щоночі знімає `ackee_live` у `/opt/ackee/backups`, тримає 14 архівів і перевіряє кожен через `gzip -t`, мінімальний розмір і `mongorestore --dryRun`. Сам `--dryRun` обрізаний архів не ловить. Скрипт не запускається, якщо вільно менше 2 ГБ. Результат кожного запуску є в `/var/log/ackee-backup.log`: час, потім `OK` або `FAILED`.
 
 Встановлення: скопіювати скрипт у `/usr/local/bin/ackee-backup` і додати `/etc/cron.d/ackee-backup`:
 

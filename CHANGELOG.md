@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The nightly backup fails on a cut or an almost empty dump, needs room for the next dump before it starts, and removes what a killed run left
+
 ### Security
 
 - A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
