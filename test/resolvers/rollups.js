@@ -3,9 +3,10 @@ import { startOfDay } from 'date-fns'
 import listen from 'test-listen'
 
 import { DURATIONS_LIMIT } from '../../src/constants/durations.js'
-import { rollUp, sealedUntil } from '../../src/database/rollups.js'
+import { floorDay, rollUp, sealedUntil } from '../../src/database/rollups.js'
 import * as records from '../../src/database/records.js'
 import * as users from '../../src/database/users.js'
+import DimensionDayRollup from '../../src/models/DimensionDayRollup.js'
 import DimensionRollup from '../../src/models/DimensionRollup.js'
 import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
@@ -75,7 +76,16 @@ const edges = (now) => {
   return [
     ...starts.flatMap((start) => {
       const hourStart = Math.floor(start / hour) * hour
-      return [start - 2 * minute, start + 2 * minute, hourStart + minute, hourStart + hour - minute]
+      // Where the hourly rollups of the window hand over to the daily ones
+      const dayStart = Math.ceil(start / day) * day
+      return [
+        start - 2 * minute,
+        start + 2 * minute,
+        hourStart + minute,
+        hourStart + hour - minute,
+        dayStart - minute,
+        dayStart + minute,
+      ]
     }),
     seal - 1,
     seal,
@@ -121,20 +131,20 @@ const reports = [
 // Kolkata is half an hour off UTC, so its days split hours and the reports read records
 const timeZones = ['UTC', 'Europe/Kyiv', 'America/New_York', 'Asia/Kolkata']
 
-const fetchReports = async (t, timeZone) => {
+const fetchReports = async (t, timeZone, period) => {
   const { json } = await api(
     base,
     {
       query: gql`
-        query fetchStatistics($id: ID!) {
+        query fetchStatistics($id: ID!, $period: PeriodInput) {
           domain(id: $id) {
-            statistics {
+            statistics(period: $period) {
               ${reports.map((report, index) => `r${index}: ${report}`).join('\n')}
             }
           }
         }
       `,
-      variables: { id: t.context.domain.id },
+      variables: { id: t.context.domain.id, period },
     },
     t.context.token.id,
     { 'Time-Zone': timeZone },
@@ -150,6 +160,18 @@ const fetchAll = async (t) =>
 
 // Reports as they were read from records only, before any rollup existed
 let raw
+
+// Periods of the dashboard (ACKEE-24): one that ends days ago, so the rollups and the records
+// after it must be left out, and one that ends today
+const dayOf = (time) => new Date(time).toISOString().slice(0, 10)
+const periods = [
+  { from: dayOf(Date.now() - 40 * day), to: dayOf(Date.now() - 3 * day) },
+  { from: dayOf(Date.now() - 5 * day), to: dayOf(Date.now()) },
+]
+const periodZones = ['UTC', 'Europe/Kyiv', 'America/New_York']
+const fetchPeriods = (t) =>
+  Promise.all(periods.flatMap((period) => periodZones.map((zone) => fetchReports(t, zone, period))))
+let rawPeriods
 
 const sum = (entries) => entries.reduce((total, entry) => total + entry.count, 0)
 
@@ -188,6 +210,7 @@ test.serial('reports read records while there are no rollups', async (t) => {
   t.is(await RollupState.findById('records'), null)
 
   raw = await fetchAll(t)
+  rawPeriods = await fetchPeriods(t)
 
   t.true(sum(raw.UTC.r0) > 0)
 })
@@ -213,6 +236,22 @@ test.serial('numbers from rollups equal the numbers from records', async (t) => 
   }
 })
 
+test.serial('numbers of a period from rollups equal the numbers from records', async (t) => {
+  const rolled = await fetchPeriods(t)
+
+  for (const [index, statistics] of rolled.entries()) {
+    const period = periods[Math.floor(index / periodZones.length)]
+    const zone = periodZones[index % periodZones.length]
+    for (const [key, entries] of Object.entries(statistics)) {
+      t.deepEqual(
+        entries,
+        rawPeriods[index][key],
+        `${period.from}..${period.to} ${zone}: ${reports[Number(key.slice(1))]}`,
+      )
+    }
+  }
+})
+
 test.serial('building again changes nothing', async (t) => {
   const counts = [await ViewRollup.countDocuments(), await DimensionRollup.countDocuments()]
 
@@ -222,6 +261,66 @@ test.serial('building again changes nothing', async (t) => {
   await rollUp()
 
   t.deepEqual([await ViewRollup.countDocuments(), await DimensionRollup.countDocuments()], counts)
+  t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+})
+
+test.serial('daily rollups sum every whole day of the hourly ones', async (t) => {
+  const state = await RollupState.findById('records').lean()
+  t.deepEqual(state.daysUntil, floorDay(state.until))
+
+  const total = async (Model, field, from, to) => {
+    const [result] = await Model.aggregate([
+      { $match: { [field]: { $gte: from, $lt: to } } },
+      { $group: { _id: null, count: { $sum: '$count' } } },
+    ])
+    return result?.count ?? 0
+  }
+
+  const from = new Date(state.daysUntil.getTime() - 20 * day)
+  t.true((await total(DimensionDayRollup, 'day', from, state.daysUntil)) > 0)
+  t.is(
+    await total(DimensionDayRollup, 'day', from, state.daysUntil),
+    await total(DimensionRollup, 'hour', from, state.daysUntil),
+  )
+})
+
+// A daily rollup that disagrees with its hours shows which of the two a list has read
+const inflateDay = (domainId, count) =>
+  DimensionDayRollup.updateOne(
+    {
+      domainId,
+      'dimension': 'referrers',
+      'day': { $gte: new Date(Date.now() - 20 * day), $lt: new Date(Date.now() - 2 * day) },
+      'fields.siteReferrer': { $ne: null },
+    },
+    { $inc: { count } },
+  )
+
+test.serial('lists of a week and longer take the whole days from the daily rollups', async (t) => {
+  const listOf = (statistics, range) => statistics[`r${reports.indexOf(top('referrers', 'NO_SOURCE', range))}`]
+
+  t.is((await inflateDay(t.context.domain.id, 1000)).modifiedCount, 1)
+  const inflated = await fetchReports(t, 'UTC')
+
+  t.is(sum(listOf(inflated, 'LAST_30_DAYS')), sum(listOf(raw.UTC, 'LAST_30_DAYS')) + 1000)
+  // The last 24 hours hold no whole day of the rollups, they come from hours and records
+  t.deepEqual(listOf(inflated, 'LAST_24_HOURS'), listOf(raw.UTC, 'LAST_24_HOURS'))
+
+  await inflateDay(t.context.domain.id, -1000)
+})
+
+test.serial('days whose hours are built again are summed again', async (t) => {
+  const state = await RollupState.findById('records').lean()
+  const back = new Date(state.until.getTime() - 3 * day)
+
+  // Hours built again, as after an import into sealed hours (ADR-005). Until the next run the
+  // lists must not read the days past the new end of the hours twice.
+  await RollupState.updateOne({ _id: 'records' }, { $set: { until: back } })
+  await DimensionDayRollup.updateMany({ day: { $gte: floorDay(back) } }, { $inc: { count: 1000 } })
+  t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+
+  const rebuilt = await rollUp()
+  t.deepEqual(rebuilt.daysUntil, floorDay(rebuilt.until))
   t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
 })
 
@@ -313,6 +412,7 @@ test.serial('deleting a domain deletes its rollups', async (t) => {
   t.true(json.data.deleteDomain.success)
   t.is(await ViewRollup.countDocuments({ domainId: t.context.domain.id }), 0)
   t.is(await DimensionRollup.countDocuments({ domainId: t.context.domain.id }), 0)
+  t.is(await DimensionDayRollup.countDocuments({ domainId: t.context.domain.id }), 0)
   t.true((await ViewRollup.countDocuments({ domainId: t.context.otherDomain.id })) > 0)
 })
 

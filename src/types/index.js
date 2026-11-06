@@ -8,6 +8,7 @@ import domainStatistics from './domainStatistics.js'
 import events from './events.js'
 import eventStatistics from './eventStatistics.js'
 import facts from './facts.js'
+import filters from './filters.js'
 import members from './members.js'
 import ga4 from './ga4.js'
 import miscellaneous from './miscellaneous.js'
@@ -31,6 +32,7 @@ export default mergeTypeDefs(
     events,
     actions,
     facts,
+    filters,
     ga4,
     miscellaneous,
     domainStatistics,

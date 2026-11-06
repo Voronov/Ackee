@@ -4,7 +4,7 @@ import { createElement as h } from 'react'
 import Favicon from '../Favicon.js'
 
 import faviconUrl from '../../../../utils/faviconUrl.js'
-import enhanceUrl from '../../enhancers/enhanceUrl.js'
+import ListRow from './ListRow.js'
 import sumByProperty from '../../utils/sumByProperty.js'
 
 const IconColumn = (props) => {
@@ -27,14 +27,14 @@ const UrlRow = (props) => {
   const pathnameUrl = props.url.pathname
 
   return h(
-    'a',
+    ListRow,
     {
       className: 'flexList__row',
-      href: enhanceUrl(props.url).href,
-      target: '_blank',
-      rel: 'noopener',
-      onMouseEnter: props.onEnter,
-      onMouseLeave: props.onLeave,
+      url: props.url,
+      filter: props.filter,
+      label: props.url.href,
+      onEnter: props.onEnter,
+      onLeave: props.onLeave,
     },
     h(IconColumn, {
       barWidth: props.barWidth,
@@ -51,11 +51,14 @@ const UrlRow = (props) => {
 
 const TextRow = (props) => {
   return h(
-    'a',
+    ListRow,
     {
       className: 'flexList__row flexList__row--has-hover',
-      onMouseEnter: props.onEnter,
-      onMouseLeave: props.onLeave,
+      as: 'a',
+      filter: props.filter,
+      label: props.text,
+      onEnter: props.onEnter,
+      onLeave: props.onLeave,
     },
     h(IconColumn, {
       barWidth: props.barWidth,
@@ -85,6 +88,7 @@ const PresentationIconList = (props) => {
           barWidth: hasCount === true ? proportionalWidth(item) : undefined,
           onEnter: () => props.onItemEnter(index),
           onLeave: () => props.onItemLeave(index),
+          filter: item.filter,
         }
 
         if (item.url == null) {

@@ -9,6 +9,7 @@ import * as browsers from '../../../constants/browsers.js'
 import * as devices from '../../../constants/devices.js'
 import * as intervals from '../../../constants/intervals.js'
 import * as ranges from '../../../constants/ranges.js'
+import useScope, { setPeriod } from '../hooks/useScope.js'
 import * as referrers from '../../../constants/referrers.js'
 import * as sizes from '../../../constants/sizes.js'
 import * as sortings from '../../../constants/sortings.js'
@@ -131,6 +132,14 @@ const FilterItem = (props) => {
 }
 
 const Filter = (props) => {
+  // A period above the reports replaces the range; picking a range again ends the period (ACKEE-24)
+  const { period } = useScope()
+  const range = period == null ? props.filters.range : undefined
+  const setRange = (value) => {
+    if (period != null) setPeriod(null)
+    props.setRangeFilter(value)
+  }
+
   const sortingButtons = [
     createButton('Top', 'Top entries first', props.setSortingFilter, props.filters.sorting, sortings.SORTINGS_TOP),
     createButton('New', 'New entries only', props.setSortingFilter, props.filters.sorting, sortings.SORTINGS_NEW),
@@ -144,22 +153,10 @@ const Filter = (props) => {
   ]
 
   const rangeButtons = [
-    createButton(
-      '24 hours',
-      'Show last 24 hours',
-      props.setRangeFilter,
-      props.filters.range,
-      ranges.RANGES_LAST_24_HOURS,
-    ),
-    createButton('7 days', 'Show last 7 days', props.setRangeFilter, props.filters.range, ranges.RANGES_LAST_7_DAYS),
-    createButton('30 days', 'Show last 30 days', props.setRangeFilter, props.filters.range, ranges.RANGES_LAST_30_DAYS),
-    createButton(
-      '6 months',
-      'Show last 6 months',
-      props.setRangeFilter,
-      props.filters.range,
-      ranges.RANGES_LAST_6_MONTHS,
-    ),
+    createButton('24 hours', 'Show last 24 hours', setRange, range, ranges.RANGES_LAST_24_HOURS),
+    createButton('7 days', 'Show last 7 days', setRange, range, ranges.RANGES_LAST_7_DAYS),
+    createButton('30 days', 'Show last 30 days', setRange, range, ranges.RANGES_LAST_30_DAYS),
+    createButton('6 months', 'Show last 6 months', setRange, range, ranges.RANGES_LAST_6_MONTHS),
   ]
 
   const intervalsButtons = [
@@ -182,7 +179,7 @@ const Filter = (props) => {
 
   const sortingItem = createItem(labels.sortings[props.filters.sorting], sortingButtons)
   const rangeItem = createItem(
-    labels.ranges[props.filters.range],
+    period == null ? labels.ranges[props.filters.range] : `${period.from} – ${period.to}`,
     rangeButtons,
     props.filters.sorting === sortings.SORTINGS_TOP,
   )

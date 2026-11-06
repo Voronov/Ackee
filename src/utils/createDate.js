@@ -24,9 +24,9 @@ const sanitizeTimeZone = (tz) => {
   }
 }
 
-export default (userTimeZone) => {
+// The current date is the end of a chosen period (ACKEE-24), the reports count back from it
+export default (userTimeZone, currentDate = new Date()) => {
   const safeTimeZone = sanitizeTimeZone(userTimeZone)
-  const currentDate = new Date()
 
   // This is the biggest, positive timezone offset possible (starting from UTC).
   // We should always additionally include this amount of hours when selecting data,

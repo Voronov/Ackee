@@ -1,0 +1,83 @@
+// The filters and the period above the reports (ACKEE-24). A full row of the content grid.
+.scopeBar {
+	grid-column: 1 / -1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: math.div($gutter, 2) $gutter;
+
+	&__filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: math.div($gutter, 2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		min-width: 0;
+	}
+
+	&__filter {
+		display: flex;
+		align-items: center;
+		gap: math.div($gutter, 3);
+		max-width: 100%;
+		padding: 0 0 0 math.div($gutter, 1.5);
+		border-radius: 100px;
+		background: $dimmed;
+		font-size: .85em;
+	}
+
+	&__field {
+		color: $light;
+	}
+
+	&__value {
+		overflow: hidden;
+		max-width: 20em;
+		color: $white;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	&__remove {
+		padding: .2em .7em;
+		border: 0;
+		border-radius: 100px;
+		background: none;
+		color: $light;
+		font: inherit;
+		cursor: pointer;
+
+		&:hover,
+		&:focus-visible {
+			color: $white;
+		}
+	}
+
+	&__period {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: math.div($gutter, 2);
+		margin-left: auto;
+	}
+
+	&__day {
+		display: flex;
+		align-items: center;
+		gap: math.div($gutter, 3);
+		font-size: .85em;
+		color: $light;
+	}
+
+	&__input {
+		width: auto;
+		margin: 0;
+		padding: .35em .5em;
+	}
+
+	&__clear {
+		font-size: .85em;
+	}
+}

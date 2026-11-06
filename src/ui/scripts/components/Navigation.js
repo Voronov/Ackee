@@ -6,6 +6,7 @@ import { COMPACT_QUERY } from '../constants/compact.js'
 import * as routes from '../constants/routes.js'
 import { AUDIENCE, TRAFFIC, sectionOf } from '../constants/sections.js'
 import useHotkey from '../hooks/useHotkey.js'
+import useScope, { withScope } from '../hooks/useScope.js'
 import whenBelow from '../utils/whenBelow.js'
 
 import IconMenu from './icons/IconMenu.js'
@@ -33,6 +34,8 @@ const Logo = (props) => {
 
 const Item = (props) => {
   const hotkey = props.hotkey == null ? undefined : String(props.hotkey)
+  // Read so the link follows the filters and the period of the address (ACKEE-24)
+  useScope()
 
   return h(
     'li',
@@ -44,7 +47,7 @@ const Item = (props) => {
           navigation__item: true,
           active: props.active === true,
         }),
-        'href': `#${props.path}`,
+        'href': withScope(`#${props.path}`),
         'title': props.title,
         'aria-current': props.active === true ? 'page' : undefined,
         'aria-keyshortcuts': hotkey,
