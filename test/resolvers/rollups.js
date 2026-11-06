@@ -3,9 +3,10 @@ import { startOfDay } from 'date-fns'
 import listen from 'test-listen'
 
 import { DURATIONS_LIMIT } from '../../src/constants/durations.js'
-import { rollUp, sealedUntil } from '../../src/database/rollups.js'
+import { floorDay, rollUp, sealedUntil } from '../../src/database/rollups.js'
 import * as records from '../../src/database/records.js'
 import * as users from '../../src/database/users.js'
+import DimensionDayRollup from '../../src/models/DimensionDayRollup.js'
 import DimensionRollup from '../../src/models/DimensionRollup.js'
 import Domain from '../../src/models/Domain.js'
 import Record from '../../src/models/Record.js'
@@ -75,7 +76,16 @@ const edges = (now) => {
   return [
     ...starts.flatMap((start) => {
       const hourStart = Math.floor(start / hour) * hour
-      return [start - 2 * minute, start + 2 * minute, hourStart + minute, hourStart + hour - minute]
+      // Where the hourly rollups of the window hand over to the daily ones
+      const dayStart = Math.ceil(start / day) * day
+      return [
+        start - 2 * minute,
+        start + 2 * minute,
+        hourStart + minute,
+        hourStart + hour - minute,
+        dayStart - minute,
+        dayStart + minute,
+      ]
     }),
     seal - 1,
     seal,
@@ -254,6 +264,66 @@ test.serial('building again changes nothing', async (t) => {
   t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
 })
 
+test.serial('daily rollups sum every whole day of the hourly ones', async (t) => {
+  const state = await RollupState.findById('records').lean()
+  t.deepEqual(state.daysUntil, floorDay(state.until))
+
+  const total = async (Model, field, from, to) => {
+    const [result] = await Model.aggregate([
+      { $match: { [field]: { $gte: from, $lt: to } } },
+      { $group: { _id: null, count: { $sum: '$count' } } },
+    ])
+    return result?.count ?? 0
+  }
+
+  const from = new Date(state.daysUntil.getTime() - 20 * day)
+  t.true((await total(DimensionDayRollup, 'day', from, state.daysUntil)) > 0)
+  t.is(
+    await total(DimensionDayRollup, 'day', from, state.daysUntil),
+    await total(DimensionRollup, 'hour', from, state.daysUntil),
+  )
+})
+
+// A daily rollup that disagrees with its hours shows which of the two a list has read
+const inflateDay = (domainId, count) =>
+  DimensionDayRollup.updateOne(
+    {
+      domainId,
+      'dimension': 'referrers',
+      'day': { $gte: new Date(Date.now() - 20 * day), $lt: new Date(Date.now() - 2 * day) },
+      'fields.siteReferrer': { $ne: null },
+    },
+    { $inc: { count } },
+  )
+
+test.serial('lists of a week and longer take the whole days from the daily rollups', async (t) => {
+  const listOf = (statistics, range) => statistics[`r${reports.indexOf(top('referrers', 'NO_SOURCE', range))}`]
+
+  t.is((await inflateDay(t.context.domain.id, 1000)).modifiedCount, 1)
+  const inflated = await fetchReports(t, 'UTC')
+
+  t.is(sum(listOf(inflated, 'LAST_30_DAYS')), sum(listOf(raw.UTC, 'LAST_30_DAYS')) + 1000)
+  // The last 24 hours hold no whole day of the rollups, they come from hours and records
+  t.deepEqual(listOf(inflated, 'LAST_24_HOURS'), listOf(raw.UTC, 'LAST_24_HOURS'))
+
+  await inflateDay(t.context.domain.id, -1000)
+})
+
+test.serial('days whose hours are built again are summed again', async (t) => {
+  const state = await RollupState.findById('records').lean()
+  const back = new Date(state.until.getTime() - 3 * day)
+
+  // Hours built again, as after an import into sealed hours (ADR-005). Until the next run the
+  // lists must not read the days past the new end of the hours twice.
+  await RollupState.updateOne({ _id: 'records' }, { $set: { until: back } })
+  await DimensionDayRollup.updateMany({ day: { $gte: floorDay(back) } }, { $inc: { count: 1000 } })
+  t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+
+  const rebuilt = await rollUp()
+  t.deepEqual(rebuilt.daysUntil, floorDay(rebuilt.until))
+  t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+})
+
 test.serial('a late touch of a sealed record leaves the records as the rollups count them', async (t) => {
   const { until } = await RollupState.findById('records').lean()
   const short = await Record.find({
@@ -342,6 +412,7 @@ test.serial('deleting a domain deletes its rollups', async (t) => {
   t.true(json.data.deleteDomain.success)
   t.is(await ViewRollup.countDocuments({ domainId: t.context.domain.id }), 0)
   t.is(await DimensionRollup.countDocuments({ domainId: t.context.domain.id }), 0)
+  t.is(await DimensionDayRollup.countDocuments({ domainId: t.context.domain.id }), 0)
   t.true((await ViewRollup.countDocuments({ domainId: t.context.otherDomain.id })) > 0)
 })
 
