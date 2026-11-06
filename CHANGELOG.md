@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Charts count the calendar days, months and years of the viewer: a change of the clocks no longer moves numbers to another day, and rows are labelled with the viewer's date
+- Monthly and yearly charts of a period start with the period, and NEW lists of a period show when an entry was really first seen
 - Export: ISO dates in CSV, 400 for a repeated parameter, source, filters and period in the audit log, 500 for an internal error, and the formula guard covers leading whitespace
 
 ## [4.0.0-rc.1] - 2026-11-06
