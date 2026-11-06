@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
+import { PERIOD_MAX_DAYS } from '../../../constants/filters.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../../../constants/intervals.js'
 import getHistory from '../utils/history.js'
 
@@ -14,7 +15,14 @@ import getHistory from '../utils/history.js'
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
-const parse = (search) => {
+const daysOf = ({ from, to }) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1
+
+// The rule of the server. A chart has one bar per day, so a longer period would crash the page.
+export const isPeriod = ({ from, to }) =>
+  DAY.test(from) && DAY.test(to) && from <= to && daysOf({ from, to }) <= PERIOD_MAX_DAYS
+
+export const parse = (search) => {
   const parameters = new URLSearchParams(search)
 
   const filters = parameters.getAll('filter').map((entry) => {
@@ -26,7 +34,7 @@ const parse = (search) => {
 
   const from = parameters.get('from')
   const to = parameters.get('to')
-  const period = DAY.test(from) && DAY.test(to) && from <= to ? { from, to } : null
+  const period = isPeriod({ from, to }) ? { from, to } : null
 
   return { filters, period }
 }
@@ -86,15 +94,28 @@ export const isScoped = (scope) => scope.filters.length > 0 || scope.period != n
 
 // How many days, months or years of a chart the period spans, as the server counts them
 export const periodUnits = (period, interval) => {
-  if (period == null) return
+  if (period == null || isPeriod(period) === false) return
   const [fromYear, fromMonth] = period.from.split('-').map(Number)
   const [toYear, toMonth] = period.to.split('-').map(Number)
 
-  if (interval === INTERVALS_DAILY) {
-    return Math.round((Date.parse(`${period.to}T00:00:00Z`) - Date.parse(`${period.from}T00:00:00Z`)) / 86_400_000) + 1
-  }
+  if (interval === INTERVALS_DAILY) return daysOf(period)
   if (interval === INTERVALS_MONTHLY) return (toYear - fromYear) * 12 + (toMonth - fromMonth) + 1
   if (interval === INTERVALS_YEARLY) return toYear - fromYear + 1
+}
+
+// The name of a bar of a chart: bars count back from the end of the period
+export const periodLabel = (period, interval, offset) => {
+  const date = new Date(`${period.to}T00:00:00Z`)
+
+  if (interval === INTERVALS_DAILY) {
+    date.setUTCDate(date.getUTCDate() - offset)
+    return date.toISOString().slice(0, 10)
+  }
+  if (interval === INTERVALS_MONTHLY) {
+    date.setUTCMonth(date.getUTCMonth() - offset, 1)
+    return date.toISOString().slice(0, 7)
+  }
+  if (interval === INTERVALS_YEARLY) return String(date.getUTCFullYear() - offset)
 }
 
 export default () => useSyncExternalStore(subscribe, read, read)

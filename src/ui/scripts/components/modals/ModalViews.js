@@ -9,11 +9,12 @@ import PresentationCounterList from '../presentations/PresentationCounterList.js
 import Text from '../Text.js'
 
 import useCombinedViews from '../../api/hooks/views/useCombinedViews.js'
+import useChartLabel from '../../hooks/useChartLabel.js'
 import commonModalProps from '../../utils/commonModalProps.js'
 import formatCount from '../../utils/formatCount.js'
-import relativeFn from '../../utils/relativeFn.js'
 
 const ModalViews = (props) => {
+  const chartLabel = useChartLabel(props.interval)
   const { value, status } = useCombinedViews({
     interval: props.interval,
     type: props.type,
@@ -46,7 +47,7 @@ const ModalViews = (props) => {
           type: 'div',
           spacing: false,
         },
-        h(CurrentStatus, status, relativeFn(props.interval)(props.index)),
+        h(CurrentStatus, status, chartLabel(props.index)),
       ),
       h(PresentationCounterList, {
         items: value[props.index],

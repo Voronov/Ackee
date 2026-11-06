@@ -1,6 +1,6 @@
 import { createElement as h, useEffect, useState } from 'react'
 
-import useScope, { clearScope, isScoped, removeFilter, setPeriod } from '../hooks/useScope.js'
+import useScope, { clearScope, isPeriod, isScoped, removeFilter, setPeriod } from '../hooks/useScope.js'
 
 const LABELS = {
   SITE_LOCATION: 'Page',
@@ -38,7 +38,7 @@ const ScopeBar = () => {
 
   const apply = (nextFrom, nextTo) => {
     if (nextFrom === '' && nextTo === '') return setPeriod(null)
-    if (nextFrom !== '' && nextTo !== '' && nextFrom <= nextTo) setPeriod({ from: nextFrom, to: nextTo })
+    if (isPeriod({ from: nextFrom, to: nextTo })) setPeriod({ from: nextFrom, to: nextTo })
   }
 
   return h(

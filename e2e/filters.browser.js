@@ -89,3 +89,27 @@ test('a period from to replaces the range of the lists', async ({ page, request 
   await filters(page).getByRole('button', { name: 'Clear' }).click()
   await expect(page).not.toHaveURL(/from=/)
 })
+
+test('a link with a period that is too long opens the reports without it', async ({ page, request }) => {
+  await seed(page, request, 'filters-long-period')
+
+  await page.goto('/#/insights/views?from=0001-01-01&to=2026-11-06')
+  await expect(page.locator('main')).toContainText('shop.test')
+  await expect(filters(page).getByLabel('From')).toHaveValue('')
+
+  // A year being typed goes through such a value too
+  await page.goto('/#/insights/views')
+  await filters(page).getByLabel('To').fill('2026-11-06')
+  await filters(page).getByLabel('From').fill('0002-11-06')
+  await expect(filters(page).getByLabel('From')).toHaveValue('0002-11-06')
+  await expect(page).not.toHaveURL(/from=/)
+  await expect(page.locator('main')).toContainText('shop.test')
+})
+
+test('the bars of a past period are named by their dates, not from today', async ({ page, request }) => {
+  await seed(page, request, 'filters-chart')
+
+  await page.goto('/#/insights/views?from=2026-03-01&to=2026-03-31')
+  await expect(page.locator('main')).toContainText('2026-03-31')
+  await expect(page.locator('main')).not.toContainText('Today')
+})

@@ -1,13 +1,9 @@
 import PropTypes from 'prop-types'
 import { createElement as h, useCallback, useEffect, useState } from 'react'
 
-import relativeFn from '../../utils/relativeFn.js'
+import useChartLabel from '../../hooks/useChartLabel.js'
 
 import PresentationBarChart from '../presentations/PresentationBarChart.js'
-
-const textLabel = (active, interval) => {
-  return relativeFn(interval)(active)
-}
 
 const RendererChart = (props) => {
   // Index of the active element
@@ -16,7 +12,8 @@ const RendererChart = (props) => {
   const onItemEnter = useCallback((index) => setActive(index), [setActive])
   const onItemLeave = useCallback(() => setActive(0), [setActive])
 
-  const label = textLabel(active, props.interval)
+  const chartLabel = useChartLabel(props.interval)
+  const label = (props.labelFn ?? chartLabel)(active)
   useEffect(() => props.setStatusLabel(label), [label])
 
   return h(PresentationBarChart, {
@@ -35,6 +32,7 @@ RendererChart.propTypes = {
   formatter: PropTypes.func.isRequired,
   setStatusLabel: PropTypes.func.isRequired,
   onItemClick: PropTypes.func,
+  labelFn: PropTypes.func,
 }
 
 export default RendererChart
