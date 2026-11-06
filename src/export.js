@@ -3,6 +3,7 @@ import * as auditLog from './database/auditLog.js'
 import { executor, workspacesOf } from './mcp/server.js'
 import config from './utils/config.js'
 import KnownError from './utils/KnownError.js'
+import signale from './utils/signale.js'
 import resolveViewer from './utils/viewer.js'
 
 /*
@@ -77,7 +78,7 @@ const limitOf = (report, value) => {
   const limit = Number(value)
 
   if (Number.isInteger(limit) === false || limit < 1 || limit > maximum) {
-    throw new Error(`The limit must be from 1 to ${maximum}`)
+    throw new KnownError(`The limit must be from 1 to ${maximum}`)
   }
 
   return limit
@@ -97,6 +98,12 @@ const variablesOf = (report, query) => {
   )
 }
 
+// A repeated parameter comes as a list. Only filter may repeat, any other would mean guessing the value.
+const rejectRepeated = (query) => {
+  const repeated = Object.keys(query).find((key) => key !== 'filter' && typeof query[key] !== 'string')
+  if (repeated != null) throw new KnownError(`The parameter ${repeated} is given more than once`)
+}
+
 // The filters and the period of the dashboard, written as in its address (ACKEE-24): filter=FIELD:value,
 // or filter=FIELD for the views without the field. With a period the server takes the length of
 // a chart from the period, not from the limit.
@@ -109,18 +116,19 @@ const scopeOf = ({ filter, from, to }) => {
   })
 
   if (from == null && to == null) return { filters }
-  if (typeof from !== 'string' || typeof to !== 'string') throw new Error('A period needs both from and to')
+  if (typeof from !== 'string' || typeof to !== 'string') throw new KnownError('A period needs both from and to')
 
   return { filters, period: { from, to } }
 }
 
 // Values of the lists come from the tracker, so anyone can set them. A cell that starts like a
 // formula would run in Excel (CSV injection), so it gets a quote in front.
-const FORMULA = /^[=+\-@\t\r]/u
+const FORMULA = /^[=+\-@\s]/u
 
 const cell = (value) => {
   if (value == null) return ''
   if (typeof value === 'number') return String(value)
+  if (value instanceof Date) return value.toISOString()
 
   const text = FORMULA.test(value) ? `'${value}` : value
   return /[",;\r\n]/u.test(text) ? `"${text.replaceAll('"', '""')}"` : text
@@ -160,6 +168,7 @@ export default async (request, response) => {
   let outcome = 'ok'
 
   try {
+    rejectRepeated(request.query)
     const given = variablesOf(report, request.query)
     const variables = { domainId, ...given, ...scopeOf(request.query), ...(source == null ? {} : { source }) }
     const data = await executor(viewer, request.headers)(queryOf(name, report, given), variables)
@@ -174,14 +183,26 @@ export default async (request, response) => {
     const delimiter = request.query.delimiter === 'semicolon' ? ';' : ','
     response.type('text/csv; charset=utf-8').send(toCsv(columnsOf(report), entries, delimiter))
   } catch (error) {
+    // The audit log is read in the dashboard, so an internal message stays out of it as well
+    if (error instanceof KnownError === false) {
+      outcome = 'error: The export failed'
+      signale.error(`Export of ${name} failed: ${error.message}`)
+      return fail(response, 500, 'The export failed')
+    }
+
     outcome = `error: ${error.message}`
     // A foreign domain answers like a missing one; anything else is a wrong argument
     if (error.message.includes('Unknown domain')) return fail(response, 404, 'Unknown domain')
     return fail(response, 400, error.message)
   } finally {
+    // The details are cut at 200, so the caller's other parameters must not push these out
+    const { source: asked, from, to, filter } = request.query
+    const args = JSON.stringify({ source: asked, from, to, filter, ...request.query })
+    const details = `${outcome} ${format} ${args}`.slice(0, 200)
+
     // Every export lands in the audit log, failed ones too, as the calls of /mcp do
     for (const workspaceId of await workspacesOf(viewer, domainId == null ? [] : [domainId])) {
-      await auditLog.record(viewer, workspaceId, `export.${name}`, domainId, `${outcome} ${format}`.slice(0, 200))
+      await auditLog.record(viewer, workspaceId, `export.${name}`, domainId, details)
     }
   }
 }
