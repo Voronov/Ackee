@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-rc.1] - 2026-11-06
+
+### Added
+
+- Filters by a click on an entry of a report, and a period from to, kept in the address
+- Export of reports as CSV and JSON, with the source, filters and period of a card
+- A light theme that follows the system, with a choice in Settings
+- A read-only MCP endpoint with six report tools
+- `ACKEE_ROLE` chooses what a process does: all, api, ingest or worker
+- The country of visitors behind a switch, keeping only the code, and a map in the Countries report
+- Grafana with dashboards of the server, containers and stands
+
+### Changed
+
+- The navigation is on the left, and the reports of a section are in tabs
+- TOP lists of a week and longer sum daily rollups
+- The lists of an event read a compound index on `eventId` and `created`
+- `prom-client` is replaced with `@prometheus-io/client`, and the metric series are bounded
+
+### Fixed
+
+- Records of sealed hours stay as the rollups counted them
+- The five security remarks of the manual test
+- `graphql-scalars` is updated to 2.0.1 for GHSA-x8rm-f576-gq67
+
 ## [4.0.0-alpha.2] - 2026-10-27
 
 ### Added
