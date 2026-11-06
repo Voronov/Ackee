@@ -1,7 +1,8 @@
 import test from 'ava'
 import listen from 'test-listen'
 
-import { dropOldRecordIndexes } from '../../src/database/migrations.js'
+import { dropOldActionIndexes, dropOldRecordIndexes } from '../../src/database/migrations.js'
+import Action from '../../src/models/Action.js'
 import Record from '../../src/models/Record.js'
 import server from '../../src/server.js'
 import { cleanup, connectToDatabase } from './_utils.js'
@@ -45,4 +46,26 @@ test.serial('a database without records yet is left alone', async (t) => {
   await Record.collection.drop()
 
   t.false(await dropOldRecordIndexes())
+})
+
+const actionIndexNames = async () => (await Action.collection.indexes()).map((index) => index.name)
+
+test.serial('the old eventId index of actions is dropped at start', async (t) => {
+  await Action.init()
+  await Action.collection.createIndex({ eventId: 1 })
+  t.true((await actionIndexNames()).includes('eventId_1'))
+
+  t.true(await dropOldActionIndexes())
+
+  const names = await actionIndexNames()
+  t.false(names.includes('eventId_1'))
+  t.true(names.includes('eventId_1_created_1'))
+  // Nothing left the second time
+  t.false(await dropOldActionIndexes())
+})
+
+test.serial('a database without actions yet is left alone', async (t) => {
+  await Action.collection.drop()
+
+  t.false(await dropOldActionIndexes())
 })
