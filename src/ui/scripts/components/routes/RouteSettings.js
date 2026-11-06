@@ -19,6 +19,7 @@ import {
 import CardMembers from '../cards/CardMembers.js'
 import CardPasskeys from '../cards/CardPasskeys.js'
 import CardSetting from '../cards/CardSetting.js'
+import CardTheme from '../cards/CardTheme.js'
 import Line from '../Line.js'
 import LinkItem from '../LinkItem.js'
 import Message from '../Message.js'
@@ -95,6 +96,8 @@ const RouteSettings = (props) => {
     ),
 
     globalThis.env.isDemoMode !== true && h(CardPasskeys),
+
+    h(CardTheme),
 
     h(
       CardSetting,

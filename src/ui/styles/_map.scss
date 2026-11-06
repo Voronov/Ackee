@@ -15,7 +15,7 @@
 		stroke-width: .5;
 
 		&--visited {
-			fill: rgba($primary, var(--shade));
+			fill: color-mix(in srgb, #{ $primary } calc(var(--shade) * 100%), transparent);
 			transition: fill .3s ease;
 
 			&:hover {
@@ -37,7 +37,7 @@
 		width: 80px;
 		height: 6px;
 		border-radius: 100px;
-		background: linear-gradient(90deg, rgba($primary, var(--min-shade)), $primary);
+		background: linear-gradient(90deg, color-mix(in srgb, #{ $primary } calc(var(--min-shade) * 100%), transparent), $primary);
 	}
 
 }
