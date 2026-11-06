@@ -11,6 +11,7 @@ import * as users from './database/users.js'
 import OAuthState from './models/OAuthState.js'
 import * as clientIp from './utils/clientIp.js'
 import config from './utils/config.js'
+import { scriptOnlyPolicy } from './utils/contentSecurityPolicy.js'
 import { on as ignoreCookieOn } from './utils/ignoreCookie.js'
 import signale from './utils/signale.js'
 
@@ -224,7 +225,9 @@ router.get('/auth/google/callback', limiter, async (request, response) => {
     'Set-Cookie',
     `${ignoreCookieOn.name}=${ignoreCookieOn.value}; Max-Age=${ignoreCookieOn.options.maxAge}; Path=/; SameSite=None; Secure`,
   )
-  response.send(handOver(token.id))
+  const body = handOver(token.id)
+  response.set('Content-Security-Policy', scriptOnlyPolicy(body))
+  response.send(body)
 })
 
 export default router

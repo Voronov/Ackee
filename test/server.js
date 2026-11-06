@@ -29,6 +29,15 @@ test('return security headers', async (t) => {
   t.is(response.headers.get('X-Powered-By'), null)
 })
 
+test('return the content security policy', async (t) => {
+  const response = await fetch(new URL('/', await base).href)
+  const policy = response.headers.get('content-security-policy')
+
+  t.regex(policy, /script-src 'self'/)
+  t.regex(policy, /frame-ancestors 'self'/)
+  t.notRegex(policy, /upgrade-insecure-requests/)
+})
+
 test('return production styles', async (t) => {
   const url = new URL('/index.css', await base)
   const response = await fetch(url.href)

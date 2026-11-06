@@ -108,7 +108,11 @@ const signIn = async (claims) => {
   const { cookie, code, state } = await start()
   const response = await get(`/auth/google/callback?code=${code}&state=${state}`, cookie)
 
-  return { status: response.status, body: await response.text() }
+  return {
+    status: response.status,
+    body: await response.text(),
+    policy: response.headers.get('content-security-policy'),
+  }
 }
 
 const handedToken = (body) => body.match(/"\\"([\da-f-]{36})\\""/)?.[1]
@@ -128,9 +132,10 @@ test.serial('the button goes to Google with PKCE, a nonce and a state bound to t
 })
 
 test.serial('a new person signs in with Google and gets an account with a workspace', async (t) => {
-  const { status, body } = await signIn({ sub: 'google-1', email: 'New@Example.com' })
+  const { status, body, policy } = await signIn({ sub: 'google-1', email: 'New@Example.com' })
 
   t.is(status, 200)
+  t.regex(policy, /^default-src 'none'; script-src 'sha256-/)
   const user = await User.findOne({ email: 'new@example.com' }).lean()
   t.true(user.verified)
   t.is(user.googleId, 'google-1')
