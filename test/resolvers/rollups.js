@@ -4,6 +4,7 @@ import listen from 'test-listen'
 
 import { DURATIONS_LIMIT } from '../../src/constants/durations.js'
 import { floorDay, rollUp, sealedUntil } from '../../src/database/rollups.js'
+import * as records from '../../src/database/records.js'
 import * as users from '../../src/database/users.js'
 import DimensionDayRollup from '../../src/models/DimensionDayRollup.js'
 import DimensionRollup from '../../src/models/DimensionRollup.js'
@@ -292,6 +293,29 @@ test.serial('days whose hours are built again are summed again', async (t) => {
   const rebuilt = await rollUp()
   t.deepEqual(rebuilt.daysUntil, floorDay(rebuilt.until))
   t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+})
+
+test.serial('a late touch of a sealed record leaves the records as the rollups count them', async (t) => {
+  const { until } = await RollupState.findById('records').lean()
+  const short = await Record.find({
+    domainId: t.context.domain.id,
+    created: { $gte: new Date(Date.now() - 30 * day), $lt: until },
+    $expr: { $lt: [{ $subtract: ['$updated', '$created'] }, DURATIONS_LIMIT] },
+  })
+    .limit(20)
+    .lean()
+  t.true(short.length > 0)
+
+  // A tab that slept for days sends its update now
+  for (const entry of short) await records.update(entry.id)
+
+  // Read from records only, the reports must still equal the ones read before the rollups
+  await RollupState.deleteOne({ _id: 'records' })
+  try {
+    t.deepEqual(await fetchReports(t, 'UTC'), raw.UTC)
+  } finally {
+    await rollUp()
+  }
 })
 
 test.serial('only one process builds at a time', async (t) => {

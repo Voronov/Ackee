@@ -1,21 +1,26 @@
 // Colors ------------------------------------------------------ //
-$primary: rgba(115, 250, 200, 1);
-$secondary: rgba(0, 190, 225, 1);
-$tertiary: rgba(110, 115, 115, 1);
+// The names come from the dark theme. Each one reads a custom property, and a theme only
+// swaps the values (_theme.scss). Sass colour functions do not work on them: use color-mix().
+$primary: var(--primary);
+$secondary: var(--secondary);
+$tertiary: var(--tertiary);
 $gradient: linear-gradient(135deg, $primary, $secondary);
-$white: rgba(255, 255, 255, 1);
-$light: rgba(255, 255, 255, .5);
-$black: rgba(40, 45, 45, 1);
-$dimmed: rgba(255, 255, 255, .05);
-$card: rgba(51, 56, 56, 1);
-$context: rgba(69, 74, 74, .86);
-$border: rgba(0, 0, 0, .3);
-$success: rgba(0, 255, 0, .1);
-$warning: rgba(255, 255, 0, .1);
-$error: rgba(255, 0, 0, .15);
+$white: var(--white);
+$light: var(--light);
+$black: var(--black);
+$dimmed: var(--dimmed);
+$card: var(--card);
+$context: var(--context);
+// Without backdrop-filter, a menu needs to cover what is under it
+$contextSolid: var(--context-solid);
+$border: var(--border);
+$success: var(--success);
+$warning: var(--warning);
+$error: var(--error);
 $positive: $primary;
-$negative: rgba(250, 154, 115, 1);
-$destructive: rgba(255, 60, 60, 1);
+$negative: var(--negative);
+$destructive: var(--destructive);
+$overlay: var(--overlay);
 
 // Sizes ------------------------------------------------------- //
 $gutter: 1rem;
@@ -37,11 +42,13 @@ $compactContent: $compact + $navigationWidth;
 $shadow: 0 2px 10px rgba(0, 0, 0, .12);
 
 // formbase ---------------------------------------------------- //
+// formbase runs Sass colour functions on these, so they are plain values of the dark theme.
+// _input.scss and _select.scss set the colours of the theme over them.
 $formbase__radius: $innerRadius;
 $formbase__margin: .9rem;
-$formbase__background: $dimmed;
+$formbase__background: rgba(255, 255, 255, .05);
 $formbase__svg: #fff;
-$formbase__color: $white;
+$formbase__color: rgba(255, 255, 255, 1);
 $formbase__border: transparent;
 $formbase__shadow: none;
-$formbase__active: $primary;
+$formbase__active: rgba(115, 250, 200, 1);

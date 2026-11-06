@@ -32,3 +32,10 @@ test('return HTML with scripts', (t) => {
   t.true(result.includes(scripts[0]))
   t.true(result.includes(scripts[1]))
 })
+
+test('return HTML that sets the chosen theme before the styles load', (t) => {
+  const result = layout('', '', ['index.css'], [])
+
+  t.true(result.includes("localStorage.getItem('ackee_theme')"))
+  t.true(result.indexOf('ackee_theme') < result.indexOf('index.css'))
+})

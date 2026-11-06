@@ -1,4 +1,4 @@
-import { assignDefaultWorkspace, dropOldRecordIndexes } from './database/migrations.js'
+import { assignDefaultWorkspace, dropOldActionIndexes, dropOldRecordIndexes } from './database/migrations.js'
 import * as ingestQueue from './queue/redis.js'
 import { start as startGa4Sync } from './ga4/sync.js'
 import server from './server.js'
@@ -47,6 +47,10 @@ connect(config.dbUrl)
 
     if (await dropOldRecordIndexes()) {
       signale.info('Dropped the old domainId index of records')
+    }
+
+    if (await dropOldActionIndexes()) {
+      signale.info('Dropped the old eventId index of actions')
     }
 
     signale.start(`Starting the server`)
