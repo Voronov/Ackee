@@ -5,20 +5,22 @@ import { createElement as h, useState } from 'react'
 import CurrentStatus from '../CurrentStatus.js'
 import Headline from '../Headline.js'
 import Text from '../Text.js'
+import useSource from '../../hooks/useSource.js'
 import downloadReport from '../../utils/downloadReport.js'
 
 const CardStatistics = (props) => {
   const { value, status } = props.hook(...props.hookArgs)
+  const source = useSource()
 
   // Use thin space as initial value to avoid that the label changes the height once rendered
   const [statusLabel, setStatusLabel] = useState(' ')
   const [exportFailed, setExportFailed] = useState(false)
 
-  // The card of one domain saves its report with the same arguments as it shows (ACKEE-22)
+  // The card of one domain saves its report with the same arguments and source as it shows (ACKEE-22)
   const download = (format) => {
     const [domainId, parameters] = props.hookArgs
     setExportFailed(false)
-    downloadReport(props.exportReport, format, { domainId, ...parameters }).catch(() => setExportFailed(true))
+    downloadReport(props.exportReport, format, { domainId, source, ...parameters }).catch(() => setExportFailed(true))
   }
 
   return h(

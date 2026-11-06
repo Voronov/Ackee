@@ -1,3 +1,4 @@
+import { SOURCE_GA4 } from './constants/ga4.js'
 import * as auditLog from './database/auditLog.js'
 import { executor, workspacesOf } from './mcp/server.js'
 import config from './utils/config.js'
@@ -56,6 +57,9 @@ const TYPE_ENUMS = {
 
 const FORMATS = new Set(['csv', 'json'])
 
+// A chart builds one entry per unit of the limit, so a huge limit would block the server
+const MAX_LIMIT = { chart: 366, list: 1000 }
+
 // Only the arguments that were given: one left out keeps the default of the schema, a null would not
 const queryOf = (name, report, given) => {
   const present = report.args.filter((arg) => given[arg] !== undefined)
@@ -63,9 +67,20 @@ const queryOf = (name, report, given) => {
   const args = present.map((arg) => `${arg}: $${arg}`)
   const fields = report.chart === true ? 'value count' : [LIST, report.extra].filter(Boolean).join(' ')
 
-  return `query export($domainId: ID, ${variables.join(', ')}) {
-    statistics(domainId: $domainId) { entries: ${report.field}(${args.join(', ')}) { ${fields} } }
+  return `query export($domainId: ID, $source: StatisticsSource, ${variables.join(', ')}) {
+    statistics(domainId: $domainId, source: $source) { entries: ${report.field}(${args.join(', ')}) { ${fields} } }
   }`
+}
+
+const limitOf = (report, value) => {
+  const maximum = report.chart === true ? MAX_LIMIT.chart : MAX_LIMIT.list
+  const limit = Number(value)
+
+  if (Number.isInteger(limit) === false || limit < 1 || limit > maximum) {
+    throw new Error(`The limit must be from 1 to ${maximum}`)
+  }
+
+  return limit
 }
 
 const variablesOf = (report, query) => {
@@ -74,7 +89,7 @@ const variablesOf = (report, query) => {
   for (const arg of report.args) {
     const value = query[arg]
     if (typeof value !== 'string') continue
-    variables[arg] = arg === 'limit' ? Number.parseInt(value, 10) : value
+    variables[arg] = arg === 'limit' ? limitOf(report, value) : value
   }
 
   return Object.fromEntries(
@@ -123,15 +138,16 @@ export default async (request, response) => {
 
   const [, name, format] = match
   const domainId = typeof request.query.domainId === 'string' ? request.query.domainId : undefined
-  const given = variablesOf(report, request.query)
-  const variables = { domainId, ...given }
+  const source = typeof request.query.source === 'string' ? request.query.source : undefined
 
   let outcome = 'ok'
 
   try {
+    const given = variablesOf(report, request.query)
+    const variables = { domainId, ...given, ...(source == null ? {} : { source }) }
     const data = await executor(viewer, request.headers)(queryOf(name, report, given), variables)
     const entries = data.statistics.entries ?? []
-    const filename = `ackee-${name}-${new Date().toISOString().slice(0, 10)}.${format}`
+    const filename = `ackee-${name}${source === SOURCE_GA4 ? '-ga4' : ''}-${new Date().toISOString().slice(0, 10)}.${format}`
 
     response.set('Cache-Control', 'no-store')
     response.set('Content-Disposition', `attachment; filename="${filename}"`)

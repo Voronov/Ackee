@@ -5,6 +5,7 @@ import * as users from '../../src/database/users.js'
 import { toCsv } from '../../src/export.js'
 import AuditLog from '../../src/models/AuditLog.js'
 import Domain from '../../src/models/Domain.js'
+import Ga4Daily from '../../src/models/Ga4Daily.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
@@ -145,6 +146,62 @@ test.serial('a wrong argument is 400', async (t) => {
 
   t.is(status, 400)
   t.regex(JSON.parse(text(body)).error, /FOREVER/)
+})
+
+test.serial('a report of Google Analytics comes with its own numbers and file name', async (t) => {
+  const domainId = t.context.domain.id
+  await seed(domainId)
+  await Ga4Daily.create({
+    domainId,
+    date: new Date().toISOString().slice(0, 10),
+    dimension: 'pages',
+    value: 'example.com/ga',
+    views: 5,
+  })
+
+  const path = `/export/pages.json?domainId=${domainId}&range=LAST_7_DAYS`
+  const ga4 = await get(`${path}&source=GA4`, t.context.token.id)
+  const ackee = await get(path, t.context.token.id)
+
+  t.is(ga4.status, 200)
+  t.regex(ga4.headers.get('content-disposition'), /filename="ackee-pages-ga4-\d{4}-\d{2}-\d{2}\.json"$/)
+  t.deepEqual(
+    JSON.parse(text(ga4.body)).map((entry) => [entry.value, entry.count]),
+    [['https://example.com/ga', 5]],
+  )
+  t.deepEqual(
+    JSON.parse(text(ackee.body)).map((entry) => [entry.value, entry.count]),
+    [['https://example.com/', 3]],
+  )
+})
+
+test.serial('an unknown source is 400', async (t) => {
+  const { status } = await get(`/export/pages.json?source=MATOMO`, t.context.token.id)
+
+  t.is(status, 400)
+})
+
+test.serial('a limit above the maximum is 400 and leaves a trace, the maximum itself is fine', async (t) => {
+  const { token, domain } = t.context
+  const statusOf = async (path) => (await get(`${path}&domainId=${domain.id}`, token.id)).status
+
+  t.is(await statusOf('/export/views.json?limit=366'), 200)
+  t.is(await statusOf('/export/pages.json?limit=1000'), 200)
+
+  for (const path of [
+    '/export/views.json?limit=367',
+    '/export/views.json?limit=50000000',
+    '/export/durations.json?limit=367',
+    '/export/pages.json?limit=1001',
+    '/export/pages.json?limit=0',
+    '/export/pages.json?limit=-1',
+    '/export/pages.json?limit=1e9',
+    '/export/pages.json?limit=many',
+  ]) {
+    t.is(await statusOf(path), 400, path)
+  }
+
+  t.true((await AuditLog.countDocuments({ action: 'export.views', details: /limit must be/ })) > 0)
 })
 
 test('cells with a comma, a quote or a line break are quoted', (t) => {
