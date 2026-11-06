@@ -39,9 +39,11 @@ export const parse = (search) => {
   return { filters, period }
 }
 
+const filterText = ({ field, value }) => (value == null ? field : `${field}:${value}`)
+
 const serialize = ({ filters, period }) => {
   const parameters = new URLSearchParams()
-  for (const { field, value } of filters) parameters.append('filter', value == null ? field : `${field}:${value}`)
+  for (const filter of filters) parameters.append('filter', filterText(filter))
   if (period != null) {
     parameters.set('from', period.from)
     parameters.set('to', period.to)
@@ -91,6 +93,13 @@ export const clearScope = () => update(() => ({ filters: [], period: null }))
 export const withScope = (href) => `${href}${hasDocument() === true ? getHistory().location.search : ''}`
 
 export const isScoped = (scope) => scope.filters.length > 0 || scope.period != null
+
+// The scope as the parameters of /export
+export const exportParameters = ({ filters, period }) => ({
+  filter: filters.map(filterText),
+  from: period?.from,
+  to: period?.to,
+})
 
 // How many days, months or years of a chart the period spans, as the server counts them
 export const periodUnits = (period, interval) => {

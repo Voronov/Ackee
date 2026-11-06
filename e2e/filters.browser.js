@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+
 import { expect, test } from '@playwright/test'
 
 import { createAccount, createDomain, sendView } from './_helpers.js'
@@ -112,4 +114,18 @@ test('the bars of a past period are named by their dates, not from today', async
   await page.goto('/#/insights/views?from=2026-03-01&to=2026-03-31')
   await expect(page.locator('main')).toContainText('2026-03-31')
   await expect(page.locator('main')).not.toContainText('Today')
+})
+
+test('a card saves the filtered numbers it shows', async ({ page, request }) => {
+  await seed(page, request, 'filters-export')
+
+  await page.goto(`/#/insights/pages?filter=${encodeURIComponent('SITE_REFERRER:https://search.example')}`)
+  await expect(page.getByRole('button', { name: START })).toBeVisible()
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download shop.test as JSON' }).click(),
+  ])
+  const entries = JSON.parse(await readFile(await download.path(), 'utf8'))
+  expect(entries.map((entry) => [entry.value, entry.count])).toEqual([['http://shop.test/', 1]])
 })

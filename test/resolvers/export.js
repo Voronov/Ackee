@@ -32,6 +32,15 @@ const get = async (path, token) => {
 
 const text = (body) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(body)
 
+// The audit entry is written after the answer has left, so a test may get there first
+const audited = async (filter, expected) => {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if ((await AuditLog.countDocuments(filter)) >= expected) return true
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  return false
+}
+
 // A source in Cyrillic and a referrer that would run as a formula in Excel
 const seed = (domainId) =>
   Record.insertMany(
@@ -135,9 +144,7 @@ test.serial('a domain of another workspace is 404, the same as a domain that doe
   t.truthy(own)
 
   // The attempt leaves a trace in the viewer's workspace, not in the one that owns the domain
-  t.true(
-    (await AuditLog.countDocuments({ workspaceId: workspace.id, action: 'export.referrers', details: /^error/ })) > 0,
-  )
+  t.true(await audited({ workspaceId: workspace.id, action: 'export.referrers', details: /^error/ }, 1))
   t.is(await AuditLog.countDocuments({ workspaceId: t.context.workspace.id, userId: user.id }), 0)
 })
 
@@ -201,7 +208,96 @@ test.serial('a limit above the maximum is 400 and leaves a trace, the maximum it
     t.is(await statusOf(path), 400, path)
   }
 
-  t.true((await AuditLog.countDocuments({ action: 'export.views', details: /limit must be/ })) > 0)
+  t.true(await audited({ action: 'export.views', details: /limit must be/ }, 1))
+})
+
+// Two pages today, one of them from the news, and a page of ten days ago
+const seedScope = async (domainId) => {
+  const page = (siteLocation, siteReferrer, created) => ({
+    domainId,
+    siteLocation,
+    siteReferrer,
+    created,
+    updated: created,
+  })
+  const now = new Date()
+  const past = new Date(Date.now() - 10 * 86_400_000)
+
+  await Record.insertMany([
+    page('https://example.com/cart', 'https://news.example/', now),
+    page('https://example.com/', null, now),
+    page('https://example.com/old', null, past),
+  ])
+
+  return past.toISOString().slice(0, 10)
+}
+
+const values = async (path, token) => {
+  const { status, body } = await get(path, token)
+  return { status, entries: status === 200 ? JSON.parse(text(body)) : [] }
+}
+
+test.serial('a filter narrows the report as on the dashboard', async (t) => {
+  const { domain, token } = t.context
+  await seedScope(domain.id)
+  const path = `/export/pages.json?domainId=${domain.id}&range=LAST_7_DAYS`
+
+  const filter = encodeURIComponent('SITE_REFERRER:https://news.example/')
+  const filtered = await values(`${path}&filter=${filter}`, token.id)
+  t.deepEqual(
+    filtered.entries.map((entry) => entry.value),
+    ['https://example.com/cart'],
+  )
+
+  // Without a value: the views that have no such field
+  const direct = await values(`${path}&filter=SITE_REFERRER`, token.id)
+  t.deepEqual(
+    direct.entries.map((entry) => entry.value),
+    ['https://example.com/'],
+  )
+
+  const both = await values(
+    `${path}&filter=${filter}&filter=SITE_LOCATION:${encodeURIComponent('https://x.example/')}`,
+    token.id,
+  )
+  t.deepEqual(both.entries, [])
+})
+
+test.serial('a period replaces the range of a list and sets the length of a chart', async (t) => {
+  const { domain, token } = t.context
+  const day = await seedScope(domain.id)
+  const query = `domainId=${domain.id}&from=${day}&to=${day}`
+
+  const list = await values(`/export/pages.json?${query}&range=LAST_24_HOURS`, token.id)
+  t.deepEqual(
+    list.entries.map((entry) => entry.value),
+    ['https://example.com/old'],
+  )
+
+  // The limit of the card does not cut a period, the period is bounded on its own
+  const long = await values(`/export/views.json?domainId=${domain.id}&from=2020-01-01&to=2020-12-31&limit=7`, token.id)
+  t.is(long.entries.length, 366)
+  t.is(long.entries[0].value, '2020-12-31')
+})
+
+test.serial('a wrong filter or period is 400 and leaves a trace', async (t) => {
+  const { domain, token } = t.context
+  const statusOf = async (query) => (await get(`/export/views.json?domainId=${domain.id}&${query}`, token.id)).status
+
+  for (const query of [
+    'filter=PASSWORD:x',
+    'from=2026-01-01',
+    'to=2026-01-01',
+    'from=2026-13-01&to=2026-13-02',
+    'from=2000-01-01&to=2026-01-01',
+    'from=2026-02-01&to=2026-01-01',
+    'filter=SOURCE:x&source=GA4',
+    'from=2026-01-01&to=2026-01-02&source=GA4',
+  ]) {
+    t.is(await statusOf(query), 400, query)
+  }
+
+  t.true(await audited({ action: 'export.views', details: /^error/ }, 8))
 })
 
 test('cells with a comma, a quote or a line break are quoted', (t) => {
