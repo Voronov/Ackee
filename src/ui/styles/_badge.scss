@@ -25,17 +25,17 @@
 	}
 
 	&--positive {
-		background: rgba($positive, .3);
+		background: color-mix(in srgb, #{ $positive } var(--tint), transparent);
 		color: $positive;
 	}
 
 	&--negative {
-		background: rgba($negative, .3);
+		background: color-mix(in srgb, #{ $negative } var(--tint), transparent);
 		color: $negative;
 	}
 
 	&--neutral {
-		background: rgba($light, .3);
+		background: color-mix(in srgb, #{ $white } var(--tint), transparent);
 		color: $light;
 	}
 

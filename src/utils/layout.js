@@ -12,6 +12,14 @@ export default (body, favicon, styles, scripts, variables) => `
 			<!-- Favicon -->
 			<link rel="shortcut icon" href="${favicon}" type="image/x-icon">
 
+			<!-- Theme, set before the first paint so that a light page does not flash dark (src/ui/scripts/utils/theme.js) -->
+			<script>
+				try {
+					const theme = JSON.parse(localStorage.getItem('ackee_theme'))
+					if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+				} catch {}
+			</script>
+
 			<!-- CSS -->
 			${styles.map((src) => `<link rel="stylesheet" href="${src}">`).join('')}
 

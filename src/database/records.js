@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import Record from '../models/Record.js'
+import { sealedUntil } from './rollups.js'
 
 const response = (entry) => ({
   id: entry.id,
@@ -73,21 +74,25 @@ export const update = async (id, updated = Date.now()) => {
     return entry == null ? entry : response(entry)
   }
 
-  return enhance(
-    await Record.findOneAndUpdate(
-      {
-        id,
+  // A record whose hour was sealed at the time of the event stays as the rollups have it.
+  // Otherwise a tab that wakes up the next day would leave the durations of records and rollups apart.
+  const entry = await Record.findOneAndUpdate(
+    {
+      id,
+      created: { $gte: sealedUntil(new Date(updated)) },
+    },
+    {
+      $max: {
+        updated: new Date(updated),
       },
-      {
-        $max: {
-          updated: new Date(updated),
-        },
-      },
-      {
-        returnDocument: 'after',
-      },
-    ),
+    },
+    {
+      returnDocument: 'after',
+    },
   )
+
+  // The tracker gets no error for such a record, so only an unknown id gives null
+  return enhance(entry ?? (await Record.findOne({ id })))
 }
 
 const anonymized = {

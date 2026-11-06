@@ -23,7 +23,7 @@
 		gap: $gutter;
 		padding: 0 $gutter*1.5;
 		border-radius: 100px;
-		background: rgba($context, .98);
+		background: $contextSolid;
 		pointer-events: all;
 
 		@supports (backdrop-filter: blur(10px)) {

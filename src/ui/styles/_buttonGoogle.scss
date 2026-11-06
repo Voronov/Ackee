@@ -3,7 +3,7 @@
 .button--google {
   display: block;
   margin-top: 1em;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2px solid color-mix(in srgb, #{ $white } 15%, transparent);
   border-radius: 10px;
   padding: 0.8em 1em;
   color: inherit;
@@ -12,6 +12,6 @@
 
   &:hover,
   &:focus {
-    border-color: rgba(255, 255, 255, 0.35);
+    border-color: color-mix(in srgb, #{ $white } 35%, transparent);
   }
 }

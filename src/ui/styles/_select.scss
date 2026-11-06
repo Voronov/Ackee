@@ -2,6 +2,14 @@
 
 	border-width: 2px;
 	padding-right: $gutter*2;
+	// formbase sets the colours of the dark theme, these follow the theme
+	color: $white;
+	background-color: $dimmed;
+	background-image: var(--select-arrow);
+
+	&:focus {
+		border-color: $primary;
+	}
 
 	option {
 		// Some browser are using the color of the select to display options.
@@ -10,6 +18,8 @@
 	}
 
 	&:disabled {
+		color: $white;
+		background-color: $dimmed;
 		opacity: .6;
 		background-image: none;
 	}
