@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import http from 'node:http'
 
 import test from 'ava'
+import { subDays } from 'date-fns'
 import mockedEnv from 'mocked-env'
 import listen from 'test-listen'
 
@@ -144,7 +145,10 @@ const account = async (email) => {
   const token = await Token.create({ userId: user.id })
   const domain = await Domain.create({ title: 'datum-shop.pages.dev', workspaceId: workspace.id })
 
-  return { user, domain, call: (query, variables) => api(base, { query, variables }, token.id) }
+  // The stand-in's days are UTC days, so the reader is on the same day whatever the local zone is
+  const call = (query, variables) => api(base, { query, variables }, token.id, { 'Time-Zone': 'UTC' })
+
+  return { user, domain, call }
 }
 
 const connect = (call, domainId, input) =>
@@ -275,6 +279,9 @@ test.serial('reports read GA4 when asked, in the shape of Ackee reports', async 
     }
   `)
   const { ga, own, facts } = json.data
+  // LAST_7_DAYS goes back in the server's zone, so a clock change moves its first UTC day
+  const weekDays =
+    (Date.parse(isoDaysAgo(0)) - Date.parse(subDays(new Date(), 7).toISOString().slice(0, 10))) / 864e5 + 1
 
   t.deepEqual(
     ga.total.map((entry) => entry.count),
@@ -284,7 +291,7 @@ test.serial('reports read GA4 when asked, in the shape of Ackee reports', async 
     ga.unique.map((entry) => entry.count),
     [4, 4, 4, 4, 4, 4, 4],
   )
-  t.deepEqual(ga.pages[0], { value: 'https://datum-shop.pages.dev/', count: 6 * 8 })
+  t.deepEqual(ga.pages[0], { value: 'https://datum-shop.pages.dev/', count: 6 * weekDays })
   t.deepEqual(
     ga.referrers.map((entry) => entry.value),
     ['google', '(direct)'],

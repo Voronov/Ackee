@@ -93,8 +93,16 @@ export const applyScope = (aggregation, dateDetails) => {
     match.$and = [...(match.$and ?? []), { [field]: value }]
   }
 
-  if (dateDetails.start != null && match.created?.$gte == null)
-    match.created = { ...match.created, $gte: dateDetails.start }
+  // First seen comes from all records of an entry, so NEW counts the period but matches every record
+  const group = aggregation[1]?.$group
+  if (dateDetails.start != null && group?.created?.$min != null) {
+    const inPeriod = { $and: [{ $gte: ['$created', dateDetails.start] }, { $lt: ['$created', dateDetails.end] }] }
+    group.count = { $sum: { $cond: [inPeriod, 1, 0] } }
+    aggregation.splice(2, 0, { $match: { count: { $gt: 0 } } })
+    return aggregation
+  }
+
+  if (dateDetails.start != null) match.created = { ...match.created, $gte: dateDetails.start }
   if (dateDetails.end != null) match.created = { ...match.created, $lt: dateDetails.end }
 
   return aggregation

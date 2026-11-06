@@ -1,5 +1,3 @@
-import { toZonedTime } from 'date-fns-tz'
-
 import aggregateActions from '../aggregations/aggregateActions.js'
 import aggregateNewActions from '../aggregations/aggregateNewActions.js'
 import aggregateRecentActions from '../aggregations/aggregateRecentActions.js'
@@ -66,12 +64,8 @@ export const getChart = async (ids, type, interval, limit, dateDetails) => {
     const matchYear = [INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY].includes(interval)
 
     return createArray(limit).map((_, index) => {
+      // Database entries include the day, month and year in the timezone of the user, as this date does
       const date = dateDetails.lastFnByInterval(interval)(index)
-
-      // Database entries include the day, month and year in the
-      // timezone of the user. We therefore need to match it against a
-      // date in the timezone of the user.
-      const userZonedDate = toZonedTime(date, dateDetails.userTimeZone)
 
       // Find a entry that matches the date
       const entry = entries.find((entry) => {
@@ -79,7 +73,7 @@ export const getChart = async (ids, type, interval, limit, dateDetails) => {
           matchDay === true ? entry._id.day : undefined,
           matchMonth === true ? entry._id.month : undefined,
           matchYear === true ? entry._id.year : undefined,
-          userZonedDate,
+          date,
         )
       })
 

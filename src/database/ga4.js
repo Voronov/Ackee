@@ -1,5 +1,3 @@
-import { toZonedTime } from 'date-fns-tz'
-
 import { INTERVALS_DAILY, INTERVALS_MONTHLY } from '../constants/intervals.js'
 import {
   RANGES_LAST_24_HOURS,
@@ -102,10 +100,7 @@ const periods = async (ids, interval, limit, dateDetails) => {
   const days = await Ga4Daily.find({ domainId: { $in: ids }, dimension: 'total', date: { $gte: since } }).lean()
 
   return createArray(limit).map((_, index) => {
-    const { prefix, value } = period(
-      toZonedTime(dateDetails.lastFnByInterval(interval)(index), dateDetails.userTimeZone),
-      interval,
-    )
+    const { prefix, value } = period(dateDetails.lastFnByInterval(interval)(index), interval)
     return { value, days: days.filter((entry) => entry.date.startsWith(prefix)) }
   })
 }
