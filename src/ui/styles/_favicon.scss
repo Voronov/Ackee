@@ -2,9 +2,10 @@
 
 	width: $rowHeight;
 	height: $rowHeight;
-	background: $white;
+	// Icons are drawn for a white background, whatever the theme
+	background: #fff;
 	border-radius: 100%;
-	border: 2px solid $white;
+	border: 2px solid #fff;
 	overflow: hidden;
 
 	&--missing {

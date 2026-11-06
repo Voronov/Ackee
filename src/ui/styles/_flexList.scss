@@ -17,12 +17,12 @@
 
 	&::before {
 		top: 0;
-		background: linear-gradient($card, rgba($card, 0));
+		background: linear-gradient($card, transparent);
 	}
 
 	&::after {
 		bottom: 0;
-		background: linear-gradient(rgba($card, 0), $card);
+		background: linear-gradient(transparent, $card);
 	}
 
 	&__inner {

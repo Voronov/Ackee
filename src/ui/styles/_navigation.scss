@@ -126,8 +126,8 @@
 		background:
 			linear-gradient(var(--navigation-background) 40%, transparent) top / 100% $shade*2,
 			linear-gradient(transparent, var(--navigation-background) 60%) bottom / 100% $shade*2,
-			radial-gradient(farthest-side at 50% 0, rgba($white, .16), transparent) top / 100% $shade,
-			radial-gradient(farthest-side at 50% 100%, rgba($white, .16), transparent) bottom / 100% $shade;
+			radial-gradient(farthest-side at 50% 0, color-mix(in srgb, #{ $white } 16%, transparent), transparent) top / 100% $shade,
+			radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, #{ $white } 16%, transparent), transparent) bottom / 100% $shade;
 		background-repeat: no-repeat;
 		background-attachment: local, local, scroll, scroll;
 	}
@@ -138,7 +138,7 @@
 		font-size: .75em;
 		letter-spacing: .08em;
 		text-transform: uppercase;
-		color: $tertiary;
+		color: $light;
 	}
 
 	&__item {
@@ -211,7 +211,7 @@
 			right: 0;
 			bottom: 0;
 			left: 0;
-			background: rgba($black, .7);
+			background: color-mix(in srgb, #{ $black } 70%, transparent);
 		}
 
 		// Hidden, not only moved away: the links of a closed menu must not take the focus

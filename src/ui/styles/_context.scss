@@ -6,8 +6,9 @@
 	left: 0;
 	padding: math.div($gutter, 2) 0;
 	min-width: 210px;
-	background: rgba($context, .98);
+	background: $contextSolid;
 	border-radius: $radius;
+	box-shadow: var(--context-shadow);
 	transform: translate(var(--x), var(--y));
 	z-index: 3;
 	opacity: 0;

@@ -1,4 +1,5 @@
 import { DEFAULT_WORKSPACE_ID } from '../constants/workspaces.js'
+import Action from '../models/Action.js'
 import Domain from '../models/Domain.js'
 import Event from '../models/Event.js'
 import Record from '../models/Record.js'
@@ -25,17 +26,17 @@ export const assignDefaultWorkspace = async () => {
  * creates indexes at start but never drops one, so a database from before keeps paying
  * for the old index on every insert until it is dropped here.
  */
-export const dropOldRecordIndexes = async () => {
-  const indexes = await Record.collection.indexes().catch((error) => {
-    // A new installation has no records collection yet
+const dropOldIndex = async (Model, name) => {
+  const indexes = await Model.collection.indexes().catch((error) => {
+    // A new installation has no such collection yet
     if (error.codeName === 'NamespaceNotFound') return []
     throw error
   })
 
-  if (indexes.some((index) => index.name === 'domainId_1') === false) return false
+  if (indexes.some((index) => index.name === name) === false) return false
 
   // Other processes start at the same time and may drop it first
-  return Record.collection.dropIndex('domainId_1').then(
+  return Model.collection.dropIndex(name).then(
     () => true,
     (error) => {
       if (error.code === 27) return false
@@ -43,3 +44,8 @@ export const dropOldRecordIndexes = async () => {
     },
   )
 }
+
+export const dropOldRecordIndexes = () => dropOldIndex(Record, 'domainId_1')
+
+// The same for the actions of events (ACKEE-75): `eventId` became part of a compound index
+export const dropOldActionIndexes = () => dropOldIndex(Action, 'eventId_1')

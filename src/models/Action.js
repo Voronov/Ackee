@@ -11,7 +11,6 @@ const schema = new mongoose.Schema({
   eventId: {
     type: String,
     required: true,
-    index: true,
   },
   key: {
     type: String,
@@ -37,5 +36,9 @@ const schema = new mongoose.Schema({
     default: Date.now,
   },
 })
+
+// Every list of an event matches on both fields (stages/matchEvents.js), as the reports of a
+// domain do on Record. The compound index also serves a match on eventId alone.
+schema.index({ eventId: 1, created: 1 })
 
 export default mongoose.model('Action', schema)
