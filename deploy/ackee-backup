@@ -1,8 +1,8 @@
 #!/bin/sh
 # Dumps the database of live every night (/etc/cron.d/ackee-backup).
 #
-# A dump goes to its final name only after mongorestore has read it to the end, so a file in
-# the folder is one that can be restored. The last good dumps stay when a run fails.
+# A dump goes to its final name only after gzip has read it to the end and it has a sane size,
+# because mongorestore --dryRun passes a cut archive. The last good dumps stay when a run fails.
 # Restore: docker exec -i ackee-mongo mongorestore --archive --gzip --drop --nsInclude='ackee_live.*' < <file>
 set -eu
 
@@ -10,15 +10,26 @@ DIR=${ACKEE_BACKUP_DIR:-/opt/ackee/backups}
 KEEP=${ACKEE_BACKUP_KEEP:-14}
 # A dump must never be the thing that fills the disk of the stands.
 MIN_FREE_MB=${ACKEE_BACKUP_MIN_FREE_MB:-2048}
+# A dump of a missing database is about 100 bytes and still exits 0.
+MIN_SIZE_KB=${ACKEE_BACKUP_MIN_SIZE_KB:-1024}
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 
 mkdir -p "$DIR"
 chmod 700 "$DIR"
 
+# A run killed by a reboot leaves its file behind.
+find "$DIR" -maxdepth 1 -name 'ackee_live-*.tmp' -mmin +60 -exec rm -- {} +
+
+# The next dump needs about as much room as the last one, on top of the reserve.
+last=$(find "$DIR" -maxdepth 1 -name 'ackee_live-*.archive.gz' | sort -r | head -n 1)
+last_mb=0
+[ -z "$last" ] || last_mb=$(du -m "$last" | cut -f1)
+need=$((MIN_FREE_MB + last_mb))
+
 free=$(df -Pm "$DIR" | awk 'NR == 2 { print $4 }')
-if [ "$free" -lt "$MIN_FREE_MB" ]; then
-  log "FAILED: only $free MB free, need $MIN_FREE_MB"
+if [ "$free" -lt "$need" ]; then
+  log "FAILED: only $free MB free, need $need"
   exit 1
 fi
 
@@ -26,6 +37,14 @@ file="$DIR/ackee_live-$(date -u +%Y%m%d-%H%M%S).archive.gz"
 trap 'status=$?; rm -f "$file.tmp"; [ "$status" = 0 ] || log "FAILED: exit $status"' EXIT
 
 docker exec ackee-mongo mongodump --quiet --db ackee_live --archive --gzip > "$file.tmp"
+gzip -t "$file.tmp"
+
+size=$(du -k "$file.tmp" | cut -f1)
+if [ "$size" -lt "$MIN_SIZE_KB" ]; then
+  log "FAILED: dump is only $size KB, need $MIN_SIZE_KB"
+  exit 1
+fi
+
 docker exec -i ackee-mongo mongorestore --quiet --archive --gzip --dryRun --nsInclude='ackee_live.*' < "$file.tmp"
 
 mv "$file.tmp" "$file"
