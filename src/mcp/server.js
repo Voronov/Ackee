@@ -1,3 +1,4 @@
+import { ApolloServerErrorCode, unwrapResolverError } from '@apollo/server/errors'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
@@ -26,9 +27,15 @@ import tools from './tools.js'
 // resolvers as /api, so there is no second set of rules to keep in step.
 let apollo
 
+// Apollo gives a KnownError of a resolver the same code as a fault, so it gets the code of a wrong input
+const formatError = (formatted, error) => {
+  if (unwrapResolverError(error) instanceof KnownError === false) return formatted
+  return { ...formatted, extensions: { ...formatted.extensions, code: ApolloServerErrorCode.BAD_USER_INPUT } }
+}
+
 const apolloServer = () => {
   if (apollo == null) {
-    const server = createApolloServer()
+    const server = createApolloServer({ formatError })
     apollo = server.start().then(() => server)
   }
 
@@ -57,7 +64,11 @@ export const executor = (viewer, headers) => async (query, variables) => {
   const { body } = await server.executeOperation({ query, variables }, { contextValue: contextFor(viewer, headers) })
   const result = body.kind === 'single' ? body.singleResult : undefined
 
-  if (result?.errors?.length > 0) throw new Error(result.errors.map((error) => error.message).join('; '))
+  if (result?.errors?.length > 0) {
+    const message = result.errors.map((error) => error.message).join('; ')
+    const known = result.errors.every((error) => error.extensions?.code === ApolloServerErrorCode.BAD_USER_INPUT)
+    throw known === true ? new KnownError(message) : new Error(message)
+  }
 
   return result?.data
 }

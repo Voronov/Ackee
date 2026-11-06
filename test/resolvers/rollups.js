@@ -168,7 +168,7 @@ const periods = [
   { from: dayOf(Date.now() - 40 * day), to: dayOf(Date.now() - 3 * day) },
   { from: dayOf(Date.now() - 5 * day), to: dayOf(Date.now()) },
 ]
-const periodZones = ['UTC', 'Europe/Kyiv', 'America/New_York']
+const periodZones = ['UTC', 'Europe/Kyiv', 'America/New_York', 'Asia/Kolkata']
 const fetchPeriods = (t) =>
   Promise.all(periods.flatMap((period) => periodZones.map((zone) => fetchReports(t, zone, period))))
 let rawPeriods
@@ -248,6 +248,18 @@ test.serial('numbers of a period from rollups equal the numbers from records', a
         rawPeriods[index][key],
         `${period.from}..${period.to} ${zone}: ${reports[Number(key.slice(1))]}`,
       )
+    }
+  }
+})
+
+test.serial('months of a period from rollups add up to its days', async (t) => {
+  const rolled = await fetchPeriods(t)
+
+  for (const statistics of rolled) {
+    for (const type of ['TOTAL', 'UNIQUE']) {
+      const of = (interval) => statistics[`r${reports.indexOf(views(type, interval))}`]
+      t.is(sum(of('MONTHLY')), sum(of('DAILY')))
+      t.is(sum(of('YEARLY')), sum(of('DAILY')))
     }
   }
 })

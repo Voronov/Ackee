@@ -157,7 +157,7 @@ test.serial('an entry hands back the filter of its group, and that filter narrow
   t.deepEqual(report.countries, [{ value: 'Ukraine', count: 3, filter: [{ field: 'COUNTRY', value: 'UA' }] }])
 })
 
-test.serial('a referrer with its source hands back the field it shows', async (t) => {
+test.serial('a referrer with its source hands back the fields of its group', async (t) => {
   const { referrers } = await data(
     t,
     'referrers(sorting: TOP, type: WITH_SOURCE, range: LAST_6_MONTHS) { value filter { field value } }',
@@ -165,10 +165,47 @@ test.serial('a referrer with its source hands back the field it shows', async (t
 
   t.deepEqual(referrers.find((entry) => entry.value === 'Newsletter').filter, [
     { field: 'SOURCE', value: 'Newsletter' },
+    { field: 'SITE_REFERRER', value: null },
   ])
   t.deepEqual(referrers.find((entry) => entry.value === 'https://google.com/').filter, [
+    { field: 'SOURCE', value: null },
     { field: 'SITE_REFERRER', value: 'https://google.com/' },
   ])
+})
+
+test.serial('a click on a referrer gives the count of its row', async (t) => {
+  const record = (fields) => ({ domainId: t.context.domain.id, siteLocation: 'https://example.com/', ...fields })
+  await Record.insertMany([
+    record({ siteReferrer: 'https://y.example/' }),
+    record({ siteReferrer: 'https://y.example/', source: 'X' }),
+    record({ siteReferrer: 'https://z.example/', source: 'X' }),
+    record({ siteReferrer: 'https://z.example/', source: 'X' }),
+  ])
+
+  const { referrers } = await data(
+    t,
+    'referrers(sorting: TOP, type: WITH_SOURCE, range: LAST_6_MONTHS) { id value count filter { field value } }',
+  )
+
+  t.is(new Set(referrers.map((entry) => entry.id)).size, referrers.length)
+  t.deepEqual(
+    referrers.filter((entry) => entry.value === 'X').map((entry) => entry.count),
+    [2, 1],
+  )
+
+  for (const { value, count, filter } of referrers) {
+    const report = await data(
+      t,
+      `
+        views(type: TOTAL, interval: DAILY, limit: 14) { count }
+        referrers(sorting: TOP, type: WITH_SOURCE, range: LAST_6_MONTHS) { value count }
+      `,
+      { filters: filter },
+    )
+
+    t.deepEqual(report.referrers, [{ value, count }])
+    t.is(sum(report.views), count)
+  }
 })
 
 test.serial('a filter without a value means the views without the field', async (t) => {

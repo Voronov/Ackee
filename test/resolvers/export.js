@@ -9,6 +9,7 @@ import Ga4Daily from '../../src/models/Ga4Daily.js'
 import Record from '../../src/models/Record.js'
 import Token from '../../src/models/Token.js'
 import server from '../../src/server.js'
+import signale from '../../src/utils/signale.js'
 import { DEFAULT_WORKSPACE_ID } from '../../src/constants/workspaces.js'
 import { cleanup, cleanupDatabase, connectToDatabase, fillDatabase } from './_utils.js'
 
@@ -310,4 +311,144 @@ test('cells with a comma, a quote or a line break are quoted', (t) => {
   )
 
   t.is(csv, '\u{FEFF}value,count\r\n"a, ""b""\nc",3\r\n,0\r\n')
+})
+
+test('a cell that starts with a space or a line break gets the quote as well', (t) => {
+  const csv = toCsv(['value'], [{ value: ' =1+1' }, { value: '\n=1+1' }, { value: '\u{A0}=1+1' }, { value: 'a =1' }])
+
+  t.is(csv, `\u{FEFF}value\r\n' =1+1\r\n"'\n=1+1"\r\n'\u{A0}=1+1\r\na =1\r\n`)
+})
+
+test.serial('a CSV has the same ISO dates as a JSON', async (t) => {
+  const { domain, token } = t.context
+  await seed(domain.id)
+  const path = `domainId=${domain.id}&type=ONLY_SOURCE&sorting=RECENT`
+
+  const json = await values(`/export/referrers.json?${path}`, token.id)
+  const { body } = await get(`/export/referrers.csv?${path}`, token.id)
+
+  const dates = text(body)
+    .slice(1)
+    .trim()
+    .split('\r\n')
+    .slice(1)
+    .map((line) => line.split(',').at(-1))
+
+  t.is(dates.length, 3)
+  t.deepEqual(
+    dates,
+    json.entries.map((entry) => entry.created),
+  )
+})
+
+test.serial('a repeated parameter is 400 and leaves a trace, filter may repeat', async (t) => {
+  const { domain, token } = t.context
+  await seed(domain.id)
+  const other = await Domain.create({ title: 'Other', workspaceId: DEFAULT_WORKSPACE_ID })
+
+  for (const query of [
+    `domainId=${domain.id}&domainId=${other.id}`,
+    `domainId=${domain.id}&source=GA4&source=GA4`,
+    `domainId=${domain.id}&limit=1&limit=2`,
+    `domainId=${domain.id}&delimiter=semicolon&delimiter=comma`,
+    `domainId=${domain.id}&from=2026-01-01&from=2026-01-02&to=2026-01-03`,
+  ]) {
+    const { status, body } = await get(`/export/pages.csv?${query}`, token.id)
+    t.is(status, 400, query)
+    t.regex(JSON.parse(text(body)).error, /more than once/, query)
+  }
+
+  t.true(await audited({ action: 'export.pages', details: new RegExp(`more than once.*${domain.id}`) }, 5))
+  // Both ids of the attempt, as the entry has no single target
+  t.true(await audited({ details: new RegExp(String.raw`"domainId":\["${domain.id}","${other.id}"\]`) }, 1))
+})
+
+test.serial('the audit log has the source, the filters and the period of an export', async (t) => {
+  const { domain, token } = t.context
+  const filter = encodeURIComponent('SITE_LOCATION:https://example.com/')
+
+  const period = await get(
+    `/export/pages.csv?domainId=${domain.id}&from=2026-01-01&to=2026-01-02&filter=${filter}&filter=SITE_REFERRER`,
+    token.id,
+  )
+  t.is(period.status, 200)
+
+  const ga4 = await get(`/export/pages.json?domainId=${domain.id}&source=GA4`, token.id)
+  t.is(ga4.status, 200)
+
+  t.true(await audited({ action: 'export.pages', targetId: domain.id }, 2))
+  const csv = await AuditLog.findOne({ targetId: domain.id, details: /^ok csv \{/ }).lean()
+  const json = await AuditLog.findOne({ targetId: domain.id, details: /^ok json \{/ }).lean()
+
+  const args = JSON.parse(csv.details.slice('ok csv '.length))
+  t.is(args.from, '2026-01-01')
+  t.is(args.to, '2026-01-02')
+  t.deepEqual(args.filter, ['SITE_LOCATION:https://example.com/', 'SITE_REFERRER'])
+  t.is(JSON.parse(json.details.slice('ok json '.length)).source, 'GA4')
+})
+
+test.serial('the caller cannot push the source out of the audit entry', async (t) => {
+  const { domain, token } = t.context
+
+  await get(`/export/pages.json?junk=${'x'.repeat(300)}&domainId=${domain.id}&source=GA4`, token.id)
+
+  t.true(await audited({ action: 'export.pages', details: /^ok json \{"source":"GA4"/ }, 1))
+})
+
+test.serial('an internal error is 500 with a generic message, and is logged', async (t) => {
+  const { domain, token } = t.context
+  const { aggregate } = Record
+  const { error: logError } = signale
+  const logged = []
+
+  Record.aggregate = () => {
+    throw new Error('Unknown domain of mongodb://root@db.internal')
+  }
+  signale.error = (message) => logged.push(message)
+  t.teardown(() => {
+    Record.aggregate = aggregate
+    signale.error = logError
+  })
+
+  const { status, headers, body } = await get(`/export/pages.json?domainId=${domain.id}`, token.id)
+
+  t.is(status, 500)
+  t.is(headers.get('cache-control'), 'no-store')
+  t.deepEqual(JSON.parse(text(body)), { error: 'The export failed' })
+  t.is(logged.length, 1)
+  t.regex(logged[0], /db\.internal/)
+
+  // The audit log is read in the dashboard, so the raw message stays out of it too
+  t.true(await audited({ action: 'export.pages', details: /^error: The export failed json/ }, 1))
+  t.is(await AuditLog.countDocuments({ details: /db\.internal/ }), 0)
+})
+
+test.serial('an expected error stays 400 with its message and is not logged as a fault', async (t) => {
+  const { domain, token } = t.context
+  const { error: logError } = signale
+  const logged = []
+
+  signale.error = (message) => logged.push(message)
+  t.teardown(() => {
+    signale.error = logError
+  })
+
+  const messageOf = async (query) => {
+    const { status, body } = await get(`/export/views.json?domainId=${domain.id}&${query}`, token.id)
+    return [status, JSON.parse(text(body)).error]
+  }
+
+  t.deepEqual(await messageOf('limit=367'), [400, 'The limit must be from 1 to 366'])
+  t.deepEqual(await messageOf('from=2026-01-01'), [400, 'A period needs both from and to'])
+  t.deepEqual(await messageOf('from=2026-02-01&to=2026-01-01'), [400, 'The period ends before it starts'])
+  t.deepEqual(await messageOf('filter=SOURCE:x&source=GA4'), [
+    400,
+    'Filters and periods are only available for the views collected by Ackee',
+  ])
+
+  const [status, message] = await messageOf('filter=PASSWORD:x')
+  t.is(status, 400)
+  t.regex(message, /PASSWORD/)
+
+  t.deepEqual(logged, [])
 })

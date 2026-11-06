@@ -9,6 +9,7 @@ on:
   push:
     branches: [develop]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -31,7 +32,8 @@ jobs:
         # a problem created by testing there rather than one found by it. `cross-env` in
         # package.json keeps those scripts working for anyone who does open the repository
         # on Windows, but nothing here proves it.
-        os: [ubuntu-latest, macOS-latest]
+        # macOS runs only by hand: its runners often never arrive, and that turned every run red.
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["ubuntu-latest", "macOS-latest"]' || '["ubuntu-latest"]') }}
 
     steps:
       - uses: actions/checkout@v5
