@@ -14,6 +14,11 @@ const schema = new mongoose.Schema({
   until: {
     type: Date,
   },
+  // Daily rollups of the dimensions exist for every whole day (UTC) in [ceilDay(from), daysUntil).
+  // Never past until: a day is summed only after all its hours are built.
+  daysUntil: {
+    type: Date,
+  },
   // The process that builds rollups holds this lease, see ROLLUP_LEASE
   lockedUntil: {
     type: Date,

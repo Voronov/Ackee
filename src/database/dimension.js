@@ -4,6 +4,7 @@ import aggregateRolledTopRecords from '../aggregations/aggregateRolledTopRecords
 import aggregateTopRecords from '../aggregations/aggregateTopRecords.js'
 import { ROLLUP_DIMENSIONS } from '../constants/rollups.js'
 import { SORTINGS_NEW, SORTINGS_RECENT, SORTINGS_TOP } from '../constants/sortings.js'
+import DimensionDayRollup from '../models/DimensionDayRollup.js'
 import DimensionRollup from '../models/DimensionRollup.js'
 import Record from '../models/Record.js'
 import rangeStart from '../utils/rangeStart.js'
@@ -33,7 +34,10 @@ export default (types, dimension) => async (ids, sorting, type, range, limit, da
     if (sorting === SORTINGS_RECENT) return aggregateRecentRecords(ids, fields, limit, or)
   })()
 
-  const model = coverage == null ? Record : DimensionRollup
+  const model = (() => {
+    if (coverage == null) return Record
+    return coverage.days == null ? DimensionRollup : DimensionDayRollup
+  })()
   const entries = await model.aggregate(aggregation)
 
   return entries.map((entry) => {
