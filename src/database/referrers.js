@@ -14,8 +14,6 @@ export default dimension(
       fields: ['source', 'siteReferrer'],
       format,
       or: true,
-      // The field the entry shows, not both: a source, or else the referrer (ACKEE-24)
-      filter: (id) => (id.source ? ['source'] : ['siteReferrer']),
     },
     [REFERRERS_TYPE_NO_SOURCE]: {
       fields: ['siteReferrer'],

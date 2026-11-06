@@ -18,11 +18,10 @@ import { coverage as rollupCoverage } from './rollups.js'
  * Every type of the dimension says which record fields it groups by and how a group
  * is shown. `or` groups records that have any of the fields instead of all of them.
  * `dimension` names the rollup of the dimension (constants/rollups.js), which answers TOP.
- * `details` adds fields of the group to an entry, next to the shown value. `filter` names the
- * fields a click on the entry filters by, all of `fields` when left out.
+ * `details` adds fields of the group to an entry, next to the shown value.
  */
 export default (types, dimension) => async (ids, sorting, type, range, limit, dateDetails) => {
-  const { fields, format, details, or, filter } = types[type]
+  const { fields, format, details, or } = types[type]
 
   const dimensionFields = ROLLUP_DIMENSIONS[dimension] ?? []
   // Rollups count whole domains, a filtered list reads records (ACKEE-24)
@@ -53,12 +52,13 @@ export default (types, dimension) => async (ids, sorting, type, range, limit, da
     const value = format(entry._id)
 
     return {
-      id: recursiveId([value, sorting, type, range, ...ids]),
+      // Groups can show the same value, and the interface's cache merges entries of one id
+      id: recursiveId([value, JSON.stringify(entry._id), sorting, type, range, ...ids]),
       value,
       count: entry.count,
       created: entry.created,
       // The fields of the group, for the dashboard to filter by them (ACKEE-24)
-      filter: (filter?.(entry._id) ?? fields).map((field) => ({
+      filter: fields.map((field) => ({
         field: FILTER_NAMES[field],
         value: entry._id[field] ?? null,
       })),
