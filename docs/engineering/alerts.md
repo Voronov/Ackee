@@ -90,3 +90,28 @@ docker run --rm -v /tmp/am.yml:/am.yml --entrypoint amtool prom/alertmanager:v0.
 5. Якщо повідомлення немає: `docker logs ackee-alertmanager | grep -i notify`. `Unauthorized (401)` – неправильний токен, `chat not found` – неправильний id або бота немає в чаті.
 
 Записати в журнал час зупинки, час повідомлення в чаті й час `RESOLVED`. Live для перевірки не зупиняємо.
+
+## Звіти в чат (ACKEE-125)
+
+Алерти кажуть, що стенд упав або помилок забагато. Дрібніше й регулярне шле `deploy/ackee-report` у той самий чат, тим самим ботом.
+
+| Режим      | Коли (`/etc/cron.d/ackee-report`)   | Що                                                                                                                                       |
+| ---------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `errors`   | кожні 10 хв                         | Лише якщо щось сталось: HTTP 5xx на live і dev (Prometheus), `fatal` у журналі, новий рестарт контейнера                                 |
+| `daily`    | щодня о 06:00 UTC (08:00 за Києвом) | Версія, стан і рестарти стендів, запити, 5xx і p95 за добу, нові записи, бекап, диск, пам'ять, алерти                                    |
+| `security` | пн, ср, пт о 06:05 UTC              | `npm audit` lock-файлу версії на live і `develop`, строк TLS-сертифікатів, SSH і fail2ban за 3 дні, відкриті порти, оновлення безпеки ОС |
+
+`fatal` – це помилка, якої код не чекав (`server.js`, `handleGraphError`). GraphQL віддає її з HTTP 200, тому до 5xx вона не потрапляє. Відмову introspection для чужого запиту скрипт пропускає.
+
+Встановлення на сервері, після бота й чату з розділу вище:
+
+```sh
+scp deploy/ackee-report hosting2:/usr/local/bin/ackee-report
+ssh hosting2 'chmod 755 /usr/local/bin/ackee-report && cat > /etc/cron.d/ackee-report' <<'CRON'
+*/10 * * * * root /usr/local/bin/ackee-report errors >> /var/log/ackee-report.log 2>&1
+0 6 * * * root /usr/local/bin/ackee-report daily >> /var/log/ackee-report.log 2>&1
+5 6 * * 1,3,5 root /usr/local/bin/ackee-report security >> /var/log/ackee-report.log 2>&1
+CRON
+```
+
+Перевірити без відправки: `ACKEE_REPORT_DRY_RUN=1 /usr/local/bin/ackee-report daily`.
