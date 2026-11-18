@@ -40,9 +40,11 @@ const Tooltip = (props) => {
     'button',
     {
       ref,
-      type: 'button',
-      className: 'link tooltip',
-      onClick: toggle,
+      'type': 'button',
+      'className': 'link tooltip',
+      // The icon has no text, so screen readers need a name
+      'aria-label': 'Explanation',
+      'onClick': toggle,
     },
     h(IconQuestionMark, {
       className: 'tooltip__icon',
