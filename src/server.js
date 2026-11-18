@@ -1,3 +1,4 @@
+import { ApolloServerErrorCode } from '@apollo/server/errors'
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer'
 import { expressMiddleware } from '@as-integrations/express5'
 import express from 'express'
@@ -48,6 +49,19 @@ for (const [, filename] of staticFiles) {
   if (files.has(filename) === false) files.set(filename, loadFile(filename))
 }
 
+// A request that is wrong before any resolver runs (no query, a query that does not parse or
+// validate, wrong variables, the CSRF guard of Apollo) is the mistake of the client, not a fault of
+// Ackee. Logged as fatal, it reached the team chat like a real failure (BUG-74).
+const CLIENT_ERRORS = new Set([
+  ApolloServerErrorCode.BAD_REQUEST,
+  ApolloServerErrorCode.GRAPHQL_PARSE_FAILED,
+  ApolloServerErrorCode.GRAPHQL_VALIDATION_FAILED,
+  ApolloServerErrorCode.BAD_USER_INPUT,
+  ApolloServerErrorCode.OPERATION_RESOLUTION_FAILURE,
+  ApolloServerErrorCode.PERSISTED_QUERY_NOT_FOUND,
+  ApolloServerErrorCode.PERSISTED_QUERY_NOT_SUPPORTED,
+])
+
 const handleGraphError = (formattedError, error) => {
   // This part is for error that happen inside GraphQL resolvers.
   // All known errors should be thrown as a KnownError as those
@@ -55,7 +69,7 @@ const handleGraphError = (formattedError, error) => {
   // in the console output.
 
   const suitableError = error.originalError || error
-  const isKnownError = suitableError instanceof KnownError
+  const isKnownError = suitableError instanceof KnownError || CLIENT_ERRORS.has(formattedError.extensions?.code)
 
   // Only log the full error stack when the error isn't a known response
   if (isKnownError === false) {
