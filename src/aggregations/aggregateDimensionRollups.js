@@ -18,6 +18,9 @@ export default (dimension, fields, from, to) => {
           fields: '$fields',
         },
         count: { $sum: '$count' },
+        unique: { $sum: '$unique' },
+        durationSum: { $sum: '$durationSum' },
+        durationCount: { $sum: '$durationCount' },
       },
     },
     {
@@ -28,6 +31,9 @@ export default (dimension, fields, from, to) => {
         hour: '$_id.hour',
         fields: '$_id.fields',
         count: 1,
+        unique: 1,
+        durationSum: 1,
+        durationCount: 1,
       },
     },
     {

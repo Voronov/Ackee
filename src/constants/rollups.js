@@ -9,7 +9,13 @@ export const ROLLUP_DIMENSIONS = {
   browsers: ['browserName', 'browserVersion'],
   sizes: ['browserWidth', 'browserHeight', 'screenWidth', 'screenHeight'],
   countries: ['country'],
+  // Only for a report filtered by a page: the pages report reads records (BUG-72)
+  pages: ['siteLocation'],
 }
+
+// Rollups built by an older version lack fields a report now reads. rollUp builds them again.
+// 2: the dimensions keep unique views and durations, and pages are a dimension (BUG-72)
+export const ROLLUP_VERSION = 2
 
 // The days of the backfill are built one at a time, so a single aggregation stays small.
 export const ROLLUP_CHUNK_HOURS = 24

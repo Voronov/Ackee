@@ -2,12 +2,13 @@ import aggregateRolledViews from '../aggregations/aggregateRolledViews.js'
 import aggregateViews from '../aggregations/aggregateViews.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
 import { VIEWS_TYPE_TOTAL, VIEWS_TYPE_UNIQUE } from '../constants/views.js'
+import DimensionRollup from '../models/DimensionRollup.js'
 import Record from '../models/Record.js'
 import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
-import { applyScope, hasFilters, limitOf } from '../utils/scope.js'
+import { applyScope, filteredRollup, hasFilters, limitOf } from '../utils/scope.js'
 import { coverage as rollupCoverage } from './rollups.js'
 
 // A report without rollups reads records. With `clientId` in the match of unique views the planner
@@ -27,9 +28,10 @@ export const aggregateRecords = async (aggregation) => {
 const get = async (ids, type, interval, askedLimit, dateDetails) => {
   const unique = type === VIEWS_TYPE_UNIQUE
   const limit = limitOf(dateDetails, interval, askedLimit)
-  // Rollups count whole domains, a filtered report reads records (ACKEE-24)
+  // A filter by the fields of one dimension reads its rollups, other filters read records (BUG-72)
+  const filtered = filteredRollup(dateDetails)
   const coverage =
-    hasFilters(dateDetails) === true
+    hasFilters(dateDetails) === true && filtered == null
       ? undefined
       : await rollupCoverage(
           dateDetails.start ?? dateDetails.includeFnByInterval(interval)(limit),
@@ -38,7 +40,7 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
         )
 
   const aggregation = (() => {
-    if (coverage != null) return aggregateRolledViews(ids, unique, interval, dateDetails, coverage)
+    if (coverage != null) return aggregateRolledViews(ids, unique, interval, dateDetails, coverage, filtered)
     if (type === VIEWS_TYPE_UNIQUE)
       return applyScope(aggregateViews(ids, true, interval, limit, dateDetails), dateDetails)
     if (type === VIEWS_TYPE_TOTAL)
@@ -78,7 +80,8 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
     })
   }
 
-  return enhance(await (coverage == null ? aggregateRecords(aggregation) : ViewRollup.aggregate(aggregation)))
+  const rollups = filtered == null ? ViewRollup : DimensionRollup
+  return enhance(await (coverage == null ? aggregateRecords(aggregation) : rollups.aggregate(aggregation)))
 }
 
 export default get

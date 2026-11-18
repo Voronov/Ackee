@@ -1,19 +1,21 @@
 import aggregateDurations from '../aggregations/aggregateDurations.js'
 import aggregateRolledDurations from '../aggregations/aggregateRolledDurations.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
+import DimensionRollup from '../models/DimensionRollup.js'
 import Record from '../models/Record.js'
 import ViewRollup from '../models/ViewRollup.js'
 import createArray from '../utils/createArray.js'
 import matchesDate from '../utils/matchesDate.js'
 import recursiveId from '../utils/recursiveId.js'
-import { applyScope, hasFilters, limitOf } from '../utils/scope.js'
+import { applyScope, filteredRollup, hasFilters, limitOf } from '../utils/scope.js'
 import { coverage as rollupCoverage } from './rollups.js'
 
 const get = async (ids, interval, askedLimit, dateDetails) => {
   const limit = limitOf(dateDetails, interval, askedLimit)
-  // Rollups count whole domains, a filtered report reads records (ACKEE-24)
+  // A filter by the fields of one dimension reads its rollups, other filters read records (BUG-72)
+  const filtered = filteredRollup(dateDetails)
   const coverage =
-    hasFilters(dateDetails) === true
+    hasFilters(dateDetails) === true && filtered == null
       ? undefined
       : await rollupCoverage(
           dateDetails.start ?? dateDetails.includeFnByInterval(interval)(limit),
@@ -22,7 +24,7 @@ const get = async (ids, interval, askedLimit, dateDetails) => {
         )
 
   const aggregation = (() => {
-    if (coverage != null) return aggregateRolledDurations(ids, interval, dateDetails, coverage)
+    if (coverage != null) return aggregateRolledDurations(ids, interval, dateDetails, coverage, filtered)
     return applyScope(aggregateDurations(ids, interval, limit, dateDetails), dateDetails)
   })()
 
@@ -59,7 +61,8 @@ const get = async (ids, interval, askedLimit, dateDetails) => {
     })
   }
 
-  const model = coverage == null ? Record : ViewRollup
+  const rollups = filtered == null ? ViewRollup : DimensionRollup
+  const model = coverage == null ? Record : rollups
 
   return enhance(await model.aggregate(aggregation))
 }

@@ -14,17 +14,22 @@ const minDuration = {
 
 const counts = { $lt: [minDuration, DURATIONS_LIMIT] }
 
+// What one record adds to the views and durations reports. Rollups sum it per hour, and the
+// reports sum it for the records outside of the rollups, so both read paths count alike.
+// The rollups of the dimensions keep the same measures, for a report filtered by one (BUG-72).
+export const viewMeasures = {
+  total: { $literal: 1 },
+  unique: { $cond: [{ $ne: [{ $ifNull: ['$clientId', null] }, null] }, 1, 0] },
+  durationSum: { $cond: [counts, minDuration, 0] },
+  durationCount: { $cond: [counts, 1, 0] },
+}
+
 export default () => {
-  // What one record adds to the views and durations reports. Rollups sum it per hour, and the
-  // reports sum it for the records outside of the rollups, so both read paths count alike.
   return {
     $project: {
       domainId: '$domainId',
       at: '$created',
-      total: { $literal: 1 },
-      unique: { $cond: [{ $ne: [{ $ifNull: ['$clientId', null] }, null] }, 1, 0] },
-      durationSum: { $cond: [counts, minDuration, 0] },
-      durationCount: { $cond: [counts, 1, 0] },
+      ...viewMeasures,
     },
   }
 }

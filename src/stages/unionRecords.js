@@ -1,7 +1,7 @@
 import Record from '../models/Record.js'
 import matchDomains from './matchDomains.js'
 
-export default (ids, coverage, project) => {
+export default (ids, coverage, project, conditions = []) => {
   // Adds the records the rollups do not cover: the part of the window before the first whole
   // hour, and everything since the rollups were last built.
   const match = matchDomains(ids)
@@ -11,6 +11,7 @@ export default (ids, coverage, project) => {
   const tail = coverage.end == null ? { $gte: coverage.until } : { $gte: coverage.until, $lt: coverage.end }
 
   match.$match.$or = [{ created: head }, { created: tail }]
+  if (conditions.length > 0) match.$match.$and = conditions
 
   return {
     $unionWith: {
