@@ -97,7 +97,7 @@ def chat_id():
 
 
 def send(text):
-    text = text if len(text) <= LIMIT else text[: LIMIT - 20] + '\n… (обрізано)'
+    text = text if len(text) <= LIMIT else text[: LIMIT - 20] + '\n… (cut)'
     if DRY_RUN:
         print(text)
         return
@@ -132,13 +132,13 @@ def errors():
     for stage, container, _ in STANDS:
         lines = fatal_lines(container, '10m')
         if lines:
-            problems.append(f'{stage}: {len(lines)} fatal у журналі\n' + '\n'.join(f'  {line}' for line in distinct(lines)))
+            problems.append(f'{stage}: {len(lines)} fatal in the log\n' + '\n'.join(f'  {line}' for line in distinct(lines)))
 
         restarts = inspect(container, '{{.RestartCount}}')
         if restarts is not None and restarts.isdigit():
             before = state.get(container, {}).get('restarts')
             if before is not None and int(restarts) > before:
-                problems.append(f'{stage}: контейнер перезапускався, рестартів {restarts}')
+                problems.append(f'{stage}: the container restarted, {restarts} restarts')
             state[container] = {'restarts': int(restarts)}
 
     query = 'sum by (job, route, status) (increase(ackee_http_request_duration_seconds_count{status=~"5..",route!="/metrics"}[10m]))'
@@ -147,50 +147,214 @@ def errors():
         if count >= 1:
             metric = result['metric']
             stage = metric.get('job', '?').replace('ackee-', '')
-            problems.append(f'{stage}: {count}× HTTP {metric.get("status")} на {metric.get("route")}')
+            problems.append(f'{stage}: {count}× HTTP {metric.get("status")} on {metric.get("route")}')
 
     save_state(state)
     if problems:
-        send('⚠️ Ackee: помилки за останні 10 хв\n\n' + '\n\n'.join(problems))
+        send('⚠️ Ackee: errors in the last 10 minutes\n\n' + '\n\n'.join(problems))
     return 0
 
 
+TEST_DOMAIN = os.environ.get('ACKEE_REPORT_TEST_DOMAIN', 'northwind-coffee.example')
+BACKUP_DIR = os.environ.get('ACKEE_REPORT_BACKUP_DIR', '/opt/ackee/backups')
+
+
+def since_text(seconds):
+    if seconds is None:
+        return '?'
+    days, hours = int(seconds // 86400), int(seconds % 86400 // 3600)
+    minutes = int(seconds % 3600 // 60)
+    return f'{days} d {hours} h' if days else f'{hours} h {minutes} min' if hours else f'{minutes} min'
+
+
+def started_ago(started):
+    # Docker gives nanoseconds, which fromisoformat does not take
+    try:
+        moment = datetime.datetime.strptime(started[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+    return (datetime.datetime.now(datetime.timezone.utc) - moment).total_seconds()
+
+
+def stand_data(database, since):
+    """New records by domain and the state of the GA4 sync, in one call to mongosh."""
+    script = (
+        f'const since = ISODate("{since}"); const titles = {{}};'
+        'db.domains.find({}, {id: 1, title: 1}).forEach((d) => { titles[d.id] = d.title });'
+        'const records = {}; db.records.aggregate([{$match: {created: {$gte: since}}}, {$group: {_id: "$domainId", n: {$sum: 1}}}])'
+        '.forEach((r) => { records[titles[r._id] || r._id] = r.n });'
+        'const ga4 = db.ga4connections.find({}, {domainId: 1, lastSync: 1, lastError: 1}).toArray().map((c) => {'
+        ' const day = db.ga4dailies.find({domainId: c.domainId}).sort({date: -1}).limit(1).toArray()[0];'
+        ' return {title: titles[c.domainId] || c.domainId, lastSync: c.lastSync, error: c.lastError || null, lastDay: day ? day.date : null} });'
+        'print(JSON.stringify({records, ga4}))'
+    )
+    out = run('docker', 'exec', 'ackee-mongo', 'mongosh', '--quiet', database, '--eval', script)
+    try:
+        return json.loads(out)
+    except (TypeError, ValueError):
+        return None
+
+
+def megabytes(amount):
+    return f'{amount / 2**20:.0f} MB' if amount is not None else '?'
+
+
+def server_lines():
+    lines = []
+    try:
+        with open('/proc/uptime') as file:
+            uptime = float(file.read().split()[0])
+    except (OSError, ValueError):
+        uptime = None
+    cpu_now = value(prom('100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])))'))
+    cpu_avg = value(prom('avg_over_time((100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))))[24h:5m])'))
+    cpu_max = value(prom('max_over_time((100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))))[24h:5m])'))
+    ram_min = value(prom('min_over_time(node_memory_MemAvailable_bytes[24h])'))
+    ram_total = value(prom('node_memory_MemTotal_bytes'))
+    percent = lambda amount: f'{amount:.0f} %' if amount is not None else '?'
+    lines.append(f'  uptime {since_text(uptime)}, load {" / ".join(f"{load:.2f}" for load in os.getloadavg())}')
+    lines.append(f'  CPU now {percent(cpu_now)}, over the day {percent(cpu_avg)} on average, {percent(cpu_max)} at most')
+    if ram_min is not None and ram_total is not None:
+        lines.append(f'  RAM: at least {ram_min / 2**30:.1f} of {ram_total / 2**30:.1f} GB free over the day, {memory()}')
+    else:
+        lines.append(f'  RAM: {memory()}')
+    disk = shutil.disk_usage('/')
+    lines.append(f'  disk {round(disk.used * 100 / (disk.used + disk.free))} % used, {disk.free / 2**30:.1f} GB free')
+    return lines
+
+
+def nightly():
+    line = last_backup()
+    match = re.match(r'(\d{4})-(\d\d)-(\d\d)T(\d\d:\d\d)\S*\s+(\w+)', line)
+    return f'{match.group(5)}, {match.group(3)}.{match.group(2)} {match.group(4)} UTC' if match else line
+
+
+def home_pull():
+    """When the home server last took the dumps: a login of its read-only key, seen by sshd.
+    The check of the dumps runs over there, so a login means the copy ran, not that it passed."""
+    try:
+        with open(os.environ.get('ACKEE_REPORT_AUTHORIZED_KEYS', '/root/.ssh/authorized_keys')) as file:
+            line = next((line for line in file if 'pull ackee backups' in line), None)
+    except OSError:
+        line = None
+    if line is None:
+        return 'home server: no pull key'
+    key = line[line.index('ssh-'):] if 'ssh-' in line else line
+    try:
+        done = subprocess.run(['ssh-keygen', '-lf', '/dev/stdin'], input=key, capture_output=True, text=True, timeout=10)
+        fingerprint = done.stdout.split()[1]
+    except (OSError, IndexError, subprocess.TimeoutExpired):
+        return 'home server: the pull key could not be read'
+    journal = run('journalctl', '-u', 'ssh', '--since', '48 hours ago', '--no-pager', '-q', '-o', 'short-iso') or ''
+    logins = [entry for entry in journal.splitlines() if 'Accepted publickey' in entry and fingerprint in entry]
+    if not logins:
+        return '⚠️ home server: no pull in 48 h'
+    when = datetime.datetime.fromisoformat(logins[-1].split()[0])
+    hours = (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() / 3600
+    mark = '⚠️ ' if hours > 26 else ''
+    return f'{mark}home server: pulled {when.astimezone(datetime.timezone.utc):%d.%m %H:%M} UTC, {hours:.0f} h ago'
+
+
+def backup_lines():
+    try:
+        dumps = [os.path.join(BACKUP_DIR, name) for name in os.listdir(BACKUP_DIR) if name.endswith('.archive.gz')]
+    except OSError:
+        return ['  the backup folder could not be read', f'  log: {last_backup()}']
+    if not dumps:
+        return ['  no dumps', f'  log: {last_backup()}']
+    dumps.sort(key=os.path.getmtime)
+    newest, oldest = dumps[-1], dumps[0]
+    stamp = lambda path: datetime.datetime.fromtimestamp(os.path.getmtime(path), datetime.timezone.utc).strftime('%d.%m %H:%M')
+    size = sum(os.path.getsize(path) for path in dumps)
+    return [
+        f'  newest {stamp(newest)} UTC, {os.path.getsize(newest) / 2**20:.0f} MB; nightly run: {nightly()}',
+        f'  {len(dumps)} dumps in the folder, {size / 2**20:.0f} MB, the oldest from {stamp(oldest)}',
+        f'  {home_pull()}',
+    ]
+
+
+def bans_since(hours):
+    """Bans of fail2ban in its own log, which the journal does not have."""
+    since = datetime.datetime.now() - datetime.timedelta(hours=hours)
+    try:
+        with open(os.environ.get('ACKEE_REPORT_FAIL2BAN_LOG', '/var/log/fail2ban.log'), errors='replace') as file:
+            return sum(1 for line in file if ' Ban ' in line and line[:19] >= since.strftime('%Y-%m-%d %H:%M:%S'))
+    except OSError:
+        return None
+
+
+def security_lines():
+    banned = run('fail2ban-client', 'status', 'sshd') or ''
+    now = re.search(r'Currently banned:\s*(\d+)', banned)
+    journal = run('journalctl', '-u', 'ssh', '--since', '24 hours ago', '--no-pager', '-q')
+    failed = len(re.findall(r'Invalid user|Failed password|Connection closed by invalid user', journal)) if journal is not None else None
+    bans = bans_since(24)
+    return [
+        f'  fail2ban: {now.group(1) if now else "?"} banned now, {bans if bans is not None else "?"} new bans in the day',
+        f'  failed SSH logins in the day: {failed if failed is not None else "?"}',
+    ]
+
+
 def daily():
-    parts = [f'☀️ Ackee: звіт за добу, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
+    now = datetime.datetime.now(datetime.timezone.utc)
+    since = (now - datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    parts = [f'☀️ Ackee: daily report, {now:%d.%m.%Y}']
+    ga4 = []
 
     for stage, container, database in STANDS:
         job = f'ackee-{stage}'
         image = inspect(container, '{{.Config.Image}}') or '?'
-        health = inspect(container, '{{.State.Health.Status}}') or 'не працює'
+        health = inspect(container, '{{.State.Health.Status}}') or 'not running'
         restarts = inspect(container, '{{.RestartCount}}') or '?'
-        started = (inspect(container, '{{.State.StartedAt}}') or '?')[:16].replace('T', ' ')
+        limit = inspect(container, '{{.HostConfig.Memory}}')
 
         requests = value(prom(f'sum(increase(ackee_http_request_duration_seconds_count{{job="{job}",route!="/metrics"}}[24h]))'))
         errors_5xx = value(prom(f'sum(increase(ackee_http_request_duration_seconds_count{{job="{job}",status=~"5..",route!="/metrics"}}[24h]))'))
+        errors_4xx = value(prom(f'sum(increase(ackee_http_request_duration_seconds_count{{job="{job}",status=~"4..",route!="/metrics"}}[24h]))'))
         p95 = value(prom(f'histogram_quantile(0.95, sum by (le) (rate(ackee_http_request_duration_seconds_bucket{{job="{job}",route!="/metrics"}}[24h])))'))
-
-        since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
-        records = run('docker', 'exec', 'ackee-mongo', 'mongosh', '--quiet', database, '--eval', f'print(db.records.countDocuments({{created: {{$gte: ISODate("{since}")}}}}))')
+        memory_max = value(prom(f'max_over_time(container_memory_usage_bytes{{name="{container}"}}[24h])'))
         fatal = fatal_lines(container, '24h')
+        data = stand_data(database, since)
 
-        lines = [
-            f'\n{stage}: {image.split(":")[-1]}, {health}, рестартів {restarts}, запущено {started} UTC',
-            f'  запитів {number(requests) if requests is not None else "?"}, 5xx {number(errors_5xx or 0) if requests is not None else "?"}, '
-            f'p95 {f"{p95 * 1000:.0f} мс" if p95 is not None and p95 == p95 else "?"}',
-            f'  нових записів {records.strip() if records else "?"}, fatal у журналі {len(fatal) if fatal is not None else "?"}',
-        ]
-        parts.append('\n'.join(lines))
+        if data is not None:
+            test = data['records'].get(TEST_DOMAIN, 0)
+            real = sum(count for title, count in data['records'].items() if title != TEST_DOMAIN)
+            records = f'sites {number(real)}, test domain {number(test)}'
+            if stage == 'live':
+                ga4 = data['ga4']
+        else:
+            records = '?'
 
-    disk = shutil.disk_usage('/')
-    parts.append(f'\nСервер: диск {round(disk.used * 100 / (disk.used + disk.free))} %, вільно {disk.free / 2**30:.1f} ГБ, {memory()}')
-    parts.append(f'Бекап: {last_backup()}')
+        memory_text = megabytes(memory_max) + (f' of {megabytes(int(limit))}' if limit and limit.isdigit() and int(limit) > 0 else '')
+        parts.append('\n'.join([
+            f'\n{stage}: {image.split(":")[-1]}, {health}, {restarts} restarts, up {since_text(started_ago(inspect(container, "{{.State.StartedAt}}") or ""))}',
+            f'  requests {number(requests) if requests is not None else "?"}, p95 {f"{p95 * 1000:.0f} ms" if p95 is not None and p95 == p95 else "?"}, memory up to {memory_text}',
+            f'  errors: 5xx {number(errors_5xx or 0) if requests is not None else "?"}, 4xx {number(errors_4xx or 0) if requests is not None else "?"}, '
+            f'fatal in the log {len(fatal) if fatal is not None else "?"}',
+            f'  new records: {records}',
+        ]))
 
+    parts.append('\nServer\n' + '\n'.join(server_lines()))
+    parts.append('Backups of live\n' + '\n'.join(backup_lines()))
+    parts.append('Security\n' + '\n'.join(security_lines()))
+
+    if ga4:
+        lines = []
+        for connection in ga4:
+            state = 'error' if connection['error'] else 'OK'
+            synced = (connection['lastSync'] or '?')[:16].replace('T', ' ')
+            lines.append(f'  {connection["title"]}: {state}, synced {synced} UTC, data up to {connection["lastDay"] or "?"}')
+        parts.append('GA4\n' + '\n'.join(lines))
+
+    fired = prom('max_over_time(ALERTS{alertstate="firing"}[24h])')
+    names = sorted({result['metric'].get('alertname', '?') for result in fired or []})
     alerts = run('docker', 'exec', 'ackee-alertmanager', 'wget', '-qO-', 'http://localhost:9093/api/v2/alerts')
     try:
-        names = sorted({alert['labels']['alertname'] for alert in json.loads(alerts) if alert['status']['state'] == 'active'})
-        parts.append('Алерти: ' + (', '.join(names) if names else 'немає активних'))
+        active = sorted({alert['labels']['alertname'] for alert in json.loads(alerts) if alert['status']['state'] == 'active'})
+        active_text = ', '.join(active) if active else 'none'
     except (TypeError, ValueError, KeyError):
-        parts.append('Алерти: не вдалося перевірити')
+        active_text = 'could not be checked'
+    parts.append(f'Alerts: active {active_text}; fired in the day {", ".join(names) if names else "none"}')
 
     send('\n'.join(parts))
     return 0
@@ -200,18 +364,18 @@ def memory():
     try:
         with open('/proc/meminfo') as file:
             info = dict(line.split(':', 1) for line in file)
-        return f'пам\'яті доступно {int(info["MemAvailable"].split()[0]) / 2**20:.1f} з {int(info["MemTotal"].split()[0]) / 2**20:.1f} ГБ'
+        return f'{int(info["MemAvailable"].split()[0]) / 2**20:.1f} of {int(info["MemTotal"].split()[0]) / 2**20:.1f} GB free now'
     except (OSError, KeyError, ValueError):
-        return 'пам\'ять не вдалося перевірити'
+        return 'memory could not be checked'
 
 
 def last_backup():
     try:
         with open(os.environ.get('ACKEE_REPORT_BACKUP_LOG', '/var/log/ackee-backup.log')) as file:
             lines = file.read().splitlines()
-        return lines[-1] if lines else 'журнал порожній'
+        return lines[-1] if lines else 'the log is empty'
     except OSError:
-        return 'журналу немає'
+        return 'no log'
 
 
 def audit(ref):
@@ -228,9 +392,9 @@ def audit(ref):
         )
         counts = json.loads(done.stdout)['metadata']['vulnerabilities']
         found = {level: counts.get(level, 0) for level in ('critical', 'high', 'moderate') if counts.get(level, 0)}
-        return ', '.join(f'{level} {count}' for level, count in found.items()) or 'чисто'
+        return ', '.join(f'{level} {count}' for level, count in found.items()) or 'clean'
     except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
-        return 'не вдалося перевірити'
+        return 'could not be checked'
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
@@ -246,30 +410,30 @@ def certificate_days(host):
 
 
 def security():
-    parts = [f'🛡 Ackee: перевірка безпеки, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
+    parts = [f'🛡 Ackee: security check, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
 
     refs = []
     for stage, container, _ in STANDS:
         tag = (inspect(container, '{{.Config.Image}}') or '').split(':')[-1]
         # dev runs sha-<commit>, which is develop or a little behind it
         refs.append((stage, 'develop' if tag.startswith('sha-') or not tag else tag))
-    parts.append('\nЗалежності (npm audit, без dev):')
+    parts.append('\nDependencies (npm audit, without dev):')
     for stage, ref in refs:
         parts.append(f'  {stage} ({ref}): {audit(ref)}')
 
-    parts.append('\nTLS-сертифікати:')
+    parts.append('\nTLS certificates:')
     for host in HOSTS:
         days = certificate_days(host)
         mark = '' if days is None or days > 21 else ' ⚠️'
-        parts.append(f'  {host}: {"не вдалося перевірити" if days is None else f"ще {days} дн."}{mark}')
+        parts.append(f'  {host}: {"could not be checked" if days is None else f"{days} days left"}{mark}')
 
     journal = run('journalctl', '-u', 'ssh', '--since', '3 days ago', '--no-pager', '-q')
     failed = len(re.findall(r'Invalid user|Failed password|Connection closed by invalid user', journal)) if journal is not None else None
     banned = run('fail2ban-client', 'status', 'sshd')
     match = re.search(r'Total banned:\s*(\d+)', banned or '')
     parts.append(
-        f'\nSSH за 3 дні: невдалих спроб {failed if failed is not None else "?"}, '
-        f'fail2ban заблокував усього {match.group(1) if match else "?"}'
+        f'\nSSH in 3 days: {failed if failed is not None else "?"} failed logins, '
+        f'{match.group(1) if match else "?"} banned by fail2ban since its start'
     )
 
     listening = run('ss', '-tlnH')
@@ -279,16 +443,16 @@ def security():
             fields = line.split()
             if len(fields) >= 4 and not fields[3].startswith(('127.', '[::1]')):
                 ports.add(fields[3].rsplit(':', 1)[-1])
-        parts.append('Відкриті порти: ' + ', '.join(sorted(ports, key=lambda port: int(port) if port.isdigit() else 0)))
+        parts.append('Open ports: ' + ', '.join(sorted(ports, key=lambda port: int(port) if port.isdigit() else 0)))
     else:
-        parts.append('Відкриті порти: не вдалося перевірити')
+        parts.append('Open ports: could not be checked')
 
     upgradable = run('apt', 'list', '--upgradable')
     if upgradable is not None:
         security_updates = sum(1 for line in upgradable.splitlines() if '-security' in line)
-        parts.append(f'Оновлення безпеки ОС: {security_updates}' + (' (потрібне перезавантаження)' if os.path.exists('/var/run/reboot-required') else ''))
+        parts.append(f'OS security updates: {security_updates}' + (' (a reboot is pending)' if os.path.exists('/var/run/reboot-required') else ''))
     else:
-        parts.append('Оновлення безпеки ОС: не вдалося перевірити')
+        parts.append('OS security updates: could not be checked')
 
     send('\n'.join(parts))
     return 0

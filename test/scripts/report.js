@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -22,6 +22,13 @@ const stand = ({ logs = {}, restarts = {}, errors5xx = empty, audit = '{}' } = {
   writeFileSync(path.join(root, 'errors5xx'), errors5xx)
   writeFileSync(path.join(root, 'empty'), empty)
   writeFileSync(path.join(root, 'audit'), audit)
+  writeFileSync(
+    path.join(root, 'mongo'),
+    JSON.stringify({
+      records: { 'shop.example': 3, 'northwind-coffee.example': 5 },
+      ga4: [{ title: 'shop.example', lastSync: '2026-11-18T06:00:00.000Z', error: null, lastDay: '2026-11-17' }],
+    }),
+  )
 
   writeFileSync(
     path.join(bin, 'docker'),
@@ -37,7 +44,8 @@ const stand = ({ logs = {}, restarts = {}, errors5xx = empty, audit = '{}' } = {
       '  *StartedAt*) echo 2026-11-18T13:32:01Z ;;',
       '  *ackee-prometheus*status%3D~%225..*%5B10m*) cat "$root/errors5xx" ;;',
       '  *ackee-prometheus*) cat "$root/empty" ;;',
-      '  *ackee-mongo*) echo 3 ;;',
+      '  *HostConfig.Memory*) echo 671088640 ;;',
+      '  *ackee-mongo*) cat "$root/mongo" ;;',
       '  *ackee-alertmanager*) echo "[]" ;;',
       '  run*) cat "$root/audit" ;;',
       'esac',
@@ -59,6 +67,8 @@ const run = ({ root, bin }, mode, environment = {}) =>
       ACKEE_REPORT_ROOT: root,
       ACKEE_REPORT_STATE: path.join(root, 'state', 'state.json'),
       ACKEE_REPORT_BACKUP_LOG: path.join(root, 'backup.log'),
+      ACKEE_REPORT_BACKUP_DIR: path.join(root, 'backups'),
+      ACKEE_REPORT_FAIL2BAN_LOG: path.join(root, 'fail2ban.log'),
       ACKEE_REPORT_HOSTS: '',
       ...environment,
     },
@@ -79,7 +89,7 @@ test('errors reports a fatal line of a stand, without its ids', (t) => {
   const { status, stdout } = run(stand({ logs: { 'ackee-live': `${fatal}\n[Ackee] › ℹ  info  ok\n` } }), 'errors')
 
   t.is(status, 0)
-  t.regex(stdout, /live: 1 fatal/)
+  t.regex(stdout, /live: 1 fatal in the log/)
   t.regex(stdout, /reading <id>/)
   t.notRegex(stdout, /dev:/)
 })
@@ -103,7 +113,7 @@ test('errors reports 5xx responses from Prometheus', (t) => {
   })
   const { stdout } = run(stand({ errors5xx }), 'errors')
 
-  t.regex(stdout, /live: 3× HTTP 500 на \/api/)
+  t.regex(stdout, /live: 3× HTTP 500 on \/api/)
   t.notRegex(stdout, /502/)
 })
 
@@ -112,21 +122,59 @@ test('errors reports a restart once, on the run after it', (t) => {
   t.is(run(paths, 'errors').stdout, '')
 
   writeFileSync(path.join(paths.root, 'restarts-ackee-dev'), '2')
-  t.regex(run(paths, 'errors').stdout, /dev: контейнер перезапускався, рестартів 2/)
+  t.regex(run(paths, 'errors').stdout, /dev: the container restarted, 2 restarts/)
   t.is(run(paths, 'errors').stdout, '')
 })
 
-test('daily lists both stands, the backup and the alerts', (t) => {
+test('daily lists the stands, the server, the backups, security, GA4 and the alerts', (t) => {
   const paths = stand()
   writeFileSync(path.join(paths.root, 'backup.log'), '2026-11-18T03:30:26Z OK: ackee_live.archive.gz, 44 MB\n')
-  const { status, stdout } = run(paths, 'daily')
+  mkdirSync(path.join(paths.root, 'backups'))
+  writeFileSync(path.join(paths.root, 'backups', 'ackee_live-20261118-033002.archive.gz'), Buffer.alloc(2 * 2 ** 20))
+  const recent = new Date(Date.now() - 3600 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+  writeFileSync(
+    path.join(paths.root, 'fail2ban.log'),
+    `2020-01-01 00:00:00,000 fail2ban.actions [1]: NOTICE [sshd] Ban 192.0.2.1\n${recent},000 fail2ban.actions [1]: NOTICE [sshd] Ban 192.0.2.2\n`,
+  )
+  // The read-only key of the home server, and sshd saw it log in an hour ago
+  execFileSync('ssh-keygen', [
+    '-q',
+    '-t',
+    'ed25519',
+    '-N',
+    '',
+    '-C',
+    'homeserver: pull ackee backups',
+    '-f',
+    path.join(paths.root, 'pull'),
+  ])
+  const key = readFileSync(path.join(paths.root, 'pull.pub'), 'utf8')
+  writeFileSync(path.join(paths.root, 'authorized_keys'), `command="rrsync -ro /x" ${key}`)
+  const fingerprint = execFileSync('ssh-keygen', ['-lf', path.join(paths.root, 'pull.pub')], {
+    encoding: 'utf8',
+  }).split(' ')[1]
+  const pulled = new Date(Date.now() - 3600 * 1000).toISOString().slice(0, 19) + '+00:00'
+  writeFileSync(
+    path.join(paths.bin, 'journalctl'),
+    `#!/bin/sh\necho "${pulled} host sshd[1]: Accepted publickey for root from 192.0.2.9 port 1 ssh2: ED25519 ${fingerprint}"\n`,
+  )
+  chmodSync(path.join(paths.bin, 'journalctl'), 0o755)
+  const { status, stdout } = run(paths, 'daily', {
+    ACKEE_REPORT_AUTHORIZED_KEYS: path.join(paths.root, 'authorized_keys'),
+  })
 
   t.is(status, 0)
-  t.regex(stdout, /live: 4\.0\.0, healthy, рестартів 0/)
-  t.regex(stdout, /dev: 4\.0\.0/)
-  t.regex(stdout, /нових записів 3/)
-  t.regex(stdout, /Бекап: 2026-11-18T03:30:26Z OK/)
-  t.regex(stdout, /Алерти: немає активних/)
+  t.regex(stdout, /home server: pulled .* UTC, 1 h ago/)
+  t.regex(stdout, /live: 4\.0\.0, healthy, 0 restarts, up/)
+  t.regex(stdout, /memory up to \? of 640 MB/)
+  t.regex(stdout, /errors: 5xx \?, 4xx \?, fatal in the log 0/)
+  t.regex(stdout, /new records: sites 3, test domain 5/)
+  t.regex(stdout, /Server\n {2}uptime/)
+  t.regex(stdout, /nightly run: OK, 18\.11 03:30 UTC/)
+  t.regex(stdout, /1 dumps in the folder, 2 MB/)
+  t.regex(stdout, /1 new bans in the day/)
+  t.regex(stdout, /shop\.example: OK, synced 2026-11-18 06:00 UTC, data up to 2026-11-17/)
+  t.regex(stdout, /Alerts: active none; fired in the day none/)
 })
 
 test('security counts the advisories of the lock of each stand', (t) => {
