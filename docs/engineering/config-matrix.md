@@ -78,8 +78,10 @@ Set by the image, not compared: `NODE_VERSION`, `PATH`, `YARN_VERSION`.
 Перевірка 18.11.2026, dev – `sha-db9e71a`, live – `4.0.0-rc.1`.
 
 - `ACKEE_USERNAME` і `ACKEE_PASSWORD` спільні для dev і live: у `deploy/docker-compose.yml` обидва
-  сервіси беруть `${ACKEE_USERNAME}` і `${ACKEE_PASSWORD}`. Пароль dev відкриває live.
-- `ACKEE_GEO` не задано ніде, тож країни відвідувачів (ACKEE-20) на стендах не збираються.
+  сервіси беруть `${ACKEE_USERNAME}` і `${ACKEE_PASSWORD}`. Пароль dev відкриває live. Виправлено
+  18.11 (ACKEE-128): live бере пароль з `ACKEE_LIVE_PASSWORD`.
+- `ACKEE_GEO` не задано ніде, тож країни відвідувачів (ACKEE-20) на стендах не збираються. Виправлено
+  18.11 (ACKEE-126): на live `ACKEE_GEO=country`.
 - `ACKEE_BUILD` задає образ, читає `src/utils/config.js`, але в Options.md його немає.
 - Черга подій лише на dev. Це рішення, а не дрейф (`ci-cd.md`), але live чергу не перевіряє.
 - `ACKEE_TRUST_PROXY` і `ACKEE_GA4_SYNC_SCHEDULE` на dev і live тепер однакові.
