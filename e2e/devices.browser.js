@@ -88,6 +88,14 @@ test('the main journey works and fits the screen', async ({ page, request }, tes
   await expect(page.locator('main')).toContainText('search.example')
   await shot(page, testInfo, 'referrers')
   sizes.referrers = await overflowing(page)
+  // A short title fits next to CSV and JSON, even on the narrowest phone (BUG-73)
+  const title = page.locator('.card__inner--export .headline__button').first()
+  expect
+    .soft(
+      await title.evaluate((element) => element.scrollWidth <= element.clientWidth),
+      'the title of the card is not cut',
+    )
+    .toBe(true)
   await page.getByRole('button', { name: /news\.example/ }).click()
   await expect(page.getByRole('region', { name: 'Filters' })).toContainText('news.example')
   await expect(page.locator('main')).not.toContainText('search.example')
