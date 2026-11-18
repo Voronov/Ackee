@@ -29,6 +29,7 @@ import liveRouter from '../live/router.js'
 import * as ingestQueue from '../queue/redis.js'
 import { stats as workerStats } from '../queue/worker.js'
 import config from './config.js'
+import { stats as rollupStats } from './rollupJob.js'
 
 // Metrics stay off until ACKEE_METRICS_TOKEN is set. The endpoint exposes an operational
 // picture of the installation, so it must not be open by default.
@@ -91,6 +92,16 @@ queueGauge(
     return since == null ? 0 : Math.max(0, (Date.now() - since.getTime()) / 1000)
   },
 )
+
+// The alert on rollups compares this with the current time (deploy/prometheus/alerts.yml)
+new client.Gauge({
+  name: 'ackee_rollups_last_success_timestamp_seconds',
+  help: 'When a rollup run last finished without an error; 0 where this process builds no rollups',
+  registers: [registry],
+  collect() {
+    this.set(rollupStats.lastSuccess / 1000)
+  },
+})
 
 // The counts live with the code that counts them. Every known label is reported from zero,
 // so a rate is defined before the first event.

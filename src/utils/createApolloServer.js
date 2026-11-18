@@ -1,19 +1,10 @@
 import { ApolloServer } from '@apollo/server'
 import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled'
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
-import {
-  DateTimeResolver,
-  DateTimeTypeDefinition,
-  PositiveFloatResolver,
-  PositiveFloatTypeDefinition,
-  UnsignedIntResolver,
-  UnsignedIntTypeDefinition,
-  URLResolver,
-  URLTypeDefinition,
-} from 'graphql-scalars'
+import { DateTimeResolver, PositiveFloatResolver, UnsignedIntResolver, URLResolver } from 'graphql-scalars'
 
 import resolvers from '../resolvers/index.js'
-import typeDefs from '../types/index.js'
+import { schemaTypeDefs } from '../types/schema.js'
 import config from './config.js'
 
 // Reads setCookies and setHeaders arrays from the context and applies them to the HTTP response headers
@@ -67,13 +58,7 @@ export default (options = {}) => {
         : ApolloServerPluginLandingPageDisabled(), // eslint-disable-line new-cap
       ...extraPlugins,
     ],
-    typeDefs: [
-      UnsignedIntTypeDefinition,
-      DateTimeTypeDefinition,
-      PositiveFloatTypeDefinition,
-      URLTypeDefinition,
-      typeDefs,
-    ],
+    typeDefs: schemaTypeDefs,
     resolvers: {
       UnsignedInt: UnsignedIntResolver,
       DateTime: DateTimeResolver,

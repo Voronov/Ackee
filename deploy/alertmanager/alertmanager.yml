@@ -1,0 +1,19 @@
+# Mounted into the alertmanager container. Alertmanager reads no chat id from a file or the
+# environment, so the container puts ALERTMANAGER_TELEGRAM_CHAT_ID from .env in place of
+# TELEGRAM_CHAT_ID when it starts (deploy/docker-compose.yml). The bot token sits in
+# secrets/telegram_bot_token next to this file, copied from .env. Steps: docs/engineering/alerts.md.
+route:
+  receiver: team
+  group_by: [alertname, job]
+  # Short enough that a stand going down is heard within a few minutes
+  group_wait: 30s
+  group_interval: 5m
+  # A problem nobody fixed comes back every 4 hours, not every 5 minutes
+  repeat_interval: 4h
+
+receivers:
+  - name: team
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+        chat_id: TELEGRAM_CHAT_ID
+        send_resolved: true

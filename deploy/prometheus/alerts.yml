@@ -1,0 +1,51 @@
+# Loaded by prometheus.yml, sent to the team through alertmanager. The thresholds and why they
+# are what they are: docs/engineering/alerts.md. Tests: alerts.test.yml next to this file.
+groups:
+  - name: ackee
+    rules:
+      # up is 0 when the scrape fails: the container is gone, hangs, or rejects the token
+      - alert: AckeeLiveDown
+        expr: up{job="ackee-live"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'live (ackee2.varlex.app) has not answered Prometheus for 2 minutes'
+
+      - alert: AckeeDevDown
+        expr: up{job="ackee-dev"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'dev (dev.ackee2.varlex.app) has not answered Prometheus for 2 minutes'
+
+      # The scrapes of /metrics are left out: they are always 200 and would hide the errors.
+      # Fewer than 10 requests in 5 minutes are too few for a share to mean anything.
+      - alert: AckeeHttpErrors
+        expr: |
+          sum by (job) (rate(ackee_http_request_duration_seconds_count{status=~"5..", route!="/metrics"}[5m]))
+            / sum by (job) (rate(ackee_http_request_duration_seconds_count{route!="/metrics"}[5m]))
+            > 0.05
+          and sum by (job) (increase(ackee_http_request_duration_seconds_count{route!="/metrics"}[5m])) >= 10
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.job }}: {{ $value | humanizePercentage }} of requests end with 5xx over 5 minutes'
+
+      - alert: AckeeIngestQueueStuck
+        expr: ackee_ingest_queue_oldest_age_seconds > 300
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.job }}: the oldest event in the ingest queue waits {{ $value | humanizeDuration }}'
+
+      # 0 means the process builds no rollups (a role without jobs), so there is nothing to wait for
+      - alert: AckeeRollupsStale
+        expr: |
+          time() - ackee_rollups_last_success_timestamp_seconds > 3600
+          and ackee_rollups_last_success_timestamp_seconds > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.job }}: no rollup run has finished for {{ $value | humanizeDuration }}'
