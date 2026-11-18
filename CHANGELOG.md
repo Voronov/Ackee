@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.0.3] - 2026-11-18
+
+### Fixed
+
+- A chart filtered by the fields of one dimension (a referrer, browser, system, device, country or page, as a click on one row of a report filters) reads the rollups of that dimension, with the records around them, instead of every record of the window. The rollups of the dimensions keep unique views and durations too, and pages are a dimension. A filter across dimensions still reads records
+- The title of a card with the CSV and JSON buttons is no longer cut on a phone of 320 px: the room for the buttons is in rem, not in the larger em of the title
+
+### Changed
+
+- Rollups built by an older version are deleted and built again on start. Until that is done, the reports read records. On live that takes about a minute
+
 ## [4.0.2] - 2026-11-18
 
 ### Fixed
