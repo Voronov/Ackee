@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-18
+
+Ackee becomes a service for many people: accounts, workspaces and roles, reports on hourly and daily rollups, and an ingest queue. The sections of 4.0.0-alpha.1, 4.0.0-alpha.2 and 4.0.0-rc.1 below are part of this release. This section lists the changes since 4.0.0-rc.1, the known limits and how to upgrade.
+
+### Upgrade
+
+- Version 4 starts on a database of version 3 with the same `ACKEE_MONGODB`, `ACKEE_USERNAME` and `ACKEE_PASSWORD`. The first start moves the data into the default workspace and builds the rollups. Make a backup first. The steps, the check after the upgrade and the way back are in [the upgrade guide](docs/Upgrade%20guide.md#upgrading-from-version-3-to-4)
+- Existing tracking snippets keep working. A domain from version 3 accepts views without an ingest key until strict mode is turned on
+- The deployment and rollback plan of the stands is in `docs/engineering/deployment.md`
+
+### Added
+
+- Alerts in Prometheus: a stand that does not answer, 5xx responses, a stuck ingest queue and rollups that are not built, sent through Alertmanager
+- The metric `ackee_rollups_last_success_timestamp_seconds`
+- A contract test of the GraphQL schema: a change that breaks the tracker, MCP or other clients fails CI
+- An accessibility check with axe-core in the browser tests
+- A configuration matrix of the stands, an architecture overview and a runbook
+
+### Security
+
+- A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
+- `mongoose` 9.11.4 for GHSA-gg4r-jv3p-qx3c, GHSA-wr5m-5jph-8m96, GHSA-8332-j7wj-wjw4 and GHSA-6972-9mcm-vhwj
+
 ### Fixed
 
 - The list of referrers shows the icons of the sites again
@@ -13,18 +36,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The error page reloads the dashboard without signing out
 - Date fields go back to the applied period when they lose the focus, with a note that goes away after five seconds
 - The nightly backup fails on a cut or an almost empty dump, needs room for the next dump before it starts, and removes what a killed run left
-
-### Security
-
-- A Content Security Policy: only the scripts of the page run, and it connects only to its own origin
-
-### Fixed
-
 - Texts of the dark theme keep a contrast of 4.5:1
 - A click on a referrer filters by its source and referrer, so the reports show the count of the row
 - Charts count the calendar days, months and years of the viewer: a change of the clocks no longer moves numbers to another day, and rows are labelled with the viewer's date
 - Monthly and yearly charts of a period start with the period, and NEW lists of a period show when an entry was really first seen
 - Export: ISO dates in CSV, 400 for a repeated parameter, source, filters and period in the audit log, 500 for an internal error, and the formula guard covers leading whitespace
+- The tooltip buttons have a name, and the icons of referrers have an empty `alt`, for screen readers
+
+### Known limits
+
+- A report with a filter has no rollups and reads the records. On 10 million records, the views and facts of a filtered dashboard took about 3 minutes for one user, and its referrers and durations about 4 seconds. With ten users at once, MongoDB reached its memory limit. Without a filter, the p95 of every report stays under 75 ms with ten users
+- ClickHouse is not used. The decision of ADR-004 is still open
+- Google Analytics 4 reports cannot be filtered
+- The country of visitors is off by default (`ACKEE_GEO`)
 
 ## [4.0.0-rc.1] - 2026-11-06
 
