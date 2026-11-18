@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-11-18
+
+### Fixed
+
+- A filtered report of unique views reads only the records of its domain and period. MongoDB picked the index of `clientId` and read the visitors of every domain: on live 9 s, now 0.25 s. Without the index the query still runs, as before
+
+### Changed
+
+- Live has its own administrator password, `ACKEE_LIVE_PASSWORD` in the compose of the stands, so the password of dev no longer opens live
+- The country of visitors is on for live (`ACKEE_GEO=country`), for the domains whose owner turned it on
+- The ClickHouse service and its volumes are gone from the compose of the stands: v2.0 does not use ClickHouse (ADR-004)
+
+### Added
+
+- Errors every 10 minutes, a daily report and a security check three times a week in the team chat (`deploy/ackee-report`)
+- Test traffic for the test domain on live every minute (`deploy/ackee-traffic`)
+- A browser test of the main journey on Chrome, Firefox, Safari, two phones and a tablet (`playwright.devices.config.js`), and a k6 load scenario for the dashboard
+- The handover document for the next team, the decision of ADR-004 and `ACKEE_BUILD` in the options
+
+### Known limits
+
+- A filtered report has no rollups: on 10 million records it still takes about 4 s for one user
+
 ## [4.0.0] - 2026-11-18
 
 Ackee becomes a service for many people: accounts, workspaces and roles, reports on hourly and daily rollups, and an ingest queue. The sections of 4.0.0-alpha.1, 4.0.0-alpha.2 and 4.0.0-rc.1 below are part of this release. This section lists the changes since 4.0.0-rc.1, the known limits and how to upgrade.
