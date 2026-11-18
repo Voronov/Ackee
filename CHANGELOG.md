@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.0.2] - 2026-11-18
+
+### Fixed
+
+- A wrong request to the API (no query, a query that does not parse or validate, wrong variables, the CSRF guard) is logged as a warning, not as a fatal error, so it no longer reaches the team chat as a failure
+
+### Changed
+
+- The daily report in the team chat shows the server (uptime, load, CPU and RAM over the day), the backups and their copy on the home server, fail2ban and failed SSH logins, the GA4 sync and the errors of every stand. All reports are in English
+
 ## [4.0.1] - 2026-11-18
 
 ### Fixed
