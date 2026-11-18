@@ -1,0 +1,1491 @@
+"""Event entries will be stored as actions."""
+type Action {
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Details allow you to store more data along with the associated action."""
+  details: String
+
+  """Action identifier."""
+  id: ID!
+
+  """Optional key that will be used to group similar actions in the UI."""
+  key: String!
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+
+  """
+  Numerical value that is added to all other numerical values of the key, grouped by day, month or year.
+  Use '1' to count how many times an event occurred or a price (e.g. '1.99') to see the sum of successful checkouts in a shop.
+  """
+  value: PositiveFloat
+}
+
+input AddPasskeyInput {
+  """A name to tell the passkeys apart, like "MacBook" or "YubiKey"."""
+  name: String!
+
+  """The browser's answer to the registration options, as JSON."""
+  response: String!
+}
+
+type AddPasskeyPayload {
+  payload: Passkey
+  success: Boolean!
+}
+
+type AuditEntry {
+  """What was done, for example domain.create."""
+  action: String!
+
+  """When the change was made."""
+  created: DateTime!
+  details: String
+
+  """Email address of who made the change, kept after the account is gone."""
+  email: String
+
+  """Entry identifier."""
+  id: ID!
+
+  """Identifier of what was changed."""
+  targetId: ID
+
+  """Who made the change."""
+  userId: ID!
+
+  """Workspace the change was made in."""
+  workspaceId: ID!
+}
+
+type AverageDuration {
+  """
+  Percentage change of the average visit duration when comparing the last 7 days with the previous 7 days.
+  Might be undefined when there's not enough data to compare.
+  """
+  change: Float
+
+  """
+  Average visit duration in milliseconds for the last 14 days, excluding the current day.
+  """
+  count: UnsignedInt!
+}
+
+type AverageViews {
+  """
+  Percentage change of the average views when comparing the last 7 days with the previous 7 days.
+  Might be undefined when there's not enough data to compare.
+  """
+  change: Float
+
+  """
+  Average number of views per day during the last 14 days, excluding the current day.
+  """
+  count: UnsignedInt!
+}
+
+type Browser {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """Browser identifier."""
+  id: ID!
+
+  """Name of the browser. With or without the version."""
+  value: String!
+}
+
+enum BrowserType {
+  """Omit browser version."""
+  NO_VERSION
+
+  """Include browser version."""
+  WITH_VERSION
+}
+
+type Build {
+  """Whether the server is connected to its database right now."""
+  database: Boolean!
+
+  """
+  Which build is running: a version tag or sha-<commit>, or "local" outside CI.
+  """
+  id: String!
+
+  """Version from package.json."""
+  version: String!
+}
+
+input ConnectGa4Input {
+  """The JSON key of the service account, as Google Cloud downloads it."""
+  key: String!
+
+  """The property id, a number under Admin → Property details."""
+  propertyId: String!
+}
+
+type ConnectGa4Payload {
+  payload: Ga4Connection
+  success: Boolean!
+}
+
+type Country {
+  """
+  ISO 3166-1 alpha-2 code of the country. Null when the source has no code, like GA4.
+  """
+  code: String
+
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """Country identifier."""
+  id: ID!
+
+  """Name of the country in English, or the code when unknown."""
+  value: String!
+}
+
+input CreateActionInput {
+  """Details allow you to store more data along with the associated action."""
+  details: String
+
+  """Key that will be used to group similar actions in the UI."""
+  key: String!
+
+  """
+  Numerical value that is added to all other numerical values of the key, grouped by day, month or year.
+  Use '1' to count how many times an event occurred or a price (e.g. '1.99') to see the sum of successful checkouts in a shop.
+  """
+  value: PositiveFloat
+}
+
+type CreateActionPayload {
+  """The newly created action."""
+  payload: Action
+
+  """
+  Indicates that the action creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreateDomainInput {
+  """Title of the domain."""
+  title: String!
+}
+
+type CreateDomainPayload {
+  """The newly created domain."""
+  payload: Domain
+
+  """
+  Indicates that the domain creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreateEventInput {
+  """Title of the event."""
+  title: String!
+
+  """Type of the event."""
+  type: EventType!
+}
+
+type CreateEventPayload {
+  """The newly created event."""
+  payload: Event
+
+  """
+  Indicates that the event creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreatePermanentTokenInput {
+  """Title of the permanent token."""
+  title: String!
+}
+
+type CreatePermanentTokenPayload {
+  """The newly created permanent token."""
+  payload: PermanentToken
+
+  """
+  Indicates that the permanent token creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreateRecordInput {
+  """Height of the browser used by the user to visit the site."""
+  browserHeight: UnsignedInt
+
+  """Browser used by the user to visit the site."""
+  browserName: String
+
+  """Version of the browser used by the user to visit the site."""
+  browserVersion: String
+
+  """Width of the browser used by the user to visit the site."""
+  browserWidth: UnsignedInt
+
+  """Manufacturer of the device used by the user to visit the site."""
+  deviceManufacturer: String
+
+  """Device used by the user to visit the site."""
+  deviceName: String
+
+  """Operating system used by the user to visit the site."""
+  osName: String
+
+  """Operating system version used by the user to visit the site."""
+  osVersion: String
+
+  """Color depth of the screen used by the user to visit the site."""
+  screenColorDepth: UnsignedInt
+
+  """Height of the screen used by the user to visit the site."""
+  screenHeight: UnsignedInt
+
+  """Width of the screen used by the user to visit the site."""
+  screenWidth: UnsignedInt
+
+  """Preferred language of the user. ISO 639-1 formatted."""
+  siteLanguage: String
+
+  """URL of the page."""
+  siteLocation: URL!
+
+  """
+  Where the user came from. Either unknown, a specific page or just the domain. This depends on the browser of the user.
+  """
+  siteReferrer: URL
+
+  """Where the user came from. Specified using the source query parameter."""
+  source: String
+}
+
+type CreateRecordPayload {
+  """The newly created record."""
+  payload: Record
+
+  """
+  Indicates that the record creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreateTokenInput {
+  """Password used to protect the Ackee instance."""
+  password: String!
+
+  """Title of the token."""
+  title: String
+
+  """Username used to protect the Ackee instance."""
+  username: String!
+}
+
+type CreateTokenPayload {
+  """The newly created token."""
+  payload: Token
+
+  """
+  Indicates that the token creation was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input CreateUserInput {
+  email: String!
+  password: String!
+}
+
+type CreateUserPayload {
+  payload: User
+  success: Boolean!
+}
+
+scalar DateTime
+
+type DeleteDomainPayload {
+  """
+  Indicates that the domain deletion was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type DeleteEventPayload {
+  """
+  Indicates that the event deletion was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type DeletePermanentTokenPayload {
+  """
+  Indicates that the permanent token deletion was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type DeleteTokenPayload {
+  """
+  Indicates that the token deletion was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type Device {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """Device identifier."""
+  id: ID!
+
+  """Name of the device. With or without the model."""
+  value: String!
+}
+
+enum DeviceType {
+  """Omit model name."""
+  NO_MODEL
+
+  """Include model name."""
+  WITH_MODEL
+}
+
+"""
+Domains are required to track views. You can create as many domains as you want, but it's recommended to create on domain per project/site. This allows you to view facts and statistics separately.
+"""
+type Domain {
+  """
+  Whether the viewer may turn collectCountry on or off. Only an owner may.
+  """
+  canManageCountry: Boolean!
+
+  """
+  Whether views carry the country of the visitor, read from their address on the server.
+  Needs ACKEE_GEO on the instance. Only the two-letter code is stored, never the address.
+  """
+  collectCountry: Boolean
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """
+  Facts about a domain. Usually simple data that can be represented in one value.
+  """
+  facts(filters: [FilterInput!], source: StatisticsSource = ACKEE): Facts!
+  ga4: Ga4Connection
+
+  """Domain identifier."""
+  id: ID!
+
+  """
+  Key the tracker sends alongside the domain id. Visible to anyone who opens the tracked
+  page, so it is a hurdle rather than a secret. Rotate it if it is being misused.
+  """
+  ingestKey: String
+
+  """
+  Statistics of a domain. Usually data that needs to be represented in a list or chart.
+  """
+  statistics(filters: [FilterInput!], period: PeriodInput, source: StatisticsSource = ACKEE): DomainStatistics!
+
+  """
+  While this is off, events are accepted with or without a key, so an existing snippet
+  keeps working. Turn it on once the snippet on your site carries the key.
+  """
+  strictIngest: Boolean
+
+  """Title of the domain."""
+  title: String!
+  tracking: DomainTracking!
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+}
+
+"""
+Statistics of a domain. Usually data that needs to be represented in a list or chart.
+"""
+type DomainStatistics {
+  """Browsers used by your visitors."""
+  browsers(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: BrowserType!
+  ): [Browser!]
+
+  """
+  Countries your visitors come from, when the domain collects them (ACKEE-100).
+  """
+  countries(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+  ): [Country!]
+
+  """Devices used by your visitors."""
+  devices(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: DeviceType!
+  ): [Device!]
+
+  """Average visit duration by day, month or year."""
+  durations(
+    interval: Interval!
+
+    """
+    Number of entries to return. Starts with the current day, month or year depending on the chosen interval.
+    """
+    limit: Int = 14
+  ): [Duration!]
+
+  """Statistic identifier."""
+  id: ID!
+
+  """Browser languages used by your visitors."""
+  languages(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+  ): [Language!]
+
+  """Pages viewed by your visitors."""
+  pages(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+  ): [Page!]
+
+  """Where your visitors are coming from."""
+  referrers(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: ReferrerType!
+  ): [Referrer!]
+
+  """Screen or browser sizes used by your visitors."""
+  sizes(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: SizeType!
+  ): [Size!]
+
+  """Systems used by your visitors."""
+  systems(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: SystemType!
+  ): [System!]
+
+  """Amount of views grouped by day, month or year."""
+  views(
+    interval: Interval!
+
+    """
+    Number of entries to return. Starts with the current day, month or year depending on the chosen interval.
+    """
+    limit: Int = 14
+    type: ViewType!
+  ): [View!]
+}
+
+"""What the site collects besides page views, served to it by /t/<id>.js."""
+type DomainTracking {
+  downloadExtensions: [String!]!
+  downloads: Boolean!
+
+  """The Ackee events that hold what was collected, one per kind."""
+  events: TrackingEvents!
+
+  """
+  A Google Tag Manager container the site loads, like GTM-ABC1234. Empty for none.
+  """
+  gtmId: String!
+  outbound: Boolean!
+  rules: [TrackingRule!]!
+  scroll: Boolean!
+  vitals: Boolean!
+}
+
+input DomainTrackingInput {
+  downloadExtensions: [String!]
+  downloads: Boolean
+  gtmId: String
+  outbound: Boolean
+  rules: [TrackingRuleInput!]
+  scroll: Boolean
+  vitals: Boolean
+}
+
+type Duration {
+  """Average duration in milliseconds."""
+  count: UnsignedInt!
+
+  """Duration identifier."""
+  id: ID!
+
+  """
+  Date of average duration.
+  Either YYYY, YYYY-MM or YYYY-MM-DD depending on the current interval.
+  """
+  value: String!
+}
+
+"""
+Events are required to track actions. You can create as many events as you want. This allows you to analyse specific actions happening on your sites. Like a button click or a successful sale.
+"""
+type Event {
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Event identifier."""
+  id: ID!
+
+  """
+  Statistics of an event. The data is available in different types, depending on whether they are to be shown in a chart or list.
+  """
+  statistics: EventStatistics!
+
+  """Title of the event."""
+  title: String!
+
+  """
+  Type of the event. Allows you to decide how Ackee should display the data of this event in the UI.
+  """
+  type: EventType!
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+}
+
+type EventChartEntry {
+  """Sum of values on that date."""
+  count: Float!
+
+  """Event entry identifier."""
+  id: ID!
+
+  """
+  Date of the event entry.
+  Either YYYY, YYYY-MM or YYYY-MM-DD depending on the current interval.
+  """
+  value: String!
+}
+
+enum EventChartType {
+  """Average sum of values."""
+  AVERAGE
+
+  """Total sum of values."""
+  TOTAL
+}
+
+type EventListEntry {
+  """Sum of values of the current event key."""
+  count: Float
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """Event entry identifier."""
+  id: ID!
+
+  """Key of the event entry."""
+  value: String!
+}
+
+enum EventListType {
+  """Average sum of values."""
+  AVERAGE
+
+  """Total sum of values."""
+  TOTAL
+}
+
+"""
+Statistics of an event. The data is available in different types, depending on whether they are to be shown in a chart or list.
+"""
+type EventStatistics {
+  """
+  The chart type should be used when showing events in a chart. It groups events by an interval and shows the total or average sum of values on each entry.
+  """
+  chart(
+    interval: Interval!
+
+    """
+    Number of entries to return. Starts with the current day, month or year depending on the chosen interval.
+    """
+    limit: Int = 14
+    type: EventChartType!
+  ): [EventChartEntry!]
+
+  """Statistic identifier."""
+  id: ID!
+
+  """
+  The list type should be used when showing events in a list. It groups events by their key and shows the total or average sum of values on each entry.
+  """
+  list(
+    """Number of entries to return."""
+    limit: Int = 30
+    range: Range = LAST_7_DAYS
+    sorting: Sorting!
+    type: EventListType!
+  ): [EventListEntry!]
+}
+
+enum EventType {
+  """
+  The UI will display the data of this event as a bar chart with average values.
+  """
+  AVERAGE_CHART
+
+  """
+  The UI will display the data of this event as a list of entries with average values.
+  """
+  AVERAGE_LIST
+
+  """
+  The UI will display the data of this event as a bar chart with totalized values.
+  """
+  TOTAL_CHART
+
+  """
+  The UI will display the data of this event as a list of entries with totalized values.
+  """
+  TOTAL_LIST
+}
+
+"""
+Facts about a domain. Usually simple data that can be represented in one value.
+"""
+type Facts {
+  """Number of visitors currently on your site."""
+  activeVisitors: UnsignedInt!
+
+  """Details about the average visit duration."""
+  averageDuration: AverageDuration!
+
+  """Details about the average number of views."""
+  averageViews: AverageViews!
+
+  """Facts identifier."""
+  id: ID!
+
+  """Number of unique views this month."""
+  viewsMonth: UnsignedInt!
+
+  """Number of unique views today."""
+  viewsToday: UnsignedInt!
+
+  """Number of unique views this year."""
+  viewsYear: UnsignedInt!
+}
+
+"""
+The condition an entry of a list stands for. Passed back as a filter, it narrows the reports to this entry.
+"""
+type FilterCondition {
+  field: FilterField!
+  value: String
+}
+
+"""A field of a view that the reports can be filtered by."""
+enum FilterField {
+  BROWSER_NAME
+  BROWSER_VERSION
+  COUNTRY
+  DEVICE_MANUFACTURER
+  DEVICE_NAME
+  OS_NAME
+  OS_VERSION
+  SITE_LOCATION
+  SITE_REFERRER
+  SOURCE
+}
+
+"""
+Only views whose field has this value. A null value means views without the field.
+"""
+input FilterInput {
+  field: FilterField!
+  value: String
+}
+
+"""
+A domain's link to a Google Analytics 4 property, read with a service account.
+"""
+type Ga4Connection {
+  """
+  The service account Ackee reads with. It needs the Viewer role on the property.
+  """
+  clientEmail: String!
+
+  """The days the synced data covers, as YYYY-MM-DD."""
+  firstDate: String
+  lastDate: String
+
+  """Why the last sync failed, in Google's words."""
+  lastError: String
+  lastSync: DateTime
+  propertyId: String!
+  syncing: Boolean!
+}
+
+enum Interval {
+  """Group by day."""
+  DAILY
+
+  """Group by month."""
+  MONTHLY
+
+  """Group by year."""
+  YEARLY
+}
+
+type Invitation {
+  created: DateTime!
+  domainIds: [ID!]!
+  email: String!
+  expires: DateTime!
+  id: ID!
+  role: String!
+}
+
+input InviteMemberInput {
+  """
+  Limits the member to these domains of the workspace. Omit for the whole workspace.
+  """
+  domainIds: [ID!]
+  email: String!
+  role: String!
+  workspaceId: ID!
+}
+
+type InviteMemberPayload {
+  payload: Invitation
+  success: Boolean!
+}
+
+type Language {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """Language identifier."""
+  id: ID!
+
+  """Name of the language or language code when unknown."""
+  value: String!
+}
+
+type Member {
+  created: DateTime!
+
+  """
+  The domains this member is limited to. Empty means every domain of the workspace.
+  """
+  domainIds: [ID!]!
+  email: String!
+
+  """Membership identifier, used to remove the member."""
+  id: ID!
+  role: String!
+}
+
+type Mutation {
+  """Adds a passkey from the browser's answer."""
+  addPasskey(input: AddPasskeyInput!): AddPasskeyPayload!
+
+  """Links a domain to a GA4 property and starts the first sync."""
+  connectGa4(domainId: ID!, input: ConnectGa4Input!): ConnectGa4Payload!
+
+  """Create a new action to track an event."""
+  createAction(eventId: ID!, input: CreateActionInput!): CreateActionPayload!
+
+  """Create a new domain."""
+  createDomain(input: CreateDomainInput!): CreateDomainPayload!
+
+  """Create a new event."""
+  createEvent(input: CreateEventInput!): CreateEventPayload!
+
+  """
+  Create a new permanent token. The token is required in order to access protected data.
+  """
+  createPermanentToken(input: CreatePermanentTokenInput!): CreatePermanentTokenPayload!
+
+  """Create a new record to track a page visit."""
+  createRecord(domainId: ID!, input: CreateRecordInput!): CreateRecordPayload!
+
+  """
+  Create a new token. The token is required in order to access protected data.
+  """
+  createToken(input: CreateTokenInput!): CreateTokenPayload!
+
+  """
+  Signs in with the browser's answer to the sign-in options and returns a token, like createToken.
+  """
+  createTokenWithPasskey(response: String!): CreateTokenPayload!
+
+  """
+  Creates an account together with its personal workspace. Governed by ACKEE_ALLOW_SIGNUP.
+  """
+  createUser(input: CreateUserInput!): CreateUserPayload!
+
+  """Delete an existing domain."""
+  deleteDomain(id: ID!): DeleteDomainPayload!
+
+  """Delete an existing event."""
+  deleteEvent(id: ID!): DeleteEventPayload!
+
+  """Removes one of the viewer's passkeys."""
+  deletePasskey(id: ID!): Success!
+
+  """
+  Delete an existing permanent token. The token than can't be used anymore for authentication.
+  """
+  deletePermanentToken(id: ID!): DeletePermanentTokenPayload!
+
+  """
+  Delete an existing token. The token than can't be used anymore for authentication.
+  """
+  deleteToken(id: ID!): DeleteTokenPayload!
+
+  """Unlinks the property and deletes the days synced from it."""
+  disconnectGa4(domainId: ID!): Success!
+
+  """
+  Emails a one-time link that lets the address join the workspace. Needs MEMBERS_MANAGE there.
+  """
+  inviteMember(input: InviteMemberInput!): InviteMemberPayload!
+
+  """
+  Options for navigator.credentials.create, as JSON. For a signed-in viewer only.
+  """
+  passkeyRegistrationOptions: String!
+
+  """
+  Options for navigator.credentials.get, as JSON. Needs no token: it starts a sign-in.
+  """
+  passkeySignInOptions: String!
+
+  """Removes a member from the workspace. The last owner cannot be removed."""
+  removeMember(id: ID!): Success!
+
+  """Starts a password reset. Always reports success, for the same reason."""
+  requestPasswordReset(email: String!): Success!
+
+  """
+  Sends the confirmation email again. Always reports success, so that it cannot be used
+  to find out which addresses have an account.
+  """
+  resendVerification(email: String!): Success!
+
+  """Sets a new password using the token from the email."""
+  resetPassword(input: ResetPasswordInput!): Success!
+
+  """Stops a pending invitation from being accepted."""
+  revokeInvitation(id: ID!): Success!
+
+  """Issues a new ingest key and invalidates the old one."""
+  rotateIngestKey(id: ID!): UpdateDomainPayload!
+
+  """Syncs the property now instead of waiting for the next run."""
+  syncGa4(domainId: ID!): ConnectGa4Payload!
+
+  """Update an existing action."""
+  updateAction(id: ID!, input: UpdateActionInput!): UpdateActionPayload!
+
+  """Update an existing domain."""
+  updateDomain(id: ID!, input: UpdateDomainInput!): UpdateDomainPayload!
+
+  """
+  Replaces what the site collects. Creates the events that hold it on first use.
+  """
+  updateDomainTracking(id: ID!, input: DomainTrackingInput!): UpdateDomainTrackingPayload!
+
+  """Update an existing event."""
+  updateEvent(id: ID!, input: UpdateEventInput!): UpdateEventPayload!
+
+  """Update an existing permanent token."""
+  updatePermanentToken(id: ID!, input: UpdatePermanentTokenInput!): UpdatePermanentTokenPayload!
+
+  """Update an existing record to track the duration of a visit."""
+  updateRecord(id: ID!): UpdateRecordPayload!
+
+  """Confirms an address with the token from the email."""
+  verifyUser(token: String!): Success!
+}
+
+type Page {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """Page identifier."""
+  id: ID!
+
+  """URL of the page."""
+  value: URL!
+}
+
+type Passkey {
+  created: DateTime!
+  id: ID!
+  lastUsed: DateTime
+  name: String!
+}
+
+"""
+Days in the time zone of the viewer, both included, as YYYY-MM-DD. Replaces the range of the lists, and the charts show its days, months or years.
+"""
+input PeriodInput {
+  from: String!
+  to: String!
+}
+
+type PermanentToken {
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Permanent token identifier. Use this value for authentication."""
+  id: ID!
+
+  """Title of the permanent token."""
+  title: String!
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+}
+
+scalar PositiveFloat
+
+type Query {
+  """
+  Recent changes in the workspaces where the viewer may read the audit log. Newest first.
+  """
+  auditLog(limit: Int = 50): [AuditEntry!]!
+
+  """
+  What is running here. Readable without a token, so a deploy can check a stand.
+  """
+  build: Build!
+
+  """Whether this instance can tell the country of a visitor (ACKEE_GEO)."""
+  countryAvailable: Boolean!
+
+  """Data of a specific domain."""
+  domain(id: ID!): Domain
+
+  """Data of all existing domains."""
+  domains: [Domain!]
+
+  """Data of a specific event."""
+  event(id: ID!): Event
+
+  """Data of all existing events."""
+  events: [Event!]
+
+  """
+  Facts of all domains combined, or of the one given. Usually simple data that can be represented in one value.
+  """
+  facts(domainId: ID, filters: [FilterInput!], source: StatisticsSource = ACKEE): Facts!
+
+  """Whether this instance can keep GA4 keys: ACKEE_SECRET_KEY is set."""
+  ga4Available: Boolean!
+
+  """The viewer's passkeys."""
+  passkeys: [Passkey!]!
+
+  """Data of a specific permanent token."""
+  permanentToken(id: ID!): PermanentToken
+
+  """Data of all existing permanent tokens."""
+  permanentTokens: [PermanentToken!]
+
+  """
+  Ways to sign in besides a password. Readable without a token, like signup.
+  """
+  signInOptions: SignInOptions!
+
+  """
+  Whether registration is currently possible. Readable without a token, because
+  the sign-in screen needs it before anyone has signed in.
+  """
+  signup: Signup!
+
+  """
+  Statistics of all domains combined, or of the one given. Usually data that needs to be represented in a list or chart.
+  """
+  statistics(domainId: ID, filters: [FilterInput!], period: PeriodInput, source: StatisticsSource = ACKEE): DomainStatistics!
+
+  """The user behind the current token."""
+  viewer: User
+
+  """The workspaces the viewer belongs to."""
+  workspaces: [Workspace!]!
+}
+
+enum Range {
+  """Data of the last 6 months."""
+  LAST_6_MONTHS
+
+  """Data of the last 7 days."""
+  LAST_7_DAYS
+
+  """Data of the last 24 hours."""
+  LAST_24_HOURS
+
+  """Data of the last 30 days."""
+  LAST_30_DAYS
+}
+
+"""
+Page views will be stored in records. They contain data about the visit and user. Ackee tries its best to keep tracked data anonymized. Several steps are used to avoid that users are identifiable, while still providing helpful analytics.
+"""
+type Record {
+  """Height of the browser used by the user to visit the site."""
+  browserHeight: UnsignedInt
+
+  """Browser used by the user to visit the site."""
+  browserName: String
+
+  """Version of the browser used by the user to visit the site."""
+  browserVersion: String
+
+  """Width of the browser used by the user to visit the site."""
+  browserWidth: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Manufacturer of the device used by the user to visit the site."""
+  deviceManufacturer: String
+
+  """Device used by the user to visit the site."""
+  deviceName: String
+
+  """Record identifier."""
+  id: ID!
+
+  """Operating system used by the user to visit the site."""
+  osName: String
+
+  """Operating system version used by the user to visit the site."""
+  osVersion: String
+
+  """Color depth of the screen used by the user to visit the site."""
+  screenColorDepth: UnsignedInt
+
+  """Height of the screen used by the user to visit the site."""
+  screenHeight: UnsignedInt
+
+  """Width of the screen used by the user to visit the site."""
+  screenWidth: UnsignedInt
+
+  """Preferred language of the user. ISO 639-1 formatted."""
+  siteLanguage: String
+
+  """URL of the page."""
+  siteLocation: URL!
+
+  """
+  Where the user came from. Either unknown, a specific page or just the domain. This depends on the browser of the user.
+  """
+  siteReferrer: URL
+
+  """Where the user came from. Specified using the source query parameter."""
+  source: String
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+}
+
+type Referrer {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """Referrer identifier."""
+  id: ID!
+
+  """
+  Either the URL of the referrer or the source parameter of the page to indicate where the visit comes from.
+  """
+  value: String!
+}
+
+enum ReferrerType {
+  """Omit source parameters and show referrers only."""
+  NO_SOURCE
+
+  """Omit referrers and show source parameters only."""
+  ONLY_SOURCE
+
+  """Use source parameter instead of referrer when available."""
+  WITH_SOURCE
+}
+
+input ResetPasswordInput {
+  password: String!
+  token: String!
+}
+
+type SignInOptions {
+  """Whether the sign-in screen offers "Sign in with Google"."""
+  google: Boolean!
+
+  """Whether the sign-in screen offers "Sign in with a passkey"."""
+  passkey: Boolean!
+}
+
+type Signup {
+  """Whether anyone can create an account on this instance right now."""
+  allowed: Boolean!
+}
+
+type Size {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """Size identifier."""
+  id: ID!
+
+  """Screen or browser width, height or resolution."""
+  value: String!
+}
+
+enum SizeType {
+  """Browser width in pixels."""
+  BROWSER_HEIGHT
+
+  """Browser width and height in pixels."""
+  BROWSER_RESOLUTION
+
+  """Browser height in pixels."""
+  BROWSER_WIDTH
+
+  """Browser width in pixels."""
+  SCREEN_HEIGHT
+
+  """Browser width and height in pixels."""
+  SCREEN_RESOLUTION
+
+  """Browser height in pixels."""
+  SCREEN_WIDTH
+}
+
+enum Sorting {
+  """Entries that appeared for the first time will be shown at the top."""
+  NEW
+
+  """Entries sorted by time. The newest entries will be shown at the top."""
+  RECENT
+
+  """Entries with the most occurrences will be shown at the top."""
+  TOP
+}
+
+"""
+Where a report reads from: Ackee's own records, or the days synced from Google Analytics 4.
+"""
+enum StatisticsSource {
+  ACKEE
+  GA4
+}
+
+type Success {
+  success: Boolean!
+}
+
+type System {
+  """Amount of occurrences."""
+  count: UnsignedInt
+
+  """Identifies the date and time when the object was created."""
+  created: DateTime
+
+  """The condition this entry stands for, to pass back as filters."""
+  filter: [FilterCondition!]
+
+  """System identifier."""
+  id: ID!
+
+  """Name of the system. With or without the version."""
+  value: String!
+}
+
+enum SystemType {
+  """Omit system version."""
+  NO_VERSION
+
+  """Include system version."""
+  WITH_VERSION
+}
+
+type Token {
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Token identifier. Use this value for authentication."""
+  id: ID!
+
+  """Identifies the date and time when the object was updated."""
+  updated: DateTime!
+}
+
+type TrackingEvents {
+  clicks: ID
+  downloads: ID
+  forms: ID
+  outbound: ID
+  scroll: ID
+  seen: ID
+  vitals: ID
+}
+
+type TrackingRule {
+  id: ID!
+
+  """The name the report shows for this rule."""
+  label: String!
+
+  """
+  The pages the rule works on, like /product/* where * stands for anything. Empty for every page.
+  """
+  path: String!
+
+  """A CSS selector, like #buy or .pricing."""
+  selector: String!
+  type: TrackingRuleType!
+}
+
+input TrackingRuleInput {
+  """Keeps the id of an existing rule. Omit for a new one."""
+  id: ID
+  label: String!
+  path: String
+  selector: String!
+  type: TrackingRuleType!
+}
+
+enum TrackingRuleType {
+  """Clicks on elements that match the selector."""
+  CLICK
+
+  """Forms that match the selector and were sent. Never what was in them."""
+  FORM
+
+  """
+  Elements that match the selector and stayed at least half on screen for a second.
+  """
+  VISIBLE
+}
+
+scalar URL
+
+scalar UnsignedInt
+
+input UpdateActionInput {
+  """Details allow you to store more data along with the associated action."""
+  details: String
+
+  """Key that will be used to group similar actions in the UI."""
+  key: String!
+
+  """
+  Numerical value that is added to all other numerical values of the key, grouped by day, month or year.
+  Use '1' to count how many times an event occurred or a price (e.g. '1.99') to see the sum of successful checkouts in a shop.
+  Reset an existing value using 'null'.
+  """
+  value: PositiveFloat
+}
+
+type UpdateActionPayload {
+  """
+  Indicates that the action update was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input UpdateDomainInput {
+  """
+  Collect the country of visitors from their address. Personal data: tell your visitors.
+  """
+  collectCountry: Boolean
+
+  """Turn on once the snippet on your site carries the ingest key."""
+  strictIngest: Boolean
+
+  """Title of the domain."""
+  title: String!
+}
+
+type UpdateDomainPayload {
+  """The updated domain."""
+  payload: Domain
+
+  """
+  Indicates that the domain update was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type UpdateDomainTrackingPayload {
+  payload: DomainTracking
+  success: Boolean!
+}
+
+input UpdateEventInput {
+  """Title of the event."""
+  title: String!
+
+  """Type of the event."""
+  type: EventType!
+}
+
+type UpdateEventPayload {
+  """The updated event."""
+  payload: Event
+
+  """
+  Indicates that the event update was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+input UpdatePermanentTokenInput {
+  """Title of the permanent token."""
+  title: String!
+}
+
+type UpdatePermanentTokenPayload {
+  """The updated permanent token."""
+  payload: PermanentToken
+
+  """
+  Indicates that the permanent token update was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type UpdateRecordPayload {
+  """
+  Indicates that the record update was successful. Might be 'null' otherwise.
+  """
+  success: Boolean
+}
+
+type User {
+  """Identifies the date and time when the object was created."""
+  created: DateTime!
+
+  """Email address, which is also the login."""
+  email: String!
+
+  """User identifier."""
+  id: ID!
+
+  """
+  Whether the address has been confirmed. Unconfirmed accounts cannot sign in.
+  """
+  verified: Boolean!
+}
+
+type View {
+  """Amount of occurrences."""
+  count: UnsignedInt!
+
+  """View identifier."""
+  id: ID!
+
+  """
+  Date of visits.
+  Either YYYY, YYYY-MM or YYYY-MM-DD depending on the current interval.
+  """
+  value: String!
+}
+
+enum ViewType {
+  """Total page views."""
+  TOTAL
+
+  """Unique site views."""
+  UNIQUE
+}
+
+type Workspace {
+  """Whether the viewer may invite and remove members."""
+  canManageMembers: Boolean!
+
+  """
+  The domains of the workspace an invitation can be limited to, for those who may manage members.
+  """
+  domains: [Domain!]!
+  id: ID!
+
+  """
+  Invitations that can still be accepted, for those who may manage members.
+  """
+  invitations: [Invitation!]!
+
+  """The members, for those who may manage them. Empty for everyone else."""
+  members: [Member!]!
+
+  """The viewer's role in this workspace."""
+  role: String!
+  title: String!
+}
