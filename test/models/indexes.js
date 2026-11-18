@@ -3,8 +3,11 @@ import test from 'ava'
 import aggregateNewActions from '../../src/aggregations/aggregateNewActions.js'
 import aggregateRecentActions from '../../src/aggregations/aggregateRecentActions.js'
 import aggregateTopActions from '../../src/aggregations/aggregateTopActions.js'
+import aggregateViews from '../../src/aggregations/aggregateViews.js'
+import { INTERVALS_DAILY } from '../../src/constants/intervals.js'
 import { RANGES_LAST_7_DAYS } from '../../src/constants/ranges.js'
 import { liveQuery } from '../../src/database/records.js'
+import { aggregateRecords, hinted } from '../../src/database/views.js'
 import Action from '../../src/models/Action.js'
 import Record from '../../src/models/Record.js'
 import createDate from '../../src/utils/createDate.js'
@@ -125,4 +128,40 @@ test.serial('the lists of an event read only the actions of that event', async (
   t.false(stagesOf(recent).includes('SORT'))
   t.is(stagesOf(recent)[0], 'LIMIT')
   t.deepEqual([...new Set(directionsOf(recent))], ['backward'])
+})
+
+// A filtered report of unique views reads records. Most records of a domain are anonymized, so
+// `clientId` looks selective and the planner prefers its index, which holds the visitors of every
+// domain. The report must read the window of the domain instead (BUG-72).
+test.serial('unique views without rollups read the window of the domain, not the index of clientId', async (t) => {
+  await connectToDatabase()
+  t.teardown(() => Record.deleteMany({ domainId: { $in: ['filtered', 'others'] } }))
+  await Record.init()
+
+  const now = Date.now()
+  const view = (domainId, index, clientId) => ({
+    id: `${domainId}-${index}`,
+    clientId,
+    domainId,
+    siteLocation: 'https://example.com/',
+    source: 'newsletter',
+    created: new Date(now - index * 60 * 1000),
+    updated: new Date(now - index * 60 * 1000),
+  })
+  await Record.insertMany([
+    ...Array.from({ length: 1500 }, (_, index) => view('filtered', index, null)),
+    ...Array.from({ length: 20 }, (_, index) => view('filtered', 1500 + index, `visitor-${index}`)),
+    ...Array.from({ length: 200 }, (_, index) => view('others', index, `other-${index}`)),
+  ])
+
+  const aggregation = aggregateViews(['filtered'], true, INTERVALS_DAILY, 7, createDate('UTC'))
+  aggregation.splice(1, 0, { $match: { source: 'newsletter' } })
+
+  const explained = await hinted(aggregation).explain('executionStats')
+
+  t.deepEqual([...new Set(indexNamesOf(planOf(explained)))], ['domainId_1_created_1'])
+  t.is(
+    (await aggregateRecords(aggregation)).reduce((sum, entry) => sum + entry.count, 0),
+    20,
+  )
 })
