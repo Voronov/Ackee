@@ -3,6 +3,7 @@ import { buildSchema, parse } from 'graphql'
 
 import { stats as queueStats } from '../../src/queue/redis.js'
 import { stats as workerStats } from '../../src/queue/worker.js'
+import { stats as rollupStats } from '../../src/utils/rollupJob.js'
 import {
   MAXIMUM_PENDING_COMMANDS,
   apolloPlugin,
@@ -172,6 +173,25 @@ test.serial('the counters of the queue report what the worker and the API counte
   )
 })
 
+test.serial('the time of the last rollup run is reported in seconds', async (t) => {
+  const before = rollupStats.lastSuccess
+  t.teardown(() => {
+    rollupStats.lastSuccess = before
+  })
+
+  rollupStats.lastSuccess = 0
+  t.is(
+    await lineOf('ackee_rollups_last_success_timestamp_seconds{app="ackee"}'),
+    'ackee_rollups_last_success_timestamp_seconds{app="ackee"} 0',
+  )
+
+  rollupStats.lastSuccess = 1_700_000_000_500
+  t.is(
+    await lineOf('ackee_rollups_last_success_timestamp_seconds{app="ackee"}'),
+    'ackee_rollups_last_success_timestamp_seconds{app="ackee"} 1700000000.5',
+  )
+})
+
 test.serial('the series of the live feed are there before the first stream', async (t) => {
   t.is(await lineOf('ackee_live_connections{app="ackee"}'), 'ackee_live_connections{app="ackee"} 0')
   t.is(await lineOf('ackee_live_watched_domains{app="ackee"}'), 'ackee_live_watched_domains{app="ackee"} 0')
@@ -268,6 +288,7 @@ test('the series of Ackee keep their names, types and labels', (t) => {
     ['ackee_mongodb_command_duration_seconds', 'histogram', ['command', 'collection', 'outcome']],
     ['ackee_ingest_queue_length', 'gauge', []],
     ['ackee_ingest_queue_oldest_age_seconds', 'gauge', []],
+    ['ackee_rollups_last_success_timestamp_seconds', 'gauge', []],
     ['ackee_ingest_queue_processed_total', 'counter', ['type']],
     ['ackee_ingest_queue_dropped_total', 'counter', ['reason']],
     ['ackee_ingest_fallback_total', 'counter', ['reason']],

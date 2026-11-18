@@ -196,6 +196,29 @@ services:
     networks: [ackee]
     logging: *logging
 
+  # Sends what deploy/prometheus/alerts.yml fires to the team chat in Telegram (ACKEE-111)
+  alertmanager:
+    image: prom/alertmanager:v0.29.0
+    container_name: ackee-alertmanager
+    restart: unless-stopped
+    # The chat id goes into a copy of the config, see deploy/alertmanager/alertmanager.yml.
+    # Without it in .env the container exits (and restarts) instead of sending nowhere.
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        test -n "$$ALERTMANAGER_TELEGRAM_CHAT_ID" &&
+        sed "s/TELEGRAM_CHAT_ID/$$ALERTMANAGER_TELEGRAM_CHAT_ID/" /etc/alertmanager/alertmanager.yml > /tmp/alertmanager.yml &&
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
+    environment:
+      # Empty by default, so the dev deploy accepts this file before the chat is chosen
+      ALERTMANAGER_TELEGRAM_CHAT_ID: ${ALERTMANAGER_TELEGRAM_CHAT_ID:-}
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    mem_limit: 64m
+    networks: [ackee]
+    logging: *logging
+
   # Numbers of the server itself: processor, memory, disk, network
   node-exporter:
     image: prom/node-exporter:v1.9.1
@@ -285,4 +308,5 @@ volumes:
   clickhouse-store:
   redis-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:

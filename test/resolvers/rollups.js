@@ -13,6 +13,7 @@ import Record from '../../src/models/Record.js'
 import RollupState from '../../src/models/RollupState.js'
 import Token from '../../src/models/Token.js'
 import ViewRollup from '../../src/models/ViewRollup.js'
+import { run as runRollups, stats as rollupStats } from '../../src/utils/rollupJob.js'
 import server from '../../src/server.js'
 import { day, hour, minute, second } from '../../src/utils/times.js'
 import { api } from '../_utils.js'
@@ -366,6 +367,15 @@ test.serial('only one process builds at a time', async (t) => {
   // The lease of a process that died runs out
   await RollupState.updateOne({ _id: 'records' }, { $set: { lockedUntil: new Date(Date.now() - minute) } })
   t.not(await rollUp(), undefined)
+})
+
+test.serial('a run that finishes records when, for the alert on rollups', async (t) => {
+  rollupStats.lastSuccess = 0
+  const before = Date.now()
+
+  await runRollups()
+
+  t.true(rollupStats.lastSuccess >= before)
 })
 
 // A rollup that disagrees with its records shows which of the two a report has read
