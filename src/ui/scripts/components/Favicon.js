@@ -17,6 +17,8 @@ const Favicon = (props) => {
       'favicon--missing': missing === true,
     }),
     src: missing === true ? transparentPixel : props.url,
+    // Decoration: the name of the site is next to it
+    alt: '',
     onError,
   })
 }
