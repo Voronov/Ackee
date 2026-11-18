@@ -8,6 +8,9 @@ import signale from './signale.js'
 // back (ADR-006). Null when nothing waits.
 const pendingSince = () => (ingestQueue.isEnabled() === true ? ingestQueue.oldest() : null)
 
+// When a run last finished without an error, read by /metrics. Zero where the job does not run.
+export const stats = { lastSuccess: 0 }
+
 export const run = async () => {
   let since
 
@@ -21,6 +24,8 @@ export const run = async () => {
 
   try {
     const state = await rollUp(new Date(), since)
+    // Nothing back means another process holds the lease, which is not a failure of this one
+    stats.lastSuccess = Date.now()
     if (state != null) signale.info(`Rollups cover ${state.from.toISOString()} to ${state.until.toISOString()}`)
   } catch (error) {
     // Reports read the records the rollups miss, so a failed run only makes them slower
@@ -32,6 +37,8 @@ export const run = async () => {
 // keeps the records the reports read on top of the rollups to less than a day.
 // The first run also builds the rollups of all records stored before rollups existed.
 export const start = () => {
+  // The alert waits an hour from the start, not from 1970
+  stats.lastSuccess = Date.now()
   run()
   return schedule.scheduleJob('*/10 * * * *', run)
 }

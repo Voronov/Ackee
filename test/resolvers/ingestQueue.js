@@ -15,7 +15,7 @@ import { recordTouch } from '../../src/queue/messages.js'
 import { adapter, close, oldest, start, stats } from '../../src/queue/redis.js'
 import { drain } from '../../src/queue/worker.js'
 import server from '../../src/server.js'
-import { run as runRollups } from '../../src/utils/rollupJob.js'
+import { run as runRollups, stats as rollupStats } from '../../src/utils/rollupJob.js'
 import { day, minute } from '../../src/utils/times.js'
 import { api } from '../_utils.js'
 import { openStream } from '../live/_stream.js'
@@ -190,10 +190,13 @@ test.serial('a view written directly leaves the visitor with a newer view the wo
 
 test.serial('rollups are skipped while the queue is unreachable', async (t) => {
   useQueue(UNREACHABLE)
+  rollupStats.lastSuccess = 0
 
   await runRollups()
 
   t.is(await RollupState.countDocuments(), 0)
+  // A skipped run is not a success, so the alert on rollups fires if it goes on
+  t.is(rollupStats.lastSuccess, 0)
 })
 
 withRedis('the tracker gets the id before the view is written, and the worker stores it under it', async (t) => {

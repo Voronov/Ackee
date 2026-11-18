@@ -1,0 +1,137 @@
+# promtool test rules alerts.test.yml, see docs/engineering/alerts.md
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 30s
+
+tests:
+  # A stand that stops answering fires after 2 minutes, and only its own alert
+  - interval: 30s
+    input_series:
+      - series: 'up{job="ackee-live", instance="ackee-live:3000"}'
+        values: '1 1 0 0 0 0 0 0'
+      - series: 'up{job="ackee-dev", instance="ackee-dev:3000"}'
+        values: '1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AckeeLiveDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: AckeeLiveDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: ackee-live, instance: 'ackee-live:3000' }
+            exp_annotations:
+              summary: 'live (ackee2.varlex.app) has not answered Prometheus for 2 minutes'
+      - eval_time: 3m
+        alertname: AckeeDevDown
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'up{job="ackee-live", instance="ackee-live:3000"}'
+        values: '1 1 1 1 1 1 1 1'
+      - series: 'up{job="ackee-dev", instance="ackee-dev:3000"}'
+        values: '1 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: AckeeDevDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: AckeeDevDown
+        exp_alerts:
+          - exp_labels: { severity: warning, job: ackee-dev, instance: 'ackee-dev:3000' }
+            exp_annotations:
+              summary: 'dev (dev.ackee2.varlex.app) has not answered Prometheus for 2 minutes'
+      - eval_time: 3m
+        alertname: AckeeLiveDown
+        exp_alerts: []
+
+  # live: 10 of 100 requests a minute fail, 10 %. dev: 2 of 100, 2 %.
+  # The scrapes of /metrics on dev would push its share down further if they counted.
+  - interval: 1m
+    input_series:
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-live", route="/api", status="200"}'
+        values: '0+90x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-live", route="/api", status="500"}'
+        values: '0+10x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="200"}'
+        values: '0+98x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="502"}'
+        values: '0+2x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/metrics", status="200"}'
+        values: '0+2x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: AckeeHttpErrors
+        exp_alerts:
+          - exp_labels: { severity: critical, job: ackee-live }
+            exp_annotations:
+              summary: 'ackee-live: 10% of requests end with 5xx over 5 minutes'
+
+  # 1 of 2 requests is 50 %, but too few requests to tell anything. The scrapes do not make up the count.
+  - interval: 1m
+    input_series:
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="200"}'
+        values: '0 0 0 1 1 1 1'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="500"}'
+        values: '0 0 0 1 1 1 1'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/metrics", status="200"}'
+        values: '0+2x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AckeeHttpErrors
+        exp_alerts: []
+
+  # Once the scrapes are left out, the share of 5xx on /api alone counts: 5 of 20 is 25 %
+  - interval: 1m
+    input_series:
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="200"}'
+        values: '0+3x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/api", status="500"}'
+        values: '0+1x10'
+      - series: 'ackee_http_request_duration_seconds_count{job="ackee-dev", route="/metrics", status="200"}'
+        values: '0+100x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: AckeeHttpErrors
+        exp_alerts:
+          - exp_labels: { severity: critical, job: ackee-dev }
+            exp_annotations:
+              summary: 'ackee-dev: 25% of requests end with 5xx over 5 minutes'
+
+  # The age grows while the worker writes nothing, and fires once it is past 5 minutes
+  - interval: 1m
+    input_series:
+      - series: 'ackee_ingest_queue_oldest_age_seconds{job="ackee-dev", instance="ackee-dev:3000"}'
+        values: '0 60 120 180 240 300 360 420'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AckeeIngestQueueStuck
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: AckeeIngestQueueStuck
+        exp_alerts:
+          - exp_labels: { severity: critical, job: ackee-dev, instance: 'ackee-dev:3000' }
+            exp_annotations:
+              summary: 'ackee-dev: the oldest event in the ingest queue waits 6m 0s'
+
+  # live finished its last run at 1s and none since, dev runs every 10 minutes.
+  # A process without jobs reports 0 and never fires.
+  - interval: 10m
+    input_series:
+      - series: 'ackee_rollups_last_success_timestamp_seconds{job="ackee-live", instance="ackee-live:3000"}'
+        values: '1x8'
+      - series: 'ackee_rollups_last_success_timestamp_seconds{job="ackee-dev", instance="ackee-dev:3000"}'
+        values: '1+600x8'
+      - series: 'ackee_rollups_last_success_timestamp_seconds{job="ackee-api", instance="ackee-api:3000"}'
+        values: '0x8'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: AckeeRollupsStale
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: AckeeRollupsStale
+        exp_alerts:
+          - exp_labels: { severity: warning, job: ackee-live, instance: 'ackee-live:3000' }
+            exp_annotations:
+              summary: 'ackee-live: no rollup run has finished for 1h 9m 59s'
