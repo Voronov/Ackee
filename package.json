@@ -75,7 +75,7 @@
     "is-url": "^1.2.4",
     "is-valid-domain": "^0.1.6",
     "maxmind": "^5.0.7",
-    "mongoose": "^9.10.0",
+    "mongoose": "^9.11.4",
     "node-schedule": "^2.1.1",
     "nodemailer": "^10.0.10",
     "normalize-url": "^9.0.1",
