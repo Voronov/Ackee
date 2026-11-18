@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""Sends made-up visitors to the test domain on live and dev every minute (/etc/cron.d/ackee-traffic,
+ACKEE-126).
+
+The visits go through the real API, the way the tracker sends them: a view, updates while the page
+stays open, and some events. So the queue, the rollups, the metrics and the reports always have
+fresh data. Only the domain named in ACKEE_TRAFFIC_DOMAIN gets them, and only on live by default.
+
+  ackee-traffic                       one minute of visits (cron)
+  ackee-traffic backfill FROM TO      records and events between two ISO times, written straight
+                                      into MongoDB the way the API would have left them
+"""
+
+import datetime
+import fcntl
+import hashlib
+import json
+import math
+import os
+import random
+import subprocess
+import sys
+import urllib.request
+import uuid
+
+DOMAIN = os.environ.get('ACKEE_TRAFFIC_DOMAIN', 'northwind-coffee.example')
+STATE = os.environ.get('ACKEE_TRAFFIC_STATE', '/var/lib/ackee-traffic/state.json')
+# New visits a minute at the busiest hour; the night gets a tenth of it
+RATE = float(os.environ.get('ACKEE_TRAFFIC_RATE', '3'))
+STANDS = [
+    stand
+    for stand in [('live', 'ackee-live', 'ackee_live'), ('dev', 'ackee-dev', 'ackee_dev')]
+    if stand[0] in os.environ.get('ACKEE_TRAFFIC_STANDS', 'live').split()
+]
+# For tests: one address instead of the container of each stand
+URL = os.environ.get('ACKEE_TRAFFIC_URL')
+
+SITE = f'https://{DOMAIN}'
+PAGES = [
+    ('/', 30), ('/menu/', 18), ('/shop/', 12), ('/shop/beans/ethiopia-yirgacheffe/', 6),
+    ('/shop/beans/colombia-huila/', 5), ('/shop/grinders/', 3), ('/blog/', 5),
+    ('/blog/how-to-brew-v60/', 6), ('/blog/espresso-at-home/', 4), ('/blog/cold-brew/', 3),
+    ('/about/', 4), ('/contact/', 4),
+]
+REFERRERS = [
+    (None, None, 45), ('https://www.google.com/', None, 25), ('https://www.instagram.com/', 'instagram', 10),
+    (None, 'newsletter', 7), ('https://www.facebook.com/', None, 5), ('https://duckduckgo.com/', None, 4),
+    ('https://www.reddit.com/r/coffee/', None, 3), ('https://t.me/', 'telegram', 1),
+]
+LANGUAGES = [('uk', 50), ('en', 28), ('pl', 8), ('de', 7), ('fr', 4), ('es', 3)]
+DEVICES = [
+    ({'osName': 'iOS', 'osVersion': '18.1', 'browserName': 'Safari', 'browserVersion': '18.1', 'deviceName': 'iPhone', 'deviceManufacturer': 'Apple',
+      'screenWidth': 390, 'screenHeight': 844, 'browserWidth': 390, 'browserHeight': 664},
+     'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1', 26),
+    ({'osName': 'Android', 'osVersion': '15', 'browserName': 'Chrome', 'browserVersion': '131.0', 'deviceName': 'Pixel 8', 'deviceManufacturer': 'Google',
+      'screenWidth': 412, 'screenHeight': 915, 'browserWidth': 412, 'browserHeight': 780},
+     'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36', 18),
+    ({'osName': 'Android', 'osVersion': '14', 'browserName': 'Samsung Internet', 'browserVersion': '26.0', 'deviceName': 'Galaxy S24', 'deviceManufacturer': 'Samsung',
+      'screenWidth': 360, 'screenHeight': 780, 'browserWidth': 360, 'browserHeight': 660},
+     'Mozilla/5.0 (Linux; Android 14; SM-S921B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36', 8),
+    ({'osName': 'Windows', 'osVersion': '10', 'browserName': 'Chrome', 'browserVersion': '131.0',
+      'screenWidth': 1920, 'screenHeight': 1080, 'browserWidth': 1920, 'browserHeight': 969},
+     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', 22),
+    ({'osName': 'Mac OS', 'osVersion': '10.15.7', 'browserName': 'Safari', 'browserVersion': '18.1', 'deviceName': 'Macintosh', 'deviceManufacturer': 'Apple',
+      'screenWidth': 1440, 'screenHeight': 900, 'browserWidth': 1440, 'browserHeight': 789},
+     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15', 14),
+    ({'osName': 'Windows', 'osVersion': '10', 'browserName': 'Firefox', 'browserVersion': '133.0',
+      'screenWidth': 1536, 'screenHeight': 864, 'browserWidth': 1536, 'browserHeight': 746},
+     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0', 8),
+    ({'osName': 'Linux', 'browserName': 'Chrome', 'browserVersion': '131.0',
+      'screenWidth': 2560, 'screenHeight': 1440, 'browserWidth': 2560, 'browserHeight': 1329},
+     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', 4),
+]
+# Share of the busiest hour, by hour of Kyiv: quiet night, morning coffee, lunch, evening
+CURVE = [0.1, 0.06, 0.05, 0.05, 0.06, 0.1, 0.25, 0.5, 0.8, 0.9, 0.85, 0.8, 0.95, 1.0, 0.85, 0.75, 0.75, 0.8, 0.9, 0.95, 0.8, 0.6, 0.35, 0.2]
+# A third of the visits comes from regulars, the rest from people who come once or twice
+REGULARS = 300
+VISITORS = 20000
+# Where the visitors come from. Their addresses are picked from the geo database of the stand
+COUNTRIES = [('UA', 50), ('PL', 9), ('DE', 8), ('US', 7), ('GB', 5), ('NL', 3), ('FR', 3), ('CZ', 3), ('IT', 2), ('CA', 2), ('LT', 2), ('MD', 2), ('ES', 2), ('SE', 1), ('AT', 1)]
+# The fields Ackee clears on the older views of a visitor (database/records.js)
+ANONYMIZED = ['clientId', 'siteLanguage', 'country', 'screenWidth', 'screenHeight', 'screenColorDepth', 'deviceName', 'deviceManufacturer',
+              'osName', 'osVersion', 'browserName', 'browserVersion', 'browserWidth', 'browserHeight']
+POOL_SCRIPT = '''
+import maxmind from "maxmind"
+import { createRequire } from "node:module"
+const reader = await maxmind.open(createRequire(import.meta.url).resolve("@ip-location-db/geo-whois-asn-country-mmdb/geo-whois-asn-country.mmdb"))
+const want = new Set(process.argv.slice(1))
+const pool = Object.fromEntries([...want].map((code) => [code, []]))
+for (let tries = 0; tries < 2000000 && Object.values(pool).some((ips) => ips.length < 40); tries++) {
+  const ip = [1 + Math.floor(Math.random() * 222), Math.floor(Math.random() * 256), Math.floor(Math.random() * 256), 1 + Math.floor(Math.random() * 253)].join(".")
+  const code = reader.get(ip)?.country_code
+  if (want.has(code) && pool[code].length < 40) pool[code].push(ip)
+}
+console.log(JSON.stringify(pool))
+'''
+
+CREATE_RECORD = 'mutation($id: ID!, $input: CreateRecordInput!) { createRecord(domainId: $id, input: $input) { payload { id } } }'
+UPDATE_RECORD = 'mutation($id: ID!) { updateRecord(id: $id) { success } }'
+CREATE_ACTION = 'mutation($id: ID!, $input: CreateActionInput!) { createAction(eventId: $id, input: $input) { payload { id } } }'
+
+
+def pick(rng, items):
+    return rng.choices(items, weights=[item[-1] for item in items])[0]
+
+
+def run(*args):
+    try:
+        done = subprocess.run(args, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
+def address_of(container):
+    if URL:
+        return URL
+    ip = run('docker', 'inspect', '-f', '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}', container)
+    return f'http://{ip.strip()}:3000' if ip and ip.strip() else None
+
+
+def domain_of(database):
+    """The ids of the test domain and of the events of its workspace, from the database."""
+    script = (
+        f'const d = db.domains.findOne({{title: "{DOMAIN}"}});'
+        'print(JSON.stringify(d == null ? null : {id: d.id, key: d.ingestKey || null,'
+        ' events: db.events.find({workspaceId: d.workspaceId}, {_id: 0, id: 1, title: 1}).toArray()}))'
+    )
+    out = run('docker', 'exec', 'ackee-mongo', 'mongosh', '--quiet', database, '--eval', script)
+    try:
+        return json.loads(out)
+    except (TypeError, ValueError):
+        return None
+
+
+def post(address, query, variables, visitor):
+    body = json.dumps({'query': query, 'variables': variables}).encode()
+    request = urllib.request.Request(f'{address}/api', body, {
+        'Content-Type': 'application/json',
+        'Origin': SITE,
+        'User-Agent': visitor['ua'],
+        # The stand trusts one proxy, so it takes the address from this header (ACKEE_TRUST_PROXY)
+        'X-Forwarded-For': visitor['ip'],
+    })
+    with urllib.request.urlopen(request, timeout=10) as response:
+        answer = json.loads(response.read())
+    if answer.get('errors'):
+        raise RuntimeError(answer['errors'][0].get('message'))
+    return answer['data']
+
+
+def address_pool(container):
+    """Addresses by country, from the geo database inside the image, so the lookup finds them."""
+    out = run('docker', 'exec', '-w', '/srv/app', container, 'node', '--input-type=module', '-e', POOL_SCRIPT, *[code for code, _ in COUNTRIES])
+    try:
+        pool = json.loads(out)
+    except (TypeError, ValueError):
+        return None
+    return pool if all(pool.get(code) for code, _ in COUNTRIES) else None
+
+
+def visitor(number, pool):
+    """The same number always gives the same person: country, address, device and language."""
+    rng = random.Random(number)
+    device, ua, _ = pick(rng, DEVICES)
+    country = pick(rng, COUNTRIES)[0]
+    return {'ip': rng.choice(pool[country]), 'ua': ua, 'device': device, 'language': pick(rng, LANGUAGES)[0], 'country': country}
+
+
+def visitor_number(rng):
+    return rng.randrange(REGULARS) if rng.random() < 0.3 else REGULARS + rng.randrange(VISITORS)
+
+
+def poisson(rng, mean):
+    limit, count, product = math.exp(-mean), 0, rng.random()
+    while product > limit:
+        count += 1
+        product *= rng.random()
+    return count
+
+
+def events_of(rng, page, events):
+    """Events a visit sends, as (title, key, value)."""
+    sent = []
+    if page.startswith('/shop/') and rng.random() < 0.25:
+        sent.append(('Add to cart', 'add', 1))
+        steps = ['cart', 'shipping', 'payment', 'done']
+        reached = steps[: rng.choices([1, 2, 3, 4], weights=[40, 25, 15, 20])[0]]
+        sent += [('Checkout steps', step, 1) for step in reached]
+        if reached[-1] == 'done':
+            sent.append(('Order value', 'order', round(rng.uniform(8, 64), 2)))
+    if rng.random() < 0.015:
+        sent.append(('Newsletter signups', 'signup', 1))
+    if page.startswith('/blog/') and page != '/blog/':
+        sent.append(('Read time by article', page.strip('/').split('/')[-1], rng.randint(20, 420)))
+    known = {event['title']: event['id'] for event in events}
+    return [(known[title], key, value) for title, key, value in sent if title in known]
+
+
+def visit_stand(stage, container, database, open_visits, rng, now, pool):
+    address, domain = address_of(container), domain_of(database)
+    if address is None or domain is None:
+        return open_visits, f'{stage}: no stand or no domain {DOMAIN}'
+    domain_id = domain['id'] if domain['key'] is None else f'{domain["id"]}.{domain["key"]}'
+    errors, updated, actions = [], 0, 0
+
+    still_open = []
+    for item in open_visits:
+        try:
+            post(address, UPDATE_RECORD, {'id': item['id']}, item['visitor'])
+            updated += 1
+        except Exception as error:
+            errors.append(str(error))
+            continue
+        if item['ends'] > now:
+            still_open.append(item)
+
+    hour = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2))).hour
+    count = poisson(rng, RATE * CURVE[hour])
+    for _ in range(count):
+        person = visitor(visitor_number(rng), pool)
+        page = pick(rng, PAGES)[0]
+        referrer, source, _ = pick(rng, REFERRERS)
+        location = SITE + page + (f'?source={source}' if source else '')
+        data = {**person['device'], 'siteLocation': location, 'siteLanguage': person['language']}
+        if referrer:
+            data['siteReferrer'] = referrer
+        if source:
+            data['source'] = source
+        try:
+            record = post(address, CREATE_RECORD, {'id': domain_id, 'input': data}, person)['createRecord']['payload']['id']
+        except Exception as error:
+            errors.append(str(error))
+            continue
+        # Median about a minute, some stay long; the next runs keep the visit alive
+        seconds = min(rng.lognormvariate(math.log(60), 1.0), 900)
+        still_open.append({'id': record, 'ends': now + seconds, 'visitor': person})
+        for event_id, key, value in events_of(rng, page, domain['events']):
+            try:
+                post(address, CREATE_ACTION, {'id': event_id, 'input': {'key': key, 'value': value}}, person)
+                actions += 1
+            except Exception as error:
+                errors.append(str(error))
+
+    summary = f'{stage}: +{count} visits, {updated} updated, {actions} events, {len(still_open)} open'
+    if errors:
+        summary += f', {len(errors)} errors: {errors[0]}'
+    return still_open, summary
+
+
+def stored(url):
+    """The URL as the API stores it (utils/normalizeUrl.js): no www, no trailing slash, no source."""
+    if url is None:
+        return None
+    url = url.split('?', 1)[0].replace('://www.', '://', 1)
+    return url.rstrip('/') if url.count('/') > 2 else url
+
+
+def backfill(start, end, rng, pool):
+    """Records and events of every minute between two times, as the API would have stored them."""
+    database = STANDS[0][2]
+    domain = domain_of(database)
+    if domain is None:
+        raise SystemExit(f'No domain {DOMAIN} in {database}')
+    records, actions, last_view = [], [], {}
+    minute = start.replace(second=0, microsecond=0)
+
+    while minute < end:
+        hour = (minute + datetime.timedelta(hours=2)).hour
+        for _ in range(poisson(rng, RATE * CURVE[hour])):
+            number = visitor_number(rng)
+            person = visitor(number, pool)
+            page = pick(rng, PAGES)[0]
+            referrer, source, _ = pick(rng, REFERRERS)
+            created = minute + datetime.timedelta(seconds=rng.uniform(0, 59))
+            updated = created + datetime.timedelta(seconds=min(rng.lognormvariate(math.log(60), 1.0), 900))
+            # The daily salt changes at midnight, and with it the id of the visitor
+            client = hashlib.sha256(f'{number}:{created:%Y-%m-%d}:{domain["id"]}'.encode()).hexdigest()
+            record = {
+                'id': str(uuid.UUID(int=rng.getrandbits(128), version=4)),
+                'clientId': client,
+                'domainId': domain['id'],
+                'siteLocation': stored(SITE + page),
+                'siteReferrer': stored(referrer),
+                'source': source,
+                'siteLanguage': person['language'],
+                'country': person['country'],
+                'screenColorDepth': 24,
+                **{field: None for field in ANONYMIZED if field not in ('clientId', 'siteLanguage', 'country', 'screenColorDepth')},
+                **person['device'],
+                'created': {'$date': created.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'},
+                'updated': {'$date': updated.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'},
+            }
+            # A new view of the same visitor clears the older one, as anonymize() does
+            if client in last_view:
+                last_view[client].update({field: None for field in ANONYMIZED})
+            last_view[client] = record
+            records.append(record)
+            for event_id, key, value in events_of(rng, page, domain['events']):
+                stamp = {'$date': updated.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'}
+                actions.append({'id': str(uuid.UUID(int=rng.getrandbits(128), version=4)), 'eventId': event_id, 'key': key,
+                                'value': value, 'details': None, 'created': stamp, 'updated': stamp})
+        minute += datetime.timedelta(minutes=1)
+
+    for collection, documents in (('records', records), ('actions', actions)):
+        if not documents:
+            continue
+        done = subprocess.run(['docker', 'exec', '-i', 'ackee-mongo', 'mongoimport', '--quiet', '--db', database, '--collection', collection],
+                              input='\n'.join(json.dumps(document) for document in documents), capture_output=True, text=True)
+        if done.returncode != 0:
+            raise SystemExit(f'mongoimport {collection} failed: {done.stderr.strip()}')
+    print(f'{database}: {len(records)} records and {len(actions)} events from {start:%Y-%m-%dT%H:%M}Z to {end:%Y-%m-%dT%H:%M}Z')
+    return 0
+
+
+def main():
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE + '.lock', 'w') as lock:
+        try:
+            # A slow run must not overlap the next one
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            print('previous run still busy')
+            return 0
+        try:
+            with open(STATE) as file:
+                state = json.load(file)
+        except (OSError, ValueError):
+            state = {}
+
+        seed = os.environ.get('ACKEE_TRAFFIC_SEED')
+        rng = random.Random(int(seed)) if seed else random.Random()
+        if not state.get('pool'):
+            state['pool'] = address_pool(STANDS[0][1])
+            if state['pool'] is None:
+                raise SystemExit('Could not read addresses from the geo database of the stand')
+
+        if sys.argv[1:2] == ['backfill']:
+            if len(sys.argv) != 4:
+                raise SystemExit('Usage: ackee-traffic backfill FROM TO (ISO times, UTC)')
+            start, end = (datetime.datetime.fromisoformat(value.replace('Z', '')) for value in sys.argv[2:4])
+            code = backfill(start, end, rng, state['pool'])
+        else:
+            now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+            lines = []
+            for stage, container, database in STANDS:
+                state[stage], line = visit_stand(stage, container, database, state.get(stage, []), rng, now, state['pool'])
+                lines.append(line)
+            print(f'{datetime.datetime.now(datetime.timezone.utc):%Y-%m-%dT%H:%M:%SZ} ' + '; '.join(lines))
+            code = 0
+
+        with open(STATE, 'w') as file:
+            json.dump(state, file)
+    return code
+
+
+if __name__ == '__main__':
+    sys.exit(main())
