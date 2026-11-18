@@ -9,6 +9,7 @@ import { fromZonedTime } from 'date-fns-tz'
 
 import { FILTER_FIELDS, FILTER_VALUE_MAX_LENGTH, FILTERS_MAX, PERIOD_MAX_DAYS } from '../constants/filters.js'
 import { INTERVALS_DAILY, INTERVALS_MONTHLY, INTERVALS_YEARLY } from '../constants/intervals.js'
+import { ROLLUP_DIMENSIONS } from '../constants/rollups.js'
 import createDate from './createDate.js'
 import isDay from './isDay.js'
 import KnownError from './KnownError.js'
@@ -79,6 +80,18 @@ export const createScope = (dateDetails, { filters, period } = {}) => {
 }
 
 export const hasFilters = (dateDetails) => (dateDetails.filters?.length ?? 0) > 0
+
+// The rolled up dimension that holds every field of the filters, or nothing. A click on one row of
+// a report filters by the fields of one dimension, and its rollups answer the charts (BUG-72).
+// Filters across dimensions would need a rollup of every combination, as large as the records.
+export const filteredRollup = (dateDetails) => {
+  if (hasFilters(dateDetails) === false) return
+  const fields = dateDetails.filters.map(({ field }) => field)
+  const dimension = Object.keys(ROLLUP_DIMENSIONS).find((name) =>
+    fields.every((field) => ROLLUP_DIMENSIONS[name].includes(field)),
+  )
+  return dimension == null ? undefined : { dimension, filters: dateDetails.filters }
+}
 
 // How many days, months or years a chart shows: the units of the period, or what was asked for
 export const limitOf = (dateDetails, interval, limit) => dateDetails.limitFor?.(interval) ?? limit

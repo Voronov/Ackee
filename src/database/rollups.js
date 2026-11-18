@@ -5,7 +5,7 @@ import aggregateDimensionDayRollups from '../aggregations/aggregateDimensionDayR
 import aggregateDimensionRollups from '../aggregations/aggregateDimensionRollups.js'
 import aggregateViewRollups from '../aggregations/aggregateViewRollups.js'
 import { DURATIONS_LIMIT } from '../constants/durations.js'
-import { ROLLUP_CHUNK_HOURS, ROLLUP_DIMENSIONS, ROLLUP_LEASE } from '../constants/rollups.js'
+import { ROLLUP_CHUNK_HOURS, ROLLUP_DIMENSIONS, ROLLUP_LEASE, ROLLUP_VERSION } from '../constants/rollups.js'
 import DimensionDayRollup from '../models/DimensionDayRollup.js'
 import DimensionRollup from '../models/DimensionRollup.js'
 import Record from '../models/Record.js'
@@ -46,7 +46,9 @@ const isWholeHourZone = (timeZone, dates) => {
 // period of the dashboard ends earlier (ACKEE-24).
 export const coverage = async (start, timeZone, end) => {
   const state = await RollupState.findById(STATE_ID).lean()
-  if (state?.until == null) return
+  // Rollups of an older version lack fields the reports read. Until rollUp builds them again,
+  // the reports read records.
+  if (state?.until == null || state.version !== ROLLUP_VERSION) return
 
   const from = start == null || start < state.from ? state.from : ceilHour(start)
   const until = end == null || end > state.until ? state.until : floorHour(end)
@@ -113,12 +115,26 @@ export const rollUp = async (now = new Date(), pendingSince) => {
   try {
     const target = sealedUntil(now, pendingSince)
     let { from, until } = state
+    const { version } = state
+
+    // Rollups of an older version are built again from scratch, under the lease, so no other
+    // process builds on top of them meanwhile
+    if (until != null && version !== ROLLUP_VERSION) {
+      await Promise.all([ViewRollup.deleteMany({}), DimensionRollup.deleteMany({}), DimensionDayRollup.deleteMany({})])
+      await RollupState.updateOne(
+        { _id: STATE_ID, lockedUntil: lease },
+        { $unset: { from: 1, until: 1, daysUntil: 1 } },
+      )
+      from = undefined
+      until = undefined
+      state.daysUntil = undefined
+    }
 
     if (until == null) {
       const oldest = await Record.findOne().sort({ created: 1 }).select('created').lean()
       from = oldest == null ? target : new Date(Math.min(floorHour(oldest.created).getTime(), target.getTime()))
 
-      await RollupState.updateOne({ _id: STATE_ID }, { $set: { from, until: from } })
+      await RollupState.updateOne({ _id: STATE_ID }, { $set: { from, until: from, version: ROLLUP_VERSION } })
       until = from
     }
 

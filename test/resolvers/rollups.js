@@ -176,6 +176,78 @@ let rawPeriods
 
 const sum = (entries) => entries.reduce((total, entry) => total + entry.count, 0)
 
+// Filters of the dashboard (ACKEE-24). The fields of one dimension read its rollups, the last one
+// crosses dimensions and keeps reading records (BUG-72).
+const filterSets = [
+  [{ field: 'SITE_REFERRER', value: 'https://google.com/' }],
+  [
+    { field: 'SOURCE', value: 'Newsletter' },
+    { field: 'SITE_REFERRER', value: null },
+  ],
+  [{ field: 'BROWSER_NAME', value: 'Safari' }],
+  [
+    { field: 'BROWSER_NAME', value: 'Chrome' },
+    { field: 'BROWSER_VERSION', value: '14.0' },
+  ],
+  [{ field: 'OS_NAME', value: null }],
+  [{ field: 'COUNTRY', value: 'UA' }],
+  [{ field: 'SITE_LOCATION', value: 'https://example.com/about' }],
+  [
+    { field: 'COUNTRY', value: 'US' },
+    { field: 'BROWSER_NAME', value: 'Firefox' },
+  ],
+]
+const charts = [
+  ...['TOTAL', 'UNIQUE'].flatMap((type) => ['DAILY', 'MONTHLY', 'YEARLY'].map((interval) => views(type, interval))),
+  ...['DAILY', 'MONTHLY'].map((interval) => durations(interval)),
+]
+
+const fetchCharts = async (t, timeZone, filters, period) => {
+  const { json } = await api(
+    base,
+    {
+      query: gql`
+        query fetchCharts($id: ID!, $filters: [FilterInput!], $period: PeriodInput) {
+          domain(id: $id) {
+            statistics(filters: $filters, period: $period) {
+              ${charts.map((report, index) => `c${index}: ${report}`).join('\n')}
+            }
+          }
+        }
+      `,
+      variables: { id: t.context.domain.id, filters, period },
+    },
+    t.context.token.id,
+    { 'Time-Zone': timeZone },
+  )
+
+  if (json.errors != null) throw new Error(json.errors[0].message)
+
+  return json.data.domain.statistics
+}
+
+const filteredCases = [
+  ...filterSets.flatMap((filters) => timeZones.map((zone) => ({ filters, zone }))),
+  ...filterSets.slice(0, 3).flatMap((filters) => periods.map((period) => ({ filters, zone: 'Europe/Kyiv', period }))),
+]
+const fetchFiltered = (t) =>
+  Promise.all(filteredCases.map(({ filters, zone, period }) => fetchCharts(t, zone, filters, period)))
+let rawFiltered
+
+// How often the reports read the rollups of a dimension
+const countRollupReads = (t) => {
+  const original = DimensionRollup.aggregate
+  let reads = 0
+  DimensionRollup.aggregate = function (...args) {
+    reads += 1
+    return original.apply(this, args)
+  }
+  t.teardown(() => {
+    DimensionRollup.aggregate = original
+  })
+  return () => reads
+}
+
 test.before(async (t) => {
   const { user, workspace } = await users.add({
     email: 'rollups@example.com',
@@ -212,6 +284,7 @@ test.serial('reports read records while there are no rollups', async (t) => {
 
   raw = await fetchAll(t)
   rawPeriods = await fetchPeriods(t)
+  rawFiltered = await fetchFiltered(t)
 
   t.true(sum(raw.UTC.r0) > 0)
 })
@@ -251,6 +324,48 @@ test.serial('numbers of a period from rollups equal the numbers from records', a
       )
     }
   }
+})
+
+test.serial('filtered charts from the rollups of a dimension equal the numbers from records', async (t) => {
+  const reads = countRollupReads(t)
+  const rolled = await fetchFiltered(t)
+
+  for (const [index, statistics] of rolled.entries()) {
+    const { filters, zone, period } = filteredCases[index]
+    for (const [key, entries] of Object.entries(statistics)) {
+      const label = `${JSON.stringify(filters)} ${zone} ${period?.from ?? ''}: ${charts[Number(key.slice(1))]}`
+      t.deepEqual(entries, rawFiltered[index][key], label)
+    }
+  }
+  t.true(reads() > 0)
+})
+
+test.serial('a filter across dimensions keeps reading records', async (t) => {
+  const reads = countRollupReads(t)
+  await fetchCharts(t, 'UTC', filterSets.at(-1))
+
+  t.is(reads(), 0)
+})
+
+// Rollups of version 1 had no unique views and durations per dimension. Read as they are, the
+// filtered charts would show zeros (BUG-72).
+test.serial('rollups of an older version are not read and are built again', async (t) => {
+  await RollupState.updateOne({ _id: 'records' }, { $set: { version: 1 } })
+  await DimensionRollup.updateMany({}, { $unset: { unique: 1, durationSum: 1, durationCount: 1 } })
+
+  const reads = countRollupReads(t)
+  t.deepEqual(await fetchCharts(t, 'UTC', filterSets[0]), rawFiltered[0])
+  t.is(reads(), 0)
+
+  const now = new Date()
+  const state = await rollUp(now)
+
+  t.deepEqual(state.until, sealedUntil(now))
+  t.is((await RollupState.findById('records').lean()).version, 2)
+  t.is(await DimensionRollup.countDocuments({ unique: { $exists: false } }), 0)
+  t.true((await DimensionRollup.countDocuments({ dimension: 'pages' })) > 0)
+  t.deepEqual(await fetchCharts(t, 'UTC', filterSets[0]), rawFiltered[0])
+  t.true(reads() > 0)
 })
 
 test.serial('months of a period from rollups add up to its days', async (t) => {

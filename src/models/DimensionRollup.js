@@ -25,6 +25,11 @@ const schema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  // The measures of the views and durations reports, as in ViewRollup, for a report filtered by
+  // this dimension (BUG-72)
+  unique: Number,
+  durationSum: Number,
+  durationCount: Number,
 })
 
 schema.index({ domainId: 1, dimension: 1, hour: 1 })

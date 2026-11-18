@@ -1,3 +1,5 @@
+import { viewMeasures } from './projectViewFacts.js'
+
 export default (fields) => {
   // One record as a dimension rollup of a single record. A missing field becomes null, as it
   // does in the $group of a rollup.
@@ -7,6 +9,9 @@ export default (fields) => {
       at: '$created',
       fields: Object.fromEntries(fields.map((field) => [field, { $ifNull: [`$${field}`, null] }])),
       count: { $literal: 1 },
+      unique: viewMeasures.unique,
+      durationSum: viewMeasures.durationSum,
+      durationCount: viewMeasures.durationCount,
     },
   }
 }

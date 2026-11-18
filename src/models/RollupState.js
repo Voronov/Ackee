@@ -19,6 +19,10 @@ const schema = new mongoose.Schema({
   daysUntil: {
     type: Date,
   },
+  // The rollups were built by this ROLLUP_VERSION, see constants/rollups.js
+  version: {
+    type: Number,
+  },
   // The process that builds rollups holds this lease, see ROLLUP_LEASE
   lockedUntil: {
     type: Date,
