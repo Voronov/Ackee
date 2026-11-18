@@ -97,7 +97,7 @@ def chat_id():
 
 
 def send(text):
-    text = text if len(text) <= LIMIT else text[: LIMIT - 20] + '\n… (обрізано)'
+    text = text if len(text) <= LIMIT else text[: LIMIT - 20] + '\n… (cut)'
     if DRY_RUN:
         print(text)
         return
@@ -132,13 +132,13 @@ def errors():
     for stage, container, _ in STANDS:
         lines = fatal_lines(container, '10m')
         if lines:
-            problems.append(f'{stage}: {len(lines)} fatal у журналі\n' + '\n'.join(f'  {line}' for line in distinct(lines)))
+            problems.append(f'{stage}: {len(lines)} fatal in the log\n' + '\n'.join(f'  {line}' for line in distinct(lines)))
 
         restarts = inspect(container, '{{.RestartCount}}')
         if restarts is not None and restarts.isdigit():
             before = state.get(container, {}).get('restarts')
             if before is not None and int(restarts) > before:
-                problems.append(f'{stage}: контейнер перезапускався, рестартів {restarts}')
+                problems.append(f'{stage}: the container restarted, {restarts} restarts')
             state[container] = {'restarts': int(restarts)}
 
     query = 'sum by (job, route, status) (increase(ackee_http_request_duration_seconds_count{status=~"5..",route!="/metrics"}[10m]))'
@@ -147,11 +147,11 @@ def errors():
         if count >= 1:
             metric = result['metric']
             stage = metric.get('job', '?').replace('ackee-', '')
-            problems.append(f'{stage}: {count}× HTTP {metric.get("status")} на {metric.get("route")}')
+            problems.append(f'{stage}: {count}× HTTP {metric.get("status")} on {metric.get("route")}')
 
     save_state(state)
     if problems:
-        send('⚠️ Ackee: помилки за останні 10 хв\n\n' + '\n\n'.join(problems))
+        send('⚠️ Ackee: errors in the last 10 minutes\n\n' + '\n\n'.join(problems))
     return 0
 
 
@@ -164,7 +164,7 @@ def since_text(seconds):
         return '?'
     days, hours = int(seconds // 86400), int(seconds % 86400 // 3600)
     minutes = int(seconds % 3600 // 60)
-    return f'{days} дн. {hours} год' if days else f'{hours} год {minutes} хв' if hours else f'{minutes} хв'
+    return f'{days} d {hours} h' if days else f'{hours} h {minutes} min' if hours else f'{minutes} min'
 
 
 def started_ago(started):
@@ -196,7 +196,7 @@ def stand_data(database, since):
 
 
 def megabytes(amount):
-    return f'{amount / 2**20:.0f} МБ' if amount is not None else '?'
+    return f'{amount / 2**20:.0f} MB' if amount is not None else '?'
 
 
 def server_lines():
@@ -212,14 +212,14 @@ def server_lines():
     ram_min = value(prom('min_over_time(node_memory_MemAvailable_bytes[24h])'))
     ram_total = value(prom('node_memory_MemTotal_bytes'))
     percent = lambda amount: f'{amount:.0f} %' if amount is not None else '?'
-    lines.append(f'  аптайм {since_text(uptime)}, навантаження {" / ".join(f"{load:.2f}" for load in os.getloadavg())}')
-    lines.append(f'  CPU зараз {percent(cpu_now)}, за добу в середньому {percent(cpu_avg)}, максимум {percent(cpu_max)}')
+    lines.append(f'  uptime {since_text(uptime)}, load {" / ".join(f"{load:.2f}" for load in os.getloadavg())}')
+    lines.append(f'  CPU now {percent(cpu_now)}, over the day {percent(cpu_avg)} on average, {percent(cpu_max)} at most')
     if ram_min is not None and ram_total is not None:
-        lines.append(f'  RAM: за добу доступно щонайменше {ram_min / 2**30:.1f} з {ram_total / 2**30:.1f} ГБ, {memory()}')
+        lines.append(f'  RAM: at least {ram_min / 2**30:.1f} of {ram_total / 2**30:.1f} GB free over the day, {memory()}')
     else:
         lines.append(f'  RAM: {memory()}')
     disk = shutil.disk_usage('/')
-    lines.append(f'  диск {round(disk.used * 100 / (disk.used + disk.free))} %, вільно {disk.free / 2**30:.1f} ГБ')
+    lines.append(f'  disk {round(disk.used * 100 / (disk.used + disk.free))} % used, {disk.free / 2**30:.1f} GB free')
     return lines
 
 
@@ -229,20 +229,47 @@ def nightly():
     return f'{match.group(5)}, {match.group(3)}.{match.group(2)} {match.group(4)} UTC' if match else line
 
 
+def home_pull():
+    """When the home server last took the dumps: a login of its read-only key, seen by sshd.
+    The check of the dumps runs over there, so a login means the copy ran, not that it passed."""
+    try:
+        with open(os.environ.get('ACKEE_REPORT_AUTHORIZED_KEYS', '/root/.ssh/authorized_keys')) as file:
+            line = next((line for line in file if 'pull ackee backups' in line), None)
+    except OSError:
+        line = None
+    if line is None:
+        return 'home server: no pull key'
+    key = line[line.index('ssh-'):] if 'ssh-' in line else line
+    try:
+        done = subprocess.run(['ssh-keygen', '-lf', '/dev/stdin'], input=key, capture_output=True, text=True, timeout=10)
+        fingerprint = done.stdout.split()[1]
+    except (OSError, IndexError, subprocess.TimeoutExpired):
+        return 'home server: the pull key could not be read'
+    journal = run('journalctl', '-u', 'ssh', '--since', '48 hours ago', '--no-pager', '-q', '-o', 'short-iso') or ''
+    logins = [entry for entry in journal.splitlines() if 'Accepted publickey' in entry and fingerprint in entry]
+    if not logins:
+        return '⚠️ home server: no pull in 48 h'
+    when = datetime.datetime.fromisoformat(logins[-1].split()[0])
+    hours = (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() / 3600
+    mark = '⚠️ ' if hours > 26 else ''
+    return f'{mark}home server: pulled {when.astimezone(datetime.timezone.utc):%d.%m %H:%M} UTC, {hours:.0f} h ago'
+
+
 def backup_lines():
     try:
         dumps = [os.path.join(BACKUP_DIR, name) for name in os.listdir(BACKUP_DIR) if name.endswith('.archive.gz')]
     except OSError:
-        return ['  теку бекапів не вдалося прочитати', f'  журнал: {last_backup()}']
+        return ['  the backup folder could not be read', f'  log: {last_backup()}']
     if not dumps:
-        return ['  архівів немає', f'  журнал: {last_backup()}']
+        return ['  no dumps', f'  log: {last_backup()}']
     dumps.sort(key=os.path.getmtime)
     newest, oldest = dumps[-1], dumps[0]
     stamp = lambda path: datetime.datetime.fromtimestamp(os.path.getmtime(path), datetime.timezone.utc).strftime('%d.%m %H:%M')
     size = sum(os.path.getsize(path) for path in dumps)
     return [
-        f'  найновіший {stamp(newest)} UTC, {os.path.getsize(newest) / 2**20:.0f} МБ; нічний запуск: {nightly()}',
-        f'  у теці {len(dumps)} архівів, {size / 2**20:.0f} МБ, найстаріший від {stamp(oldest)}',
+        f'  newest {stamp(newest)} UTC, {os.path.getsize(newest) / 2**20:.0f} MB; nightly run: {nightly()}',
+        f'  {len(dumps)} dumps in the folder, {size / 2**20:.0f} MB, the oldest from {stamp(oldest)}',
+        f'  {home_pull()}',
     ]
 
 
@@ -263,21 +290,21 @@ def security_lines():
     failed = len(re.findall(r'Invalid user|Failed password|Connection closed by invalid user', journal)) if journal is not None else None
     bans = bans_since(24)
     return [
-        f'  fail2ban: заблоковано зараз {now.group(1) if now else "?"}, нових банів за добу {bans if bans is not None else "?"}',
-        f'  невдалих входів SSH за добу {failed if failed is not None else "?"}',
+        f'  fail2ban: {now.group(1) if now else "?"} banned now, {bans if bans is not None else "?"} new bans in the day',
+        f'  failed SSH logins in the day: {failed if failed is not None else "?"}',
     ]
 
 
 def daily():
     now = datetime.datetime.now(datetime.timezone.utc)
     since = (now - datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    parts = [f'☀️ Ackee: звіт за добу, {now:%d.%m.%Y}']
+    parts = [f'☀️ Ackee: daily report, {now:%d.%m.%Y}']
     ga4 = []
 
     for stage, container, database in STANDS:
         job = f'ackee-{stage}'
         image = inspect(container, '{{.Config.Image}}') or '?'
-        health = inspect(container, '{{.State.Health.Status}}') or 'не працює'
+        health = inspect(container, '{{.State.Health.Status}}') or 'not running'
         restarts = inspect(container, '{{.RestartCount}}') or '?'
         limit = inspect(container, '{{.HostConfig.Memory}}')
 
@@ -292,31 +319,31 @@ def daily():
         if data is not None:
             test = data['records'].get(TEST_DOMAIN, 0)
             real = sum(count for title, count in data['records'].items() if title != TEST_DOMAIN)
-            records = f'сайти {number(real)}, тестовий домен {number(test)}'
+            records = f'sites {number(real)}, test domain {number(test)}'
             if stage == 'live':
                 ga4 = data['ga4']
         else:
             records = '?'
 
-        memory_text = megabytes(memory_max) + (f' з {megabytes(int(limit))}' if limit and limit.isdigit() and int(limit) > 0 else '')
+        memory_text = megabytes(memory_max) + (f' of {megabytes(int(limit))}' if limit and limit.isdigit() and int(limit) > 0 else '')
         parts.append('\n'.join([
-            f'\n{stage}: {image.split(":")[-1]}, {health}, рестартів {restarts}, працює {since_text(started_ago(inspect(container, "{{.State.StartedAt}}") or ""))}',
-            f'  запитів {number(requests) if requests is not None else "?"}, p95 {f"{p95 * 1000:.0f} мс" if p95 is not None and p95 == p95 else "?"}, пам\'ять до {memory_text}',
-            f'  помилки: 5xx {number(errors_5xx or 0) if requests is not None else "?"}, 4xx {number(errors_4xx or 0) if requests is not None else "?"}, '
-            f'fatal у журналі {len(fatal) if fatal is not None else "?"}',
-            f'  нових записів: {records}',
+            f'\n{stage}: {image.split(":")[-1]}, {health}, {restarts} restarts, up {since_text(started_ago(inspect(container, "{{.State.StartedAt}}") or ""))}',
+            f'  requests {number(requests) if requests is not None else "?"}, p95 {f"{p95 * 1000:.0f} ms" if p95 is not None and p95 == p95 else "?"}, memory up to {memory_text}',
+            f'  errors: 5xx {number(errors_5xx or 0) if requests is not None else "?"}, 4xx {number(errors_4xx or 0) if requests is not None else "?"}, '
+            f'fatal in the log {len(fatal) if fatal is not None else "?"}',
+            f'  new records: {records}',
         ]))
 
-    parts.append('\nСервер\n' + '\n'.join(server_lines()))
-    parts.append('Бекапи live\n' + '\n'.join(backup_lines()))
-    parts.append('Безпека\n' + '\n'.join(security_lines()))
+    parts.append('\nServer\n' + '\n'.join(server_lines()))
+    parts.append('Backups of live\n' + '\n'.join(backup_lines()))
+    parts.append('Security\n' + '\n'.join(security_lines()))
 
     if ga4:
         lines = []
         for connection in ga4:
-            state = 'помилка' if connection['error'] else 'OK'
+            state = 'error' if connection['error'] else 'OK'
             synced = (connection['lastSync'] or '?')[:16].replace('T', ' ')
-            lines.append(f'  {connection["title"]}: {state}, синхронізовано {synced} UTC, дані до {connection["lastDay"] or "?"}')
+            lines.append(f'  {connection["title"]}: {state}, synced {synced} UTC, data up to {connection["lastDay"] or "?"}')
         parts.append('GA4\n' + '\n'.join(lines))
 
     fired = prom('max_over_time(ALERTS{alertstate="firing"}[24h])')
@@ -324,10 +351,10 @@ def daily():
     alerts = run('docker', 'exec', 'ackee-alertmanager', 'wget', '-qO-', 'http://localhost:9093/api/v2/alerts')
     try:
         active = sorted({alert['labels']['alertname'] for alert in json.loads(alerts) if alert['status']['state'] == 'active'})
-        active_text = ', '.join(active) if active else 'немає'
+        active_text = ', '.join(active) if active else 'none'
     except (TypeError, ValueError, KeyError):
-        active_text = 'не вдалося перевірити'
-    parts.append(f'Алерти: зараз {active_text}; за добу спрацьовували {", ".join(names) if names else "жодні"}')
+        active_text = 'could not be checked'
+    parts.append(f'Alerts: active {active_text}; fired in the day {", ".join(names) if names else "none"}')
 
     send('\n'.join(parts))
     return 0
@@ -337,18 +364,18 @@ def memory():
     try:
         with open('/proc/meminfo') as file:
             info = dict(line.split(':', 1) for line in file)
-        return f'пам\'яті доступно {int(info["MemAvailable"].split()[0]) / 2**20:.1f} з {int(info["MemTotal"].split()[0]) / 2**20:.1f} ГБ'
+        return f'{int(info["MemAvailable"].split()[0]) / 2**20:.1f} of {int(info["MemTotal"].split()[0]) / 2**20:.1f} GB free now'
     except (OSError, KeyError, ValueError):
-        return 'пам\'ять не вдалося перевірити'
+        return 'memory could not be checked'
 
 
 def last_backup():
     try:
         with open(os.environ.get('ACKEE_REPORT_BACKUP_LOG', '/var/log/ackee-backup.log')) as file:
             lines = file.read().splitlines()
-        return lines[-1] if lines else 'журнал порожній'
+        return lines[-1] if lines else 'the log is empty'
     except OSError:
-        return 'журналу немає'
+        return 'no log'
 
 
 def audit(ref):
@@ -365,9 +392,9 @@ def audit(ref):
         )
         counts = json.loads(done.stdout)['metadata']['vulnerabilities']
         found = {level: counts.get(level, 0) for level in ('critical', 'high', 'moderate') if counts.get(level, 0)}
-        return ', '.join(f'{level} {count}' for level, count in found.items()) or 'чисто'
+        return ', '.join(f'{level} {count}' for level, count in found.items()) or 'clean'
     except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
-        return 'не вдалося перевірити'
+        return 'could not be checked'
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
@@ -383,30 +410,30 @@ def certificate_days(host):
 
 
 def security():
-    parts = [f'🛡 Ackee: перевірка безпеки, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
+    parts = [f'🛡 Ackee: security check, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
 
     refs = []
     for stage, container, _ in STANDS:
         tag = (inspect(container, '{{.Config.Image}}') or '').split(':')[-1]
         # dev runs sha-<commit>, which is develop or a little behind it
         refs.append((stage, 'develop' if tag.startswith('sha-') or not tag else tag))
-    parts.append('\nЗалежності (npm audit, без dev):')
+    parts.append('\nDependencies (npm audit, without dev):')
     for stage, ref in refs:
         parts.append(f'  {stage} ({ref}): {audit(ref)}')
 
-    parts.append('\nTLS-сертифікати:')
+    parts.append('\nTLS certificates:')
     for host in HOSTS:
         days = certificate_days(host)
         mark = '' if days is None or days > 21 else ' ⚠️'
-        parts.append(f'  {host}: {"не вдалося перевірити" if days is None else f"ще {days} дн."}{mark}')
+        parts.append(f'  {host}: {"could not be checked" if days is None else f"{days} days left"}{mark}')
 
     journal = run('journalctl', '-u', 'ssh', '--since', '3 days ago', '--no-pager', '-q')
     failed = len(re.findall(r'Invalid user|Failed password|Connection closed by invalid user', journal)) if journal is not None else None
     banned = run('fail2ban-client', 'status', 'sshd')
     match = re.search(r'Total banned:\s*(\d+)', banned or '')
     parts.append(
-        f'\nSSH за 3 дні: невдалих спроб {failed if failed is not None else "?"}, '
-        f'fail2ban заблокував усього {match.group(1) if match else "?"}'
+        f'\nSSH in 3 days: {failed if failed is not None else "?"} failed logins, '
+        f'{match.group(1) if match else "?"} banned by fail2ban since its start'
     )
 
     listening = run('ss', '-tlnH')
@@ -416,16 +443,16 @@ def security():
             fields = line.split()
             if len(fields) >= 4 and not fields[3].startswith(('127.', '[::1]')):
                 ports.add(fields[3].rsplit(':', 1)[-1])
-        parts.append('Відкриті порти: ' + ', '.join(sorted(ports, key=lambda port: int(port) if port.isdigit() else 0)))
+        parts.append('Open ports: ' + ', '.join(sorted(ports, key=lambda port: int(port) if port.isdigit() else 0)))
     else:
-        parts.append('Відкриті порти: не вдалося перевірити')
+        parts.append('Open ports: could not be checked')
 
     upgradable = run('apt', 'list', '--upgradable')
     if upgradable is not None:
         security_updates = sum(1 for line in upgradable.splitlines() if '-security' in line)
-        parts.append(f'Оновлення безпеки ОС: {security_updates}' + (' (потрібне перезавантаження)' if os.path.exists('/var/run/reboot-required') else ''))
+        parts.append(f'OS security updates: {security_updates}' + (' (a reboot is pending)' if os.path.exists('/var/run/reboot-required') else ''))
     else:
-        parts.append('Оновлення безпеки ОС: не вдалося перевірити')
+        parts.append('OS security updates: could not be checked')
 
     send('\n'.join(parts))
     return 0
