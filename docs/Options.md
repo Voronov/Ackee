@@ -191,6 +191,16 @@ Set the environment to `development` to see additional details in the console an
 NODE_ENV=development
 ```
 
+## Build
+
+The id of the build that runs, as the image was tagged: `sha-<commit>` on dev, the version on live. Ackee only reports it. It is set by the image, so you set it only for a build of your own.
+
+```
+ACKEE_BUILD=sha-1a2b3c4
+```
+
+The query `{ build { id version database } }` answers without authentication with this id, the version from `package.json`, and whether the database is connected. The smoke test after a deploy reads it to check that the stand runs the expected image. Without the variable the id is `local`.
+
 ## Redis
 
 Set when more than one Ackee process records views, e.g. replicas or a separate ingest process. The processes then share the daily salt through Redis and compute the same `clientId` for the same visitor. A restart during the day keeps the salt as well. Without this variable every process keeps its own salt in memory.
