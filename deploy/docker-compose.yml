@@ -137,6 +137,8 @@ services:
       ACKEE_GA4_SYNC_SCHEDULE: '*/10 * * * *'
       # One reverse proxy on the host in front of the stand (ACKEE-94)
       ACKEE_TRUST_PROXY: '1'
+      # The country of visitors, only for the domains whose owner turned it on (ACKEE-100)
+      ACKEE_GEO: country
     depends_on:
       mongo:
         condition: service_healthy
