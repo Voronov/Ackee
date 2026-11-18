@@ -10,6 +10,20 @@ import recursiveId from '../utils/recursiveId.js'
 import { applyScope, hasFilters, limitOf } from '../utils/scope.js'
 import { coverage as rollupCoverage } from './rollups.js'
 
+// A report without rollups reads records. With `clientId` in the match of unique views the planner
+// can pick that index and read the records of every domain: 9 s instead of 0.25 s on live (BUG-72).
+export const hinted = (aggregation) => Record.aggregate(aggregation).hint({ domainId: 1, created: 1 })
+
+// A fresh database may not have the index yet, and MongoDB refuses a hint to a missing one
+export const aggregateRecords = async (aggregation) => {
+  try {
+    return await hinted(aggregation)
+  } catch (error) {
+    if (/hint provided does not correspond to an existing index/.test(error.message) === false) throw error
+    return Record.aggregate(aggregation)
+  }
+}
+
 const get = async (ids, type, interval, askedLimit, dateDetails) => {
   const unique = type === VIEWS_TYPE_UNIQUE
   const limit = limitOf(dateDetails, interval, askedLimit)
@@ -64,9 +78,7 @@ const get = async (ids, type, interval, askedLimit, dateDetails) => {
     })
   }
 
-  const model = coverage == null ? Record : ViewRollup
-
-  return enhance(await model.aggregate(aggregation))
+  return enhance(await (coverage == null ? aggregateRecords(aggregation) : ViewRollup.aggregate(aggregation)))
 }
 
 export default get
