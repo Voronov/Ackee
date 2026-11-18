@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""Sends the state of the stands to the team chat (/etc/cron.d/ackee-report, ACKEE-125).
+
+  ackee-report errors     every 10 minutes, writes only when something went wrong
+  ackee-report daily      every morning: versions, traffic, errors, backup, disk
+  ackee-report security   three times a week: dependencies, TLS, SSH, ports, updates
+
+The bot token and the chat are the ones of Alertmanager (docs/engineering/alerts.md).
+ACKEE_REPORT_DRY_RUN=1 prints the message instead of sending it.
+"""
+
+import datetime
+import json
+import os
+import re
+import shutil
+import socket
+import ssl
+import subprocess
+import sys
+import tempfile
+import urllib.parse
+import urllib.request
+
+ROOT = os.environ.get('ACKEE_REPORT_ROOT', '/opt/ackee')
+STATE = os.environ.get('ACKEE_REPORT_STATE', '/var/lib/ackee-report/state.json')
+DRY_RUN = os.environ.get('ACKEE_REPORT_DRY_RUN') == '1'
+RAW_URL = os.environ.get('ACKEE_REPORT_RAW_URL', 'https://raw.githubusercontent.com/Voronov/Ackee')
+HOSTS = os.environ.get(
+    'ACKEE_REPORT_HOSTS',
+    'ackee2.varlex.app dev.ackee2.varlex.app ackee.varlex.app grafana.ackee.varlex.app prometeus.ackee.varlex.app',
+).split()
+
+STANDS = [('live', 'ackee-live', 'ackee_live'), ('dev', 'ackee-dev', 'ackee_dev')]
+
+# Fatal lines we cannot fix: someone outside asks for the schema, and Apollo refuses
+IGNORED = [re.compile(r'introspection is not allowed')]
+UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+# Telegram refuses longer messages
+LIMIT = 4000
+
+
+def run(*args, timeout=120):
+    try:
+        done = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return done.stdout + done.stderr if done.returncode == 0 else None
+
+
+def prom(query):
+    url = 'http://localhost:9090/api/v1/query?' + urllib.parse.urlencode({'query': query})
+    out = run('docker', 'exec', 'ackee-prometheus', 'wget', '-qO-', url)
+    try:
+        return json.loads(out)['data']['result']
+    except (TypeError, ValueError, KeyError):
+        return None
+
+
+def value(results, job=None):
+    for result in results or []:
+        if job is None or result['metric'].get('job') == job:
+            return float(result['value'][1])
+    return None
+
+
+def fatal_lines(container, since):
+    out = run('docker', 'logs', '--since', since, container)
+    if out is None:
+        return None
+    lines = [line.strip() for line in out.splitlines() if '✖' in line]
+    return [line for line in lines if not any(pattern.search(line) for pattern in IGNORED)]
+
+
+def inspect(container, template):
+    out = run('docker', 'inspect', '-f', template, container)
+    return out.strip() if out is not None else None
+
+
+def distinct(lines, count=3):
+    seen = []
+    for line in lines:
+        short = UUID.sub('<id>', line)[:200]
+        if short not in seen:
+            seen.append(short)
+    return seen[:count]
+
+
+def chat_id():
+    if os.environ.get('ACKEE_REPORT_CHAT_ID'):
+        return os.environ['ACKEE_REPORT_CHAT_ID']
+    with open(os.path.join(ROOT, '.env')) as env:
+        for line in env:
+            if line.startswith('ALERTMANAGER_TELEGRAM_CHAT_ID='):
+                return line.split('=', 1)[1].strip()
+    raise SystemExit('ALERTMANAGER_TELEGRAM_CHAT_ID is not set in .env')
+
+
+def send(text):
+    text = text if len(text) <= LIMIT else text[: LIMIT - 20] + '\n… (обрізано)'
+    if DRY_RUN:
+        print(text)
+        return
+    with open(os.path.join(ROOT, 'alertmanager/secrets/telegram_bot_token')) as file:
+        token = file.read().strip()
+    data = urllib.parse.urlencode({'chat_id': chat_id(), 'text': text, 'disable_web_page_preview': 'true'})
+    urllib.request.urlopen(f'https://api.telegram.org/bot{token}/sendMessage', data.encode(), timeout=30)
+
+
+def load_state():
+    try:
+        with open(STATE) as file:
+            return json.load(file)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    with open(STATE, 'w') as file:
+        json.dump(state, file)
+
+
+def number(amount):
+    return f'{amount:,.0f}'.replace(',', ' ')
+
+
+def errors():
+    problems = []
+    state = load_state()
+
+    for stage, container, _ in STANDS:
+        lines = fatal_lines(container, '10m')
+        if lines:
+            problems.append(f'{stage}: {len(lines)} fatal у журналі\n' + '\n'.join(f'  {line}' for line in distinct(lines)))
+
+        restarts = inspect(container, '{{.RestartCount}}')
+        if restarts is not None and restarts.isdigit():
+            before = state.get(container, {}).get('restarts')
+            if before is not None and int(restarts) > before:
+                problems.append(f'{stage}: контейнер перезапускався, рестартів {restarts}')
+            state[container] = {'restarts': int(restarts)}
+
+    query = 'sum by (job, route, status) (increase(ackee_http_request_duration_seconds_count{status=~"5..",route!="/metrics"}[10m]))'
+    for result in prom(query) or []:
+        count = round(float(result['value'][1]))
+        if count >= 1:
+            metric = result['metric']
+            stage = metric.get('job', '?').replace('ackee-', '')
+            problems.append(f'{stage}: {count}× HTTP {metric.get("status")} на {metric.get("route")}')
+
+    save_state(state)
+    if problems:
+        send('⚠️ Ackee: помилки за останні 10 хв\n\n' + '\n\n'.join(problems))
+    return 0
+
+
+def daily():
+    parts = [f'☀️ Ackee: звіт за добу, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
+
+    for stage, container, database in STANDS:
+        job = f'ackee-{stage}'
+        image = inspect(container, '{{.Config.Image}}') or '?'
+        health = inspect(container, '{{.State.Health.Status}}') or 'не працює'
+        restarts = inspect(container, '{{.RestartCount}}') or '?'
+        started = (inspect(container, '{{.State.StartedAt}}') or '?')[:16].replace('T', ' ')
+
+        requests = value(prom(f'sum(increase(ackee_http_request_duration_seconds_count{{job="{job}",route!="/metrics"}}[24h]))'))
+        errors_5xx = value(prom(f'sum(increase(ackee_http_request_duration_seconds_count{{job="{job}",status=~"5..",route!="/metrics"}}[24h]))'))
+        p95 = value(prom(f'histogram_quantile(0.95, sum by (le) (rate(ackee_http_request_duration_seconds_bucket{{job="{job}",route!="/metrics"}}[24h])))'))
+
+        since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        records = run('docker', 'exec', 'ackee-mongo', 'mongosh', '--quiet', database, '--eval', f'print(db.records.countDocuments({{created: {{$gte: ISODate("{since}")}}}}))')
+        fatal = fatal_lines(container, '24h')
+
+        lines = [
+            f'\n{stage}: {image.split(":")[-1]}, {health}, рестартів {restarts}, запущено {started} UTC',
+            f'  запитів {number(requests) if requests is not None else "?"}, 5xx {number(errors_5xx or 0) if requests is not None else "?"}, '
+            f'p95 {f"{p95 * 1000:.0f} мс" if p95 is not None and p95 == p95 else "?"}',
+            f'  нових записів {records.strip() if records else "?"}, fatal у журналі {len(fatal) if fatal is not None else "?"}',
+        ]
+        parts.append('\n'.join(lines))
+
+    disk = shutil.disk_usage('/')
+    parts.append(f'\nСервер: диск {round(disk.used * 100 / (disk.used + disk.free))} %, вільно {disk.free / 2**30:.1f} ГБ, {memory()}')
+    parts.append(f'Бекап: {last_backup()}')
+
+    alerts = run('docker', 'exec', 'ackee-alertmanager', 'wget', '-qO-', 'http://localhost:9093/api/v2/alerts')
+    try:
+        names = sorted({alert['labels']['alertname'] for alert in json.loads(alerts) if alert['status']['state'] == 'active'})
+        parts.append('Алерти: ' + (', '.join(names) if names else 'немає активних'))
+    except (TypeError, ValueError, KeyError):
+        parts.append('Алерти: не вдалося перевірити')
+
+    send('\n'.join(parts))
+    return 0
+
+
+def memory():
+    try:
+        with open('/proc/meminfo') as file:
+            info = dict(line.split(':', 1) for line in file)
+        return f'пам\'яті доступно {int(info["MemAvailable"].split()[0]) / 2**20:.1f} з {int(info["MemTotal"].split()[0]) / 2**20:.1f} ГБ'
+    except (OSError, KeyError, ValueError):
+        return 'пам\'ять не вдалося перевірити'
+
+
+def last_backup():
+    try:
+        with open(os.environ.get('ACKEE_REPORT_BACKUP_LOG', '/var/log/ackee-backup.log')) as file:
+            lines = file.read().splitlines()
+        return lines[-1] if lines else 'журнал порожній'
+    except OSError:
+        return 'журналу немає'
+
+
+def audit(ref):
+    folder = tempfile.mkdtemp(prefix='ackee-audit-')
+    try:
+        for name in ('package.json', 'package-lock.json'):
+            with urllib.request.urlopen(f'{RAW_URL}/{ref}/{name}', timeout=60) as response:
+                with open(os.path.join(folder, name), 'wb') as file:
+                    file.write(response.read())
+        # npm audit exits 1 when it finds something, so the exit code is not checked here
+        done = subprocess.run(
+            ['docker', 'run', '--rm', '-v', f'{folder}:/w', '-w', '/w', 'node:24-alpine', 'npm', 'audit', '--omit=dev', '--package-lock-only', '--json'],
+            capture_output=True, text=True, timeout=300,
+        )
+        counts = json.loads(done.stdout)['metadata']['vulnerabilities']
+        found = {level: counts.get(level, 0) for level in ('critical', 'high', 'moderate') if counts.get(level, 0)}
+        return ', '.join(f'{level} {count}' for level, count in found.items()) or 'чисто'
+    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+        return 'не вдалося перевірити'
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def certificate_days(host):
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((host, 443), timeout=10) as raw, context.wrap_socket(raw, server_hostname=host) as tls:
+            ends = datetime.datetime.strptime(tls.getpeercert()['notAfter'], '%b %d %H:%M:%S %Y %Z')
+        return (ends - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)).days
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def security():
+    parts = [f'🛡 Ackee: перевірка безпеки, {datetime.datetime.now(datetime.timezone.utc):%d.%m.%Y}']
+
+    refs = []
+    for stage, container, _ in STANDS:
+        tag = (inspect(container, '{{.Config.Image}}') or '').split(':')[-1]
+        # dev runs sha-<commit>, which is develop or a little behind it
+        refs.append((stage, 'develop' if tag.startswith('sha-') or not tag else tag))
+    parts.append('\nЗалежності (npm audit, без dev):')
+    for stage, ref in refs:
+        parts.append(f'  {stage} ({ref}): {audit(ref)}')
+
+    parts.append('\nTLS-сертифікати:')
+    for host in HOSTS:
+        days = certificate_days(host)
+        mark = '' if days is None or days > 21 else ' ⚠️'
+        parts.append(f'  {host}: {"не вдалося перевірити" if days is None else f"ще {days} дн."}{mark}')
+
+    journal = run('journalctl', '-u', 'ssh', '--since', '3 days ago', '--no-pager', '-q')
+    failed = len(re.findall(r'Invalid user|Failed password|Connection closed by invalid user', journal)) if journal is not None else None
+    banned = run('fail2ban-client', 'status', 'sshd')
+    match = re.search(r'Total banned:\s*(\d+)', banned or '')
+    parts.append(
+        f'\nSSH за 3 дні: невдалих спроб {failed if failed is not None else "?"}, '
+        f'fail2ban заблокував усього {match.group(1) if match else "?"}'
+    )
+
+    listening = run('ss', '-tlnH')
+    if listening is not None:
+        ports = set()
+        for line in listening.splitlines():
+            fields = line.split()
+            if len(fields) >= 4 and not fields[3].startswith(('127.', '[::1]')):
+                ports.add(fields[3].rsplit(':', 1)[-1])
+        parts.append('Відкриті порти: ' + ', '.join(sorted(ports, key=lambda port: int(port) if port.isdigit() else 0)))
+    else:
+        parts.append('Відкриті порти: не вдалося перевірити')
+
+    upgradable = run('apt', 'list', '--upgradable')
+    if upgradable is not None:
+        security_updates = sum(1 for line in upgradable.splitlines() if '-security' in line)
+        parts.append(f'Оновлення безпеки ОС: {security_updates}' + (' (потрібне перезавантаження)' if os.path.exists('/var/run/reboot-required') else ''))
+    else:
+        parts.append('Оновлення безпеки ОС: не вдалося перевірити')
+
+    send('\n'.join(parts))
+    return 0
+
+
+MODES = {'errors': errors, 'daily': daily, 'security': security}
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2 or sys.argv[1] not in MODES:
+        raise SystemExit('Usage: ackee-report errors|daily|security')
+    sys.exit(MODES[sys.argv[1]]())
