@@ -45,7 +45,7 @@ Ackee becomes a service for many people: accounts, workspaces and roles, reports
 
 ### Known limits
 
-- A report with a filter has no rollups and reads the records: about 4 s on 10 million records
+- A report with a filter has no rollups and reads the records. On 10 million records, the views and facts of a filtered dashboard took about 3 minutes for one user, and its referrers and durations about 4 seconds. With ten users at once, MongoDB reached its memory limit. Without a filter, the p95 of every report stays under 75 ms with ten users
 - ClickHouse is not used. The decision of ADR-004 is still open
 - Google Analytics 4 reports cannot be filtered
 - The country of visitors is off by default (`ACKEE_GEO`)
