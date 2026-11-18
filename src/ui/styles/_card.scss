@@ -21,9 +21,10 @@
 		width: 100%;
 	}
 
-	// A long headline stops before the buttons of the export
+	// A long headline stops before the buttons of the export. In rem: the em of a headline is
+	// 2.2 times larger, and kept 210px free, which left a short title 60px on a phone (BUG-73)
 	&__inner--export > .headline {
-		padding-right: 6em;
+		padding-right: 6rem;
 	}
 
 	// CSV and JSON of the report, next to the headline (ACKEE-22)
