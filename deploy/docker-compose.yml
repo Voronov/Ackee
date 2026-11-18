@@ -125,7 +125,8 @@ services:
     environment:
       ACKEE_MONGODB: mongodb://mongo:27017/ackee_live
       ACKEE_USERNAME: ${ACKEE_USERNAME}
-      ACKEE_PASSWORD: ${ACKEE_PASSWORD}
+      # Live has its own password, so the one of dev does not open live (BUG-67)
+      ACKEE_PASSWORD: ${ACKEE_LIVE_PASSWORD:?set ACKEE_LIVE_PASSWORD in .env}
       ACKEE_ALLOW_ORIGIN: https://ackee2.varlex.app
       ACKEE_AUTO_ORIGIN: 'true'
       ACKEE_URL: https://ackee2.varlex.app
