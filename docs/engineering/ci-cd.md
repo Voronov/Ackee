@@ -51,6 +51,14 @@ docker rm -f ackee-test-redis
 
 `Browser tests` у CI проходять справжній браузер (Playwright, Chromium) по справжньому Ackee, зібраному з цього коміту, з MongoDB і Mailpit для листів. Усе в Docker, команда однакова на ноутбуці й у CI: `docker compose -f e2e/docker-compose.yml run --rm --build tests`. Кожен тест створює власний обліковий запис, тож порядок не важливий.
 
+**Пристрої (ACKEE-130).** `e2e/devices.browser.js` проходить головний сценарій (вхід, Overview, звіт рефералів, фільтр кліком, Settings, темна тема) на семи профілях `playwright.devices.config.js`: Chrome, Firefox і Safari на десктопі, iPhone 15, Pixel 7, Galaxy S9+, iPad. Він перевіряє, що сторінка не гортається вбік, а меню на телефоні закривається після вибору розділу, і робить скриншоти. У CI тест іде лише в Chromium, як решта. Усі профілі запускаються вручну: Firefox і WebKit не знають `--host-resolver-rules`, тому `ackee.localhost:3000` у контейнері тестів прокидається на `ackee`:
+
+```sh
+docker compose -f e2e/docker-compose.yml run --rm --build tests sh -c "npm ci --ignore-scripts && (node -e \"require('net').createServer(c=>{const s=require('net').connect(3000,'ackee');c.pipe(s).pipe(c)}).listen(3000,'127.0.0.1')\" &) && npx playwright test -c playwright.devices.config.js"
+```
+
+Це емуляція: розмір екрана, щільність пікселів, дотик і User-Agent у рушіях Chromium, Firefox і WebKit. Справжній Safari на iOS і Samsung Internet вона не замінює.
+
 Що покрито (`e2e/*.browser.js`):
 
 | Файл            | Що перевіряє                                                                                                                                                             |
