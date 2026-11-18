@@ -3,6 +3,7 @@ import { randomUUID as uuid } from 'node:crypto'
 import listen from 'test-listen'
 
 import server from '../src/server.js'
+import signale from '../src/utils/signale.js'
 import { job as saltJob } from '../src/utils/salt.js'
 
 const base = listen(server)
@@ -99,4 +100,28 @@ test('return the same file for the tracker and the custom tracker', async (t) =>
   const custom = await fetch(new URL('/custom%20name.js', await base).href).then((response) => response.text())
 
   t.is(custom, tracker)
+})
+
+// A wrong request is the mistake of the client: a warning, never a fatal line that alerts the team (BUG-74)
+test.serial('a wrong request to the API is a warning, not a fatal error', async (t) => {
+  const logged = { fatal: [], warn: [] }
+  const original = { fatal: signale.fatal, warn: signale.warn }
+  signale.fatal = (value) => logged.fatal.push(String(value?.message ?? value))
+  signale.warn = (value) => logged.warn.push(String(value?.message ?? value))
+  t.teardown(() => Object.assign(signale, original))
+
+  const url = new URL('/api', await base).href
+  const post = (body, contentType = 'application/json') =>
+    fetch(url, { method: 'POST', headers: { 'Content-Type': contentType }, body })
+
+  const answers = [
+    await post('{}'),
+    await post(JSON.stringify({ query: 1 })),
+    await post(JSON.stringify({ query: '{ nothingHere }' })),
+    await post('query=x', 'text/plain'),
+  ]
+
+  t.true(answers.every((answer) => answer.status === 400))
+  t.deepEqual(logged.fatal, [])
+  t.true(logged.warn.length >= 3)
 })
