@@ -3,7 +3,7 @@ import { startOfDay } from 'date-fns'
 import listen from 'test-listen'
 
 import { DURATIONS_LIMIT } from '../../src/constants/durations.js'
-import { floorDay, rollUp, sealedUntil } from '../../src/database/rollups.js'
+import { floorDay, rollUp, sealedUntil, settledUntil } from '../../src/database/rollups.js'
 import * as records from '../../src/database/records.js'
 import * as users from '../../src/database/users.js'
 import DimensionDayRollup from '../../src/models/DimensionDayRollup.js'
@@ -73,6 +73,7 @@ const record = (domainId, created) => {
 const edges = (now) => {
   const starts = [now - 24 * hour, now - 7 * day, now - 30 * day, startOfDay(now).getTime() - 29 * day - 14 * hour]
   const seal = sealedUntil(new Date(now)).getTime()
+  const settled = settledUntil(new Date(now)).getTime()
 
   return [
     ...starts.flatMap((start) => {
@@ -91,6 +92,10 @@ const edges = (now) => {
     seal - 1,
     seal,
     seal + 1,
+    // Where the rollups of the current day end (BUG-76)
+    settled - 1,
+    settled,
+    settled + 1,
     now - minute,
   ]
 }
@@ -315,6 +320,8 @@ test.serial('rollups cover every sealed hour since the oldest record', async (t)
 
   t.true(state.from <= oldest.created)
   t.deepEqual(state.until, sealedUntil(now))
+  // Shortly after midnight no hour of the current day is over yet
+  t.deepEqual(state.todayUntil, settledUntil(now) > state.until ? settledUntil(now) : undefined)
   t.true((await ViewRollup.countDocuments()) > 0)
   t.true((await DimensionRollup.countDocuments({ dimension: 'referrers' })) > 0)
 })
@@ -513,6 +520,74 @@ test.serial('a run that finishes records when, for the alert on rollups', async 
 })
 
 // A rollup that disagrees with its records shows which of the two a report has read
+// The same reports with the rollups out of the way: coverage hands out none of an older version
+const fromRecords = async (fetch) => {
+  await RollupState.updateOne({ _id: 'records' }, { $set: { version: 1 } })
+  try {
+    return await fetch()
+  } finally {
+    await RollupState.updateOne({ _id: 'records' }, { $set: { version: 2 } })
+  }
+}
+
+test.serial('the hours of the current day come from rollups that every run builds again', async (t) => {
+  const now = new Date()
+  const { until, todayUntil } = await rollUp(now)
+  // Only shortly after midnight is no hour of the day over yet
+  if (todayUntil == null) return t.is(settledUntil(now) <= until, true)
+
+  const today = { domainId: t.context.domain.id, hour: { $gte: until, $lt: todayUntil } }
+  t.true((await ViewRollup.countDocuments(today)) > 0)
+  t.is((await ViewRollup.updateOne(today, { $inc: { total: 1000 } })).modifiedCount, 1)
+  const expected = await fromRecords(() => fetchReports(t, 'UTC'))
+  t.is(sum((await fetchReports(t, 'UTC')).r0), sum(expected.r0) + 1000)
+
+  // The next run builds the hours again, from the records as they are now
+  await rollUp(now)
+  t.deepEqual(await fetchReports(t, 'UTC'), expected)
+})
+
+test.serial('a visitor who comes back changes the hours of the current day on the next run', async (t) => {
+  const now = new Date()
+  const { until, todayUntil } = await rollUp(now)
+  if (todayUntil == null) return t.pass()
+
+  const today = { domainId: t.context.domain.id, created: { $gte: until, $lt: todayUntil } }
+  const earlier = await Record.findOne({ ...today, clientId: { $ne: null } }).lean()
+  t.truthy(earlier)
+  const visitor = await Record.find({ clientId: earlier.clientId }).lean()
+  t.teardown(() =>
+    Record.bulkWrite(visitor.map((record) => ({ replaceOne: { filter: { _id: record._id }, replacement: record } }))),
+  )
+  // The salt changes every day, so the id of a visitor only spans the records of today
+  await Record.updateMany({ ...today, clientId: earlier.clientId }, { $set: { clientId: 'visitor-of-today' } })
+  await rollUp(now)
+
+  // A new visit forgets the earlier records of the visitor, also those already rolled up
+  await records.anonymize('visitor-of-today', 'none')
+  const expected = await fromRecords(() => fetchReports(t, 'UTC'))
+  t.notDeepEqual(await fetchReports(t, 'UTC'), expected)
+
+  await rollUp(now)
+  t.deepEqual(await fetchReports(t, 'UTC'), expected)
+})
+
+test.serial('an event waiting in the ingest queue takes back the hours of the current day after it', async (t) => {
+  const now = new Date()
+  const { until, todayUntil } = await rollUp(now)
+  if (todayUntil == null || todayUntil - until < 2 * hour) return t.pass()
+
+  // The event is not in the records yet, so the hours after it may still get some
+  const pendingSince = new Date(until.getTime() + hour + DURATIONS_LIMIT)
+  const state = await rollUp(now, pendingSince)
+
+  t.deepEqual(state.todayUntil, new Date(until.getTime() + hour))
+  t.is(await ViewRollup.countDocuments({ hour: { $gte: state.todayUntil } }), 0)
+  t.is(await DimensionRollup.countDocuments({ hour: { $gte: state.todayUntil } }), 0)
+
+  await rollUp(now)
+})
+
 const inflate = (domainId, count) =>
   ViewRollup.updateOne(
     { domainId, hour: { $gte: new Date(Date.now() - 20 * day), $lt: new Date(Date.now() - 2 * day) } },
@@ -625,4 +700,13 @@ test('a run waits only when a midnight of the time zones is near', (t) => {
   // Midnight in Asia/Kolkata is 18:30 UTC
   t.is(untilNextMidnight(new Date('2026-11-18T18:27:00Z')), 3 * minute)
   t.true(untilNextMidnight(new Date('2026-11-18T12:00:00Z')) > 5 * minute)
+})
+
+test('the hours of the current day end where the visits in them are over', (t) => {
+  const now = new Date('2026-10-19T13:40:00')
+
+  t.deepEqual(settledUntil(now), new Date('2026-10-19T13:00:00'))
+  t.deepEqual(settledUntil(new Date('2026-10-19T13:20:00')), new Date('2026-10-19T12:00:00'))
+  // An event waiting in the ingest queue holds them back like the seal
+  t.deepEqual(settledUntil(now, new Date('2026-10-19T11:10:00')), new Date('2026-10-19T10:00:00'))
 })
