@@ -248,6 +248,25 @@ const countRollupReads = (t) => {
   return () => reads
 }
 
+// The numbers from records are taken once, before the rollups are built, and compared later. A
+// midnight of one of the time zones in between moves the days of one side only (BUG-75), so a
+// run that starts shortly before one waits until it is over.
+const untilNextMidnight = (now) =>
+  Math.min(
+    ...timeZones.map((timeZone) => {
+      const [h, m, s] = new Intl.DateTimeFormat('en-GB', { timeZone, hourCycle: 'h23', timeStyle: 'medium' })
+        .format(now)
+        .split(':')
+        .map(Number)
+      return day - (h * hour + m * minute + s * second)
+    }),
+  )
+
+test.before(async () => {
+  const wait = untilNextMidnight(new Date())
+  if (wait < 5 * minute) await new Promise((resolve) => setTimeout(resolve, wait + 5 * second))
+})
+
 test.before(async (t) => {
   const { user, workspace } = await users.add({
     email: 'rollups@example.com',
@@ -600,4 +619,10 @@ test('an empty ingest queue does not move the seal', (t) => {
   t.deepEqual(sealedUntil(now, null), sealedUntil(now))
   // A clock ahead in another process cannot seal hours that are not over here
   t.deepEqual(sealedUntil(now, new Date('2026-10-19T03:00:00')), sealedUntil(now))
+})
+
+test('a run waits only when a midnight of the time zones is near', (t) => {
+  // Midnight in Asia/Kolkata is 18:30 UTC
+  t.is(untilNextMidnight(new Date('2026-11-18T18:27:00Z')), 3 * minute)
+  t.true(untilNextMidnight(new Date('2026-11-18T12:00:00Z')) > 5 * minute)
 })
