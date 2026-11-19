@@ -34,6 +34,14 @@ export const sealedUntil = (now, pendingSince) => {
   return floorHour(new Date(Math.min(visitsOver, startOfDay(at).getTime())))
 }
 
+// The end of the hours whose visits are over, while their day may still change (BUG-76). A new
+// visit can still anonymize their records until the salt changes, so their rollups are built
+// again on every run, and the hours from the seal on are not sealed.
+export const settledUntil = (now, pendingSince) => {
+  const at = pendingSince == null ? now : new Date(Math.min(now.getTime(), pendingSince.getTime()))
+  return floorHour(new Date(at.getTime() - DURATIONS_LIMIT))
+}
+
 // Hours are summed into days in the time zone of the viewer. That only works when no hour
 // is split between two days, which is the case for every offset of whole hours.
 const isWholeHourZone = (timeZone, dates) => {
@@ -50,15 +58,18 @@ export const coverage = async (start, timeZone, end) => {
   // the reports read records.
   if (state?.until == null || state.version !== ROLLUP_VERSION) return
 
+  // The hours of the current day count as well, see settledUntil
+  const covered = state.todayUntil == null || state.todayUntil <= state.until ? state.until : state.todayUntil
   const from = start == null || start < state.from ? state.from : ceilHour(start)
-  const until = end == null || end > state.until ? state.until : floorHour(end)
+  const until = end == null || end > covered ? covered : floorHour(end)
   if (from >= until) return
 
   if (timeZone != null && isWholeHourZone(timeZone, [from, until]) === false) return
 
   // The whole days of [from, until) that have daily rollups. Hourly rollups cover the rest.
   // until may have been moved back by hand (ADR-005), then the days past it do not count.
-  const daysUntil = state.daysUntil == null ? null : new Date(Math.min(state.daysUntil, floorDay(until)))
+  const daysUntil =
+    state.daysUntil == null ? null : new Date(Math.min(state.daysUntil, floorDay(until), floorDay(state.until)))
   const days = { from: ceilDay(from), until: daysUntil }
   const hasDays = days.until != null && days.from < days.until
 
@@ -123,7 +134,7 @@ export const rollUp = async (now = new Date(), pendingSince) => {
       await Promise.all([ViewRollup.deleteMany({}), DimensionRollup.deleteMany({}), DimensionDayRollup.deleteMany({})])
       await RollupState.updateOne(
         { _id: STATE_ID, lockedUntil: lease },
-        { $unset: { from: 1, until: 1, daysUntil: 1 } },
+        { $unset: { from: 1, until: 1, daysUntil: 1, todayUntil: 1 } },
       )
       from = undefined
       until = undefined
@@ -179,7 +190,23 @@ export const rollUp = async (now = new Date(), pendingSince) => {
       daysUntil = next
     }
 
-    return RollupState.findById(STATE_ID).select('from until daysUntil').lean()
+    // The hours of the current day, built again from scratch. Reports read their records while
+    // todayUntil is unset, so they never see a half built hour.
+    const today = settledUntil(now, pendingSince)
+    const unset = await RollupState.updateOne({ _id: STATE_ID, lockedUntil: lease }, { $unset: { todayUntil: 1 } })
+    if (unset.matchedCount === 0) return
+    await ViewRollup.deleteMany({ hour: { $gte: until } })
+    await DimensionRollup.deleteMany({ hour: { $gte: until } })
+    if (today > until) {
+      await buildRange(until, today)
+      const { matchedCount } = await RollupState.updateOne(
+        { _id: STATE_ID, lockedUntil: lease },
+        { $set: { todayUntil: today } },
+      )
+      if (matchedCount === 0) return
+    }
+
+    return RollupState.findById(STATE_ID).select('from until daysUntil todayUntil').lean()
   } finally {
     await releaseLease(lease)
   }

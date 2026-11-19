@@ -19,6 +19,10 @@ const schema = new mongoose.Schema({
   daysUntil: {
     type: Date,
   },
+  // The end of the rolled up hours of the current day, built again on every run (BUG-76)
+  todayUntil: {
+    type: Date,
+  },
   // The rollups were built by this ROLLUP_VERSION, see constants/rollups.js
   version: {
     type: Number,
