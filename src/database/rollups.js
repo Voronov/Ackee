@@ -14,6 +14,8 @@ import ViewRollup from '../models/ViewRollup.js'
 import { day, hour } from '../utils/times.js'
 
 const STATE_ID = 'records'
+// The copy of the records of one range while its rollups are built, see buildRange
+const CHUNK = 'rollupchunk'
 
 export const floorHour = (date) => new Date(Math.floor(date.getTime() / hour) * hour)
 export const ceilHour = (date) => new Date(Math.ceil(date.getTime() / hour) * hour)
@@ -81,10 +83,24 @@ const buildRange = async (from, to) => {
   await ViewRollup.deleteMany({ hour: { $gte: from, $lt: to } })
   await DimensionRollup.deleteMany({ hour: { $gte: from, $lt: to } })
 
-  await Record.aggregate(aggregateViewRollups(from, to)).allowDiskUse(true)
+  // The records of the range are read once into a small copy, and every rollup groups the copy.
+  // Read for each rollup, records that are not next to each other on disk took 8 reads of the
+  // range from disk: 59 s instead of 7.6 s a day on 10 million records (BUG-77).
+  const copied = new Set(['domainId', 'clientId', 'created', 'updated', ...Object.values(ROLLUP_DIMENSIONS).flat()])
+  await Record.aggregate([
+    { $match: { created: { $gte: from, $lt: to } } },
+    { $project: Object.fromEntries([...copied].map((field) => [field, 1])) },
+    { $out: CHUNK },
+  ]).allowDiskUse(true)
 
-  for (const [dimension, fields] of Object.entries(ROLLUP_DIMENSIONS)) {
-    await Record.aggregate(aggregateDimensionRollups(dimension, fields, from, to)).allowDiskUse(true)
+  const chunk = Record.db.collection(CHUNK)
+  try {
+    await chunk.aggregate(aggregateViewRollups(from, to), { allowDiskUse: true }).toArray()
+    for (const [dimension, fields] of Object.entries(ROLLUP_DIMENSIONS)) {
+      await chunk.aggregate(aggregateDimensionRollups(dimension, fields, from, to), { allowDiskUse: true }).toArray()
+    }
+  } finally {
+    await chunk.drop()
   }
 }
 
