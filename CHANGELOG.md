@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [4.0.4] - 2026-11-19
+
+### Fixed
+
+- The reports no longer read every record of the current day. Every run of the rollups, every 10 minutes, builds the hours of the day whose visits are over again, and the day is sealed at midnight as before. On 10 million records the dashboard took 2.3 s, now 11 ms. A visitor who comes back changes the hours of the day on the next run
+- Building the rollups reads the records of each range once instead of once per rollup. A rebuild from scratch on 10 million records took 56 min, now 11 min
+
 ## [4.0.3] - 2026-11-18
 
 ### Fixed
